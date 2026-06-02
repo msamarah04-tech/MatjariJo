@@ -101,13 +101,19 @@ const slugify = (value: string) => {
 };
 
 export type ShopApprovalSetup = {
-  logoEmoji: string;
-  themeId: string;
+  logoEmoji?: string;
+  themeId?: string;
   announcement?: string;
-  about: string;
-  shipping: Store['shipping'];
+  about?: string;
+  shipping?: Store['shipping'];
   products?: Omit<Product, 'id' | 'storeId' | 'createdAt'>[];
 };
+
+const defaultAbout = (request: ShopRequest) => [
+  `${request.storeName} is a ${request.category.toLowerCase()} shop built around ${request.tagline.toLowerCase()}.`,
+  request.notes ? `Customer request: ${request.notes}` : '',
+  'Orders are reviewed before fulfillment so inventory, delivery details, and customer notes stay accurate.',
+].filter(Boolean).join('\n\n');
 
 interface CartItem {
   productId: string;
@@ -164,7 +170,7 @@ interface AppState {
   resolveProductFlag: (id: string) => void;
   submitShopRequest: (request: Omit<ShopRequest, 'id' | 'status' | 'createdAt'>) => string;
   updateShopRequestStatus: (id: string, status: ShopRequestStatus) => void;
-  approveShopRequest: (id: string, setup: ShopApprovalSetup) => string | undefined;
+  approveShopRequest: (id: string, setup?: ShopApprovalSetup) => string | undefined;
   addAuditLog: (action: string, target: string, detail?: string) => void;
 
   // orders
@@ -478,12 +484,10 @@ export const useStore = create<AppState>()(
           }), ...state.auditLogs].slice(0, 200),
         }));
       },
-      approveShopRequest: (id, setup) => {
+      approveShopRequest: (id, setup = {}) => {
         const state = get();
         const request = state.shopRequests.find((item) => item.id === id);
         if (!request) return undefined;
-        if (request.status !== 'IN_REVIEW') return undefined;
-        if (!setup.logoEmoji.trim() || !setup.themeId.trim() || !setup.about.trim()) return undefined;
 
         const baseSlug = slugify(request.storeName);
         let slug = baseSlug;
@@ -498,11 +502,11 @@ export const useStore = create<AppState>()(
           name: request.storeName,
           tagline: request.tagline,
           category: request.category,
-          logoEmoji: setup.logoEmoji.trim(),
+          logoEmoji: setup.logoEmoji || '🛍️',
           announcement: setup.announcement || '',
-          about: setup.about.trim(),
-          shipping: setup.shipping,
-          themeId: setup.themeId.trim(),
+          about: setup.about || defaultAbout(request),
+          shipping: setup.shipping || { type: 'FLAT', flatCents: 0 },
+          themeId: setup.themeId || 'mono',
           currency: 'USD',
           status: 'ACTIVE',
           reviewStatus: 'APPROVED',

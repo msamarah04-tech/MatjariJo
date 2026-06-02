@@ -39,19 +39,21 @@ type RequestSetupState = {
   flatCents: string;
   freeOverCents: string;
   productsText: string;
-  confirmed: boolean;
 };
 
-const defaultRequestSetup = (): RequestSetupState => ({
-  logoEmoji: '',
+const defaultRequestSetup = (request: { storeName: string; category: string; tagline: string; notes?: string }): RequestSetupState => ({
+  logoEmoji: '🛍️',
   themeId: 'mono',
   announcement: '',
-  about: '',
+  about: [
+    `${request.storeName} is a ${request.category.toLowerCase()} shop built around ${request.tagline.toLowerCase()}.`,
+    request.notes ? `Customer request: ${request.notes}` : '',
+    'Orders are reviewed before fulfillment so inventory, delivery details, and customer notes stay accurate.',
+  ].filter(Boolean).join('\n\n'),
   shippingType: 'FLAT',
-  flatCents: '',
+  flatCents: '0',
   freeOverCents: '',
   productsText: '',
-  confirmed: false,
 });
 
 const parseCents = (value: string) => {
@@ -235,9 +237,11 @@ function PlatformShopRequests() {
   const [setups, setSetups] = useState<Record<string, RequestSetupState>>({});
   const sortedRequests = [...shopRequests].sort((a, b) => b.createdAt - a.createdAt);
   const updateSetup = (requestId: string, patch: Partial<RequestSetupState>) => {
+    const request = shopRequests.find((item) => item.id === requestId);
+    if (!request) return;
     setSetups((current) => ({
       ...current,
-      [requestId]: { ...(current[requestId] || defaultRequestSetup()), ...patch },
+      [requestId]: { ...(current[requestId] || defaultRequestSetup(request)), ...patch },
     }));
   };
 
@@ -258,13 +262,7 @@ function PlatformShopRequests() {
           {sortedRequests.map((request) => {
             const createdStore = request.storeId ? stores.find((store) => store.id === request.storeId) : undefined;
             const createdProducts = createdStore ? products.filter((product) => product.storeId === createdStore.id) : [];
-            const setup = setups[request.id] || defaultRequestSetup();
-            const setupComplete = request.status === 'IN_REVIEW'
-              && setup.confirmed
-              && setup.logoEmoji.trim().length > 0
-              && setup.about.trim().length >= 20
-              && (setup.shippingType === 'PICKUP' || setup.flatCents.trim().length > 0)
-              && (setup.shippingType !== 'FREE_OVER' || setup.freeOverCents.trim().length > 0);
+            const setup = setups[request.id] || defaultRequestSetup(request);
             const shipping: ShopApprovalSetup['shipping'] = setup.shippingType === 'FREE_OVER'
               ? { type: 'FREE_OVER', flatCents: parseCents(setup.flatCents), freeOverCents: parseCents(setup.freeOverCents) }
               : setup.shippingType === 'PICKUP'
@@ -303,35 +301,30 @@ function PlatformShopRequests() {
                 <div className={request.status === 'APPROVED' ? 'hidden' : 'rounded-2xl border border-line bg-paper p-4'}>
                   <div className="mb-3">
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">Standard website setup</p>
-                    <p className="mt-1 text-sm font-semibold text-muted">Start review, then manually fill this template. Nothing is created from defaults.</p>
+                    <p className="mt-1 text-sm font-semibold text-muted">Use one template for every shop. Your team controls the content before approval.</p>
                   </div>
-                  {request.status === 'PENDING' && (
-                    <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-800">
-                      Move this request into review before creating a website.
-                    </div>
-                  )}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <label className="block">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-muted">Logo emoji required</span>
-                      <input value={setup.logoEmoji} onChange={(event) => updateSetup(request.id, { logoEmoji: event.target.value, confirmed: false })} placeholder="Team chooses" className="mt-1 w-full h-10 rounded-xl border border-line bg-surface px-3 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-accent" />
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-muted">Logo emoji</span>
+                      <input value={setup.logoEmoji} onChange={(event) => updateSetup(request.id, { logoEmoji: event.target.value })} className="mt-1 w-full h-10 rounded-xl border border-line bg-surface px-3 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-accent" />
                     </label>
                     <label className="block">
                       <span className="text-[10px] font-bold uppercase tracking-widest text-muted">Theme</span>
-                      <select value={setup.themeId} onChange={(event) => updateSetup(request.id, { themeId: event.target.value, confirmed: false })} className="mt-1 w-full h-10 rounded-xl border border-line bg-surface px-3 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-accent">
+                      <select value={setup.themeId} onChange={(event) => updateSetup(request.id, { themeId: event.target.value })} className="mt-1 w-full h-10 rounded-xl border border-line bg-surface px-3 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-accent">
                         {THEMES.map((theme) => <option key={theme.id} value={theme.id}>{theme.name}</option>)}
                       </select>
                     </label>
                     <label className="block md:col-span-2">
                       <span className="text-[10px] font-bold uppercase tracking-widest text-muted">Announcement</span>
-                      <input value={setup.announcement} onChange={(event) => updateSetup(request.id, { announcement: event.target.value, confirmed: false })} placeholder="Optional top bar text" className="mt-1 w-full h-10 rounded-xl border border-line bg-surface px-3 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-accent" />
+                      <input value={setup.announcement} onChange={(event) => updateSetup(request.id, { announcement: event.target.value })} placeholder="Optional top bar text" className="mt-1 w-full h-10 rounded-xl border border-line bg-surface px-3 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-accent" />
                     </label>
                     <label className="block md:col-span-2">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-muted">About / policies required</span>
-                      <textarea value={setup.about} onChange={(event) => updateSetup(request.id, { about: event.target.value, confirmed: false })} rows={4} placeholder="Team writes the website copy after reviewing the request" className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-accent" />
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-muted">About / policies</span>
+                      <textarea value={setup.about} onChange={(event) => updateSetup(request.id, { about: event.target.value })} rows={4} className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-accent" />
                     </label>
                     <label className="block">
                       <span className="text-[10px] font-bold uppercase tracking-widest text-muted">Shipping</span>
-                      <select value={setup.shippingType} onChange={(event) => updateSetup(request.id, { shippingType: event.target.value as ShippingType, confirmed: false })} className="mt-1 w-full h-10 rounded-xl border border-line bg-surface px-3 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-accent">
+                      <select value={setup.shippingType} onChange={(event) => updateSetup(request.id, { shippingType: event.target.value as ShippingType })} className="mt-1 w-full h-10 rounded-xl border border-line bg-surface px-3 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-accent">
                         <option value="FLAT">Flat</option>
                         <option value="FREE_OVER">Free over</option>
                         <option value="PICKUP">Pickup</option>
@@ -339,37 +332,25 @@ function PlatformShopRequests() {
                     </label>
                     {setup.shippingType !== 'PICKUP' && (
                       <label className="block">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-muted">Flat cents required</span>
-                        <input value={setup.flatCents} onChange={(event) => updateSetup(request.id, { flatCents: event.target.value, confirmed: false })} inputMode="numeric" placeholder="e.g. 500" className="mt-1 w-full h-10 rounded-xl border border-line bg-surface px-3 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-accent" />
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-muted">Flat cents</span>
+                        <input value={setup.flatCents} onChange={(event) => updateSetup(request.id, { flatCents: event.target.value })} inputMode="numeric" className="mt-1 w-full h-10 rounded-xl border border-line bg-surface px-3 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-accent" />
                       </label>
                     )}
                     {setup.shippingType === 'FREE_OVER' && (
                       <label className="block md:col-span-2">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-muted">Free over cents required</span>
-                        <input value={setup.freeOverCents} onChange={(event) => updateSetup(request.id, { freeOverCents: event.target.value, confirmed: false })} inputMode="numeric" placeholder="e.g. 7500" className="mt-1 w-full h-10 rounded-xl border border-line bg-surface px-3 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-accent" />
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-muted">Free over cents</span>
+                        <input value={setup.freeOverCents} onChange={(event) => updateSetup(request.id, { freeOverCents: event.target.value })} inputMode="numeric" className="mt-1 w-full h-10 rounded-xl border border-line bg-surface px-3 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-accent" />
                       </label>
                     )}
                     <label className="block md:col-span-2">
                       <span className="text-[10px] font-bold uppercase tracking-widest text-muted">Starter products</span>
                       <textarea
                         value={setup.productsText}
-                        onChange={(event) => updateSetup(request.id, { productsText: event.target.value, confirmed: false })}
+                        onChange={(event) => updateSetup(request.id, { productsText: event.target.value })}
                         rows={4}
                         placeholder="One per line: Name | price cents | collection | emoji | description"
                         className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-accent"
                       />
-                    </label>
-                    <label className="md:col-span-2 flex items-start gap-3 rounded-xl border border-line bg-surface p-3">
-                      <input
-                        type="checkbox"
-                        checked={setup.confirmed}
-                        onChange={(event) => updateSetup(request.id, { confirmed: event.target.checked })}
-                        disabled={request.status !== 'IN_REVIEW'}
-                        className="mt-1 h-4 w-4"
-                      />
-                      <span className="text-sm font-bold text-ink">
-                        My team reviewed the customer request and manually completed this website setup.
-                      </span>
                     </label>
                   </div>
                 </div>
@@ -390,9 +371,9 @@ function PlatformShopRequests() {
                       });
                       if (storeId) toast({ title: 'Shop created', description: 'The shop owner can now manage it in Admin.', type: 'success' });
                     }}
-                    disabled={!setupComplete}
+                    disabled={request.status === 'APPROVED'}
                   >
-                    Create website
+                    Create standard shop
                   </Button>
                   <Button size="sm" variant="ghost" className="border border-line text-red-600" onClick={() => updateShopRequestStatus(request.id, 'REJECTED')} disabled={request.status === 'APPROVED'}>Reject</Button>
                 </div>
