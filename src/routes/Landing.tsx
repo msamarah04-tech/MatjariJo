@@ -177,34 +177,62 @@ export default function Landing() {
     <div className="min-h-screen bg-stone-50 text-stone-900 overflow-x-hidden selection:bg-orange-200 selection:text-orange-900">
 
       {/* ── NAV ── */}
-      <nav className="fixed top-0 start-0 end-0 z-50 flex items-center justify-between px-6 py-4 md:px-12 backdrop-blur-xl bg-white/90 border-b border-stone-200/80 shadow-[0_1px_0_rgba(0,0,0,0.04)]">
-        <Link to="/" className="font-heading text-xl font-black tracking-tighter text-stone-900">
-          PLINTH<span className="text-orange-500">.</span>
-        </Link>
-        <div className="hidden md:flex items-center gap-8 text-xs font-bold uppercase tracking-widest text-stone-400">
-          <a href="#features" className="transition-colors hover:text-stone-900">{t('navFeatures')}</a>
-          <a href="#how-it-works" className="transition-colors hover:text-stone-900">{t('navHowItWorks')}</a>
-          <a href="#brands" className="transition-colors hover:text-stone-900">{t('navBrands')}</a>
-        </div>
-        <div className="flex items-center gap-3">
-          <LangToggle variant="light" />
-          <Link
-            to="/sign-in"
-            className="hidden sm:block text-xs font-bold uppercase tracking-widest text-stone-400 hover:text-stone-900 transition-colors"
-          >
-            {t('navLogIn')}
+      <nav className="fixed top-0 start-0 end-0 z-50">
+        {/* orange accent line */}
+        <div className="h-[3px] bg-gradient-to-r from-orange-400 via-orange-500 to-amber-400" />
+        {/* main bar */}
+        <div className="flex h-16 items-center justify-between bg-white px-6 md:px-12 border-b border-stone-200 shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
+
+          {/* logo */}
+          <Link to="/" className="flex items-center gap-2.5 shrink-0">
+            <span className="font-heading text-xl font-black tracking-tighter text-stone-900">
+              PLINTH<span className="text-orange-500">.</span>
+            </span>
+            <span className="rounded-full bg-orange-50 border border-orange-200 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-orange-600 hidden sm:inline">
+              Jordan
+            </span>
           </Link>
-          <Link
-            to="/request-website"
-            className="inline-flex items-center gap-2 rounded-full bg-orange-500 px-5 py-2.5 text-xs font-bold uppercase tracking-widest text-white hover:bg-orange-600 transition-all hover:scale-105 shadow-[0_4px_14px_rgba(249,115,22,0.35)]"
-          >
-            {t('navStartSelling')} <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
+
+          {/* center nav links */}
+          <div className="hidden md:flex items-center gap-1">
+            {([
+              { label: t('navFeatures'), href: '#features' },
+              { label: t('navHowItWorks'), href: '#how-it-works' },
+              { label: t('navBrands'), href: '#brands' },
+            ] as const).map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                className="rounded-full px-4 py-2 text-xs font-bold uppercase tracking-widest text-stone-400 transition-all hover:bg-stone-100 hover:text-stone-900"
+              >
+                {link.label}
+              </a>
+            ))}
+          </div>
+
+          {/* right actions */}
+          <div className="flex items-center gap-2 md:gap-3 shrink-0">
+            <LangToggle variant="light" />
+            <div className="hidden sm:block h-4 w-px bg-stone-200" />
+            <Link
+              to="/sign-in"
+              className="hidden sm:block rounded-full px-4 py-2 text-xs font-bold text-stone-500 hover:bg-stone-100 hover:text-stone-900 transition-all"
+            >
+              {t('navLogIn')}
+            </Link>
+            <Link
+              to="/request-website"
+              className="inline-flex items-center gap-1.5 rounded-full bg-stone-900 px-5 py-2.5 text-xs font-bold uppercase tracking-widest text-white hover:bg-stone-800 transition-all hover:scale-[1.03] shadow-sm"
+            >
+              {t('navStartSelling')} <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
         </div>
       </nav>
 
       {/* ── HERO ── */}
-      <section ref={heroRef} className="relative min-h-screen flex items-center overflow-hidden">
+      {/* pt-[67px] = 3px accent line + 64px bar, so hero starts cleanly below the navbar */}
+      <section ref={heroRef} className="relative min-h-[calc(100vh-67px)] mt-[67px] flex items-center overflow-hidden">
 
         {/* ── layered background ── */}
         <div className="pointer-events-none absolute inset-0 bg-[#FAFAF8]">
