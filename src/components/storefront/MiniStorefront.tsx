@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Product, Store } from '@/lib/types';
-import { getTheme } from '@/lib/themes';
+import { getStorefrontTemplate, resolveStoreTheme } from '@/lib/themes';
 import { money } from '@/lib/format';
 
 interface MiniStorefrontProps {
@@ -9,7 +9,8 @@ interface MiniStorefrontProps {
 }
 
 export function MiniStorefront({ store, products = [] }: MiniStorefrontProps) {
-  const theme = getTheme(store.themeId || 'mono');
+  const theme = resolveStoreTheme(store.themeId || 'mono', store.themeOverrides);
+  const template = getStorefrontTemplate(store.storefrontTemplate);
   
   const v = {
     '--c-bg': theme.bg,
@@ -57,11 +58,13 @@ export function MiniStorefront({ store, products = [] }: MiniStorefrontProps) {
         </header>
         
         {/* Hero */}
-        <div className="px-6 py-12 md:py-16 text-center flex flex-col items-center">
-          <h1 className="text-3xl md:text-4xl lg:text-5xl leading-[1.1] font-bold mb-4 tracking-tight" style={{ fontFamily: theme.hero }}>
+        <div className={template.id === 'boutique' ? 'grid grid-cols-2 gap-4 px-6 py-10 text-left' : template.id === 'market' ? 'px-5 py-8 text-left' : template.id === 'lookbook' ? 'px-6 py-14 text-center flex flex-col items-center bg-[var(--c-soft)]' : 'px-6 py-12 md:py-16 text-center flex flex-col items-center'}>
+          <div className={template.id === 'boutique' ? 'flex flex-col justify-center' : ''}>
+          <p className="mb-2 text-[10px] font-black uppercase tracking-[0.2em] opacity-50">{template.name}</p>
+          <h1 className={template.id === 'market' ? 'text-2xl leading-[1.05] font-bold mb-3 tracking-tight' : 'text-3xl md:text-4xl lg:text-5xl leading-[1.1] font-bold mb-4 tracking-tight'} style={{ fontFamily: theme.hero }}>
             {store.name || 'Store Name'}
           </h1>
-          <p className="text-base md:text-lg max-w-[280px] md:max-w-md mx-auto mb-8 font-medium leading-relaxed opacity-80" style={{ color: 'var(--c-text)' }}>
+          <p className="text-base md:text-lg max-w-[280px] md:max-w-md mb-8 font-medium leading-relaxed opacity-80" style={{ color: 'var(--c-text)' }}>
             {store.tagline || 'Tagline goes here. Tell us what your shop is for.'}
           </p>
           <button 
@@ -74,15 +77,21 @@ export function MiniStorefront({ store, products = [] }: MiniStorefrontProps) {
           >
             Shop Now
           </button>
+          </div>
+          {template.id === 'boutique' && (
+            <div className="aspect-[4/5] rounded-xl bg-[var(--c-soft)] text-5xl grid place-items-center">
+              {products[0]?.imageEmoji || store.logoEmoji || '✨'}
+            </div>
+          )}
         </div>
 
         {/* Products */}
         <div className="px-6 pb-12 space-y-4 max-w-2xl mx-auto">
            {products.length > 0 ? (
-             <div className="grid grid-cols-2 gap-4 md:gap-6">
+             <div className={template.id === 'market' ? 'grid grid-cols-3 gap-2' : template.id === 'lookbook' ? 'grid grid-cols-2 gap-3 [&>*:first-child]:col-span-2' : 'grid grid-cols-2 gap-4 md:gap-6'}>
                {products.map((p, i) => (
                  <div key={i} className="flex flex-col transform transition-transform hover:-translate-y-1" style={{ backgroundColor: 'var(--c-surface)', borderRadius: 'var(--c-radius)', overflow: 'hidden', border: '1px solid var(--c-line)' }}>
-                   <div className="aspect-square flex items-center justify-center text-5xl" style={{ backgroundColor: 'var(--c-soft)' }}>
+                   <div className={template.id === 'lookbook' && i === 0 ? 'aspect-[16/9] flex items-center justify-center text-6xl' : 'aspect-square flex items-center justify-center text-5xl'} style={{ backgroundColor: 'var(--c-soft)' }}>
                      {p.imageEmoji || '🛍️'}
                    </div>
                    <div className="p-4 flex justify-between items-start gap-2">

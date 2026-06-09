@@ -1,134 +1,191 @@
-import { useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { CheckCircle2, ClipboardList, ExternalLink, XCircle } from 'lucide-react';
 import { useStore } from '@/lib/store';
-import { OrderStatus } from '@/lib/types';
 import { money, timeAgo } from '@/lib/format';
-import { Badge, StatusBadge } from '@/components/ui/Badge';
+import { Order, OrderStatus } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
-import { EmptyState } from '@/components/ui/EmptyState';
-import { ClipboardList, CheckCircle2 } from 'lucide-react';
+import { StatusBadge } from '@/components/ui/Badge';
+import { Drawer } from '@/components/ui/Drawer';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { toast } from '@/components/ui/Toast';
+import { PageHeader, SegmentedControl } from '@/components/ui/dashboard';
+import { ResourceTable, Column } from '@/components/ui/ResourceTable';
+import { useFocusParam } from '@/lib/useFocusParam';
+import { useAdminContext, useStoreOrders } from './shared';
+
+type StatusFilter = 'ALL' | OrderStatus;
 
 export default function Orders() {
-  const storeId = useOutletContext<string>();
-  const { orders, fulfillOrder, currentUser } = useStore();
-  
-  const storeOrders = orders.filter(o => o.storeId === storeId).sort((a, b) => b.createdAt - a.createdAt);
-  
-  const [filter, setFilter] = useState<OrderStatus | 'ALL'>('ALL');
+  const { storeId, store } = useAdminContext();
+  const approveOrder = useStore((s) => s.approveOrder);
+  const rejectOrder = useStore((s) => s.rejectOrder);
+  const fulfillOrder = useStore((s) => s.fulfillOrder);
+  const scopedOrders = useStoreOrders(storeId);
 
-  const filteredOrders = filter === 'ALL' ? storeOrders : storeOrders.filter(o => o.status === filter);
+  const [status, setStatus] = useState<StatusFilter>('ALL');
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [rejecting, setRejecting] = useState<Order | null>(null);
+  const [focusId, clearFocus] = useFocusParam();
 
-  const handleFulfill = (id: string) => {
-    fulfillOrder(id);
-    toast({ title: 'Order marked as fulfilled', type: 'success' });
-  };
+  const storeOrders = useMemo(() => [...scopedOrders].sort((a, b) => b.createdAt - a.createdAt), [scopedOrders]);
 
-  const filters: (OrderStatus | 'ALL')[] = ['ALL', 'PENDING', 'APPROVED', 'REJECTED', 'FULFILLED'];
+  useEffect(() => {
+    if (!focusId) return;
+    if (storeOrders.some((o) => o.id === focusId)) setActiveId(focusId);
+    clearFocus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusId]);
+
+  const counts = useMemo(() => ({
+    ALL: storeOrders.length,
+    PENDING: storeOrders.filter((o) => o.status === 'PENDING').length,
+    APPROVED: storeOrders.filter((o) => o.status === 'APPROVED').length,
+    REJECTED: storeOrders.filter((o) => o.status === 'REJECTED').length,
+    FULFILLED: storeOrders.filter((o) => o.status === 'FULFILLED').length,
+  }), [storeOrders]);
+
+  const rows = useMemo(() => storeOrders.filter((o) => status === 'ALL' || o.status === status), [storeOrders, status]);
+  const active = activeId ? storeOrders.find((o) => o.id === activeId) : undefined;
+
+  const columns: Column<Order>[] = [
+    {
+      key: 'customerName',
+      label: 'Customer',
+      sortable: true,
+      render: (o) => (
+        <div className="min-w-0">
+          <div className="truncate font-bold text-ink">{o.customerName}</div>
+          <div className="truncate text-xs text-muted">{o.customerEmail}</div>
+        </div>
+      ),
+    },
+    { key: 'items', label: 'Items', hideOnMobile: true, render: (o) => <span className="text-muted">{o.items.reduce((n, i) => n + i.quantity, 0)} item{o.items.reduce((n, i) => n + i.quantity, 0) === 1 ? '' : 's'}</span> },
+    { key: 'totalCents', label: 'Total', align: 'right', sortable: true, render: (o) => <span className="font-semibold">{money(o.totalCents, store.currency)}</span> },
+    { key: 'createdAt', label: 'Placed', align: 'right', sortable: true, hideOnMobile: true, render: (o) => <span className="text-muted">{timeAgo(o.createdAt)}</span> },
+    { key: 'status', label: 'Status', align: 'right', sortable: true, render: (o) => <StatusBadge status={o.status} /> },
+  ];
+
+  const doApprove = (o: Order) => { approveOrder(storeId, o.id); toast({ title: 'Order approved', type: 'success' }); };
+  const doFulfill = (o: Order) => { fulfillOrder(storeId, o.id); toast({ title: 'Order fulfilled', type: 'success' }); };
 
   return (
-    <div className="animate-fade-in flex flex-col h-full">
-      <div className="flex flex-col md:flex-row md:items-end justify-between border-b border-line pb-6 mb-8 gap-4">
-        <div>
-          <h2 className="font-heading font-black text-4xl text-ink tracking-tight mb-2">Orders</h2>
-          <p className="text-muted text-lg">Track and fulfill customer purchases.</p>
-        </div>
+    <div className="space-y-6">
+      <PageHeader title="Orders" subtitle="Review, approve, and fulfill customer orders." />
+
+      <ResourceTable
+        rows={rows}
+        columns={columns}
+        getId={(o) => o.id}
+        searchKeys={['customerName', 'customerEmail']}
+        searchPlaceholder="Search by customer"
+        filters={
+          <SegmentedControl<StatusFilter>
+            value={status}
+            onChange={setStatus}
+            options={[
+              { label: 'All', value: 'ALL', count: counts.ALL },
+              { label: 'Pending', value: 'PENDING', count: counts.PENDING },
+              { label: 'Approved', value: 'APPROVED', count: counts.APPROVED },
+              { label: 'Fulfilled', value: 'FULFILLED', count: counts.FULFILLED },
+              { label: 'Rejected', value: 'REJECTED', count: counts.REJECTED },
+            ]}
+          />
+        }
+        onRowClick={(o) => setActiveId(o.id)}
+        emptyIcon={ClipboardList}
+        emptyTitle="No orders yet"
+        emptyText="When customers place orders on your storefront, they show up here."
+      />
+
+      <Drawer
+        isOpen={Boolean(active)}
+        onClose={() => setActiveId(null)}
+        title={active ? active.customerName : 'Order'}
+        description={active ? `${active.customerEmail} · ${timeAgo(active.createdAt)}` : undefined}
+        footer={active ? (
+          <OrderActions
+            order={active}
+            onApprove={() => doApprove(active)}
+            onReject={() => setRejecting(active)}
+            onFulfill={() => doFulfill(active)}
+          />
+        ) : undefined}
+      >
+        {active && <OrderDetail order={active} currency={store.currency} />}
+      </Drawer>
+
+      <ConfirmDialog
+        isOpen={Boolean(rejecting)}
+        title="Reject this order?"
+        description="The customer's order will be marked rejected. You can't undo this."
+        confirmLabel="Reject order"
+        destructive
+        onCancel={() => setRejecting(null)}
+        onConfirm={() => { if (rejecting) { rejectOrder(storeId, rejecting.id); toast({ title: 'Order rejected' }); } setRejecting(null); }}
+      />
+    </div>
+  );
+}
+
+function OrderActions({ order, onApprove, onReject, onFulfill }: { order: Order; onApprove: () => void; onReject: () => void; onFulfill: () => void }) {
+  if (order.status === 'PENDING') {
+    return (
+      <div className="flex gap-2">
+        <Button variant="accent" className="flex-1 gap-1.5" onClick={onApprove}><CheckCircle2 className="h-4 w-4" /> Approve</Button>
+        <Button variant="ghost" className="flex-1 gap-1.5 border border-line text-red-600" onClick={onReject}><XCircle className="h-4 w-4" /> Reject</Button>
+      </div>
+    );
+  }
+  if (order.status === 'APPROVED') {
+    return <Button variant="accent" className="w-full gap-1.5" onClick={onFulfill}><CheckCircle2 className="h-4 w-4" /> Mark fulfilled</Button>;
+  }
+  return <p className="text-center text-sm font-bold text-muted">This order is {order.status.toLowerCase()}.</p>;
+}
+
+function OrderDetail({ order, currency }: { order: Order; currency: string }) {
+  const Row = ({ label, value, strong, accent }: { label: string; value: string; strong?: boolean; accent?: boolean }) => (
+    <div className={`flex items-center justify-between ${strong ? 'border-t border-dashed border-line pt-3 text-base font-black text-ink' : 'text-sm'}`}>
+      <span className={strong ? 'uppercase tracking-widest' : 'text-muted'}>{label}</span>
+      <span className={accent ? 'font-bold text-green-700' : strong ? '' : 'font-semibold text-ink'}>{value}</span>
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center gap-2">
+        <StatusBadge status={order.status} />
+        {order.discountCode && <span className="rounded-full border border-line bg-paper px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-muted">Code {order.discountCode}</span>}
       </div>
 
-      <div className="flex gap-2 mb-8 overflow-x-auto pb-2 scrollbar-none">
-        {filters.map(f => (
-          <button 
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest whitespace-nowrap transition-colors ${
-              filter === f 
-                ? 'bg-ink text-surface' 
-                : 'bg-surface border border-line text-muted hover:text-ink hover:border-ink/30'
-            }`}
-          >
-            {f} {f === 'ALL' && `(${storeOrders.length})`}
-          </button>
-        ))}
-      </div>
-
-      {storeOrders.length === 0 ? (
-        <EmptyState
-          icon={ClipboardList}
-          title="No orders yet"
-          description="When customers place orders on your storefront, they will show up here."
-        />
-      ) : filteredOrders.length === 0 ? (
-         <div className="text-center py-12 text-muted">
-           No orders found matching the "{filter}" filter.
-         </div>
-      ) : (
-        <div className="space-y-4">
-          {filteredOrders.map(o => (
-            <div key={o.id} className="bg-surface border border-line p-5 rounded-2xl flex flex-col md:flex-row justify-between md:items-center gap-5 transition-all hover:shadow-sm">
-              <div className="flex flex-col gap-1.5 flex-1 w-full">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <span className="font-bold text-ink">{o.customerName}</span>
-                  <span className="text-sm text-muted">{o.customerEmail}</span>
-                  <span className="text-[10px] font-bold uppercase tracking-widest opacity-40 ml-auto md:ml-0">• {timeAgo(o.createdAt)}</span>
-                </div>
-                
-                <div className="text-sm text-muted bg-paper p-3 rounded-lg border border-line/50 mt-1">
-                  <ul className="space-y-1">
-                    {o.items.map((item, idx) => (
-                      <li key={idx} className="flex justify-between font-medium">
-                        <span><span className="text-ink/60">{item.quantity}×</span> {item.productName}</span>
-                        <span>{money(item.priceCents * item.quantity)}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="flex justify-between items-center mt-3 pt-3 border-t border-line border-dashed font-bold text-ink">
-                    <span className="text-xs uppercase tracking-widest">Subtotal</span>
-                    <span className="text-base">{money(o.subtotalCents)}</span>
-                  </div>
-                  {(o.discountCents || o.shippingCents || o.discountCode) && (
-                    <div className="mt-2 space-y-1 text-xs font-bold">
-                      {(o.discountCents || o.discountCode) && (
-                        <div className="flex justify-between">
-                          <span>Discount{o.discountCode ? ` (${o.discountCode})` : ''}</span>
-                          <span>{o.discountCents ? `-${money(o.discountCents)}` : 'Free shipping'}</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between">
-                        <span>Shipping</span>
-                        <span>{o.shippingCents ? money(o.shippingCents) : 'Free'}</span>
-                      </div>
-                    </div>
-                  )}
-                  <div className="flex justify-between items-center mt-3 pt-3 border-t border-line border-dashed font-bold text-ink">
-                    <span className="text-xs uppercase tracking-widest">Total</span>
-                    <span className="text-base">{money(o.totalCents)}</span>
-                  </div>
-                  {o.note && (
-                    <div className="mt-3 pt-3 border-t border-line/60">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted mb-1">Customer note</p>
-                      <p className="text-sm text-ink/80">{o.note}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center gap-4 shrink-0 pl-0 md:pl-4 border-t md:border-t-0 md:border-l border-line pt-4 md:pt-0 w-full md:w-auto">
-                <StatusBadge status={o.status} />
-                
-                {o.status === 'PENDING' && (
-                  <p className="text-[10px] text-muted text-right max-w-[140px] uppercase font-bold tracking-wider leading-tight">Awaiting Platform Approval</p>
-                )}
-                
-                {o.status === 'APPROVED' && (
-                  <Button size="sm" variant="accent" className="font-bold gap-2 text-xs" onClick={() => handleFulfill(o.id)}>
-                    <CheckCircle2 className="w-4 h-4" /> Mark Fulfilled
-                  </Button>
-                )}
-              </div>
+      <div>
+        <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted">Items</p>
+        <div className="divide-y divide-line/60 rounded-xl border border-line bg-paper">
+          {order.items.map((item, index) => (
+            <div key={index} className="flex items-center justify-between gap-3 p-3 text-sm">
+              <span className="min-w-0 truncate"><span className="text-muted">{item.quantity}×</span> <span className="font-semibold text-ink">{item.productName}</span></span>
+              <span className="shrink-0 font-semibold text-ink">{money(item.priceCents * item.quantity, currency)}</span>
             </div>
           ))}
         </div>
+      </div>
+
+      <div className="space-y-2 rounded-xl border border-line bg-surface p-4">
+        <Row label="Subtotal" value={money(order.subtotalCents, currency)} />
+        {order.discountCents ? <Row label={`Discount${order.discountCode ? ` (${order.discountCode})` : ''}`} value={`-${money(order.discountCents, currency)}`} accent /> : null}
+        <Row label="Shipping" value={order.shippingCents ? money(order.shippingCents, currency) : 'Free'} />
+        <Row label="Total" value={money(order.totalCents, currency)} strong />
+      </div>
+
+      {order.note && (
+        <div>
+          <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-muted">Customer note</p>
+          <p className="rounded-xl border border-line bg-paper p-3 text-sm text-ink/80">{order.note}</p>
+        </div>
       )}
+
+      <a href={`mailto:${order.customerEmail}`} className="flex items-center gap-2 text-sm font-bold text-accent hover:underline">
+        <ExternalLink className="h-4 w-4" /> Email {order.customerName.split(' ')[0]}
+      </a>
     </div>
   );
 }

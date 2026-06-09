@@ -86,12 +86,15 @@ export const seedStores: Store[] = [
 ];
 
 export const seedPlatformSettings: PlatformSettings = {
+  platformName: 'Plinth',
   commissionRateBps: 800,
   defaultCurrency: 'USD',
   categories: ['Home & Garden', 'Food & Drink', 'Fashion', 'Beauty', 'Art', 'Books'],
   globalAnnouncement: '',
   maintenanceMode: false,
   supportEmail: 'support@plinth.demo',
+  auditCap: 200,
+  autoFlagThreshold: 3,
 };
 
 export const seedOwnerStatuses: Record<string, 'ACTIVE' | 'RESTRICTED' | 'BANNED'> = {
@@ -106,7 +109,24 @@ export const seedSupportTickets: SupportTicket[] = [
     message: 'Customer asked whether local delivery is available for a large order this week.',
     status: 'OPEN',
     priority: 'MEDIUM',
+    messages: [
+      { id: 'tm-1', from: 'OWNER', body: 'Customer asked whether local delivery is available for a large order this week.', ts: Date.now() - 3600000 },
+    ],
     createdAt: Date.now() - 3600000,
+  },
+  {
+    id: 'ticket-2',
+    storeId: 'store-2',
+    subject: 'Payout timing for last week',
+    message: 'When are commissions settled for orders fulfilled last Friday?',
+    status: 'IN_PROGRESS',
+    priority: 'HIGH',
+    assignedTo: 'System Admin',
+    messages: [
+      { id: 'tm-2', from: 'OWNER', body: 'When are commissions settled for orders fulfilled last Friday?', ts: Date.now() - 7200000 },
+      { id: 'tm-3', from: 'PLATFORM', body: 'Payouts settle on a weekly cycle — looking into the exact date for you.', ts: Date.now() - 5400000 },
+    ],
+    createdAt: Date.now() - 7200000,
   },
 ];
 
@@ -119,8 +139,21 @@ export const seedShopRequests: ShopRequest[] = [
     category: 'Art',
     tagline: 'Small-batch prints and paper goods',
     notes: 'Needs a clean storefront with a soft editorial look.',
+    plan: 'STARTER',
     status: 'PENDING',
     createdAt: Date.now() - 5400000,
+  },
+  {
+    id: 'shop-request-2',
+    ownerName: 'Theo Park',
+    ownerEmail: 'theo@example.com',
+    storeName: 'Park Cycles',
+    category: 'Sports',
+    tagline: 'Refurbished city bikes and parts',
+    notes: 'Wants inventory-heavy catalog with pickup option.',
+    plan: 'GROWTH',
+    status: 'PENDING',
+    createdAt: Date.now() - 9000000,
   },
 ];
 
@@ -130,6 +163,8 @@ export const seedProductFlags: ProductFlag[] = [
     storeId: 'store-3',
     productId: 'prod-4',
     reason: 'Review product photography and policy fit before featuring.',
+    reporter: 'Customer report',
+    severity: 'MEDIUM',
     status: 'OPEN',
     createdAt: Date.now() - 7200000,
   },

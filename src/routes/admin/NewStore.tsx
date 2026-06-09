@@ -18,6 +18,19 @@ const requestSchema = z.object({
   category: z.string().min(1, 'Category is required'),
   tagline: z.string().min(3, 'Tagline is required'),
   notes: z.string().optional(),
+  // The owner chooses their own admin sign-in (used after the request is approved).
+  username: z.string().trim().toLowerCase()
+    .min(3, 'At least 3 characters')
+    .max(60)
+    .regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$/, 'Lowercase letters, numbers, and hyphens only'),
+  password: z.string()
+    .min(10, 'At least 10 characters')
+    .regex(/[A-Za-z]/, 'Include at least one letter')
+    .regex(/[0-9]/, 'Include at least one number'),
+  confirmPassword: z.string(),
+}).refine((d) => d.password === d.confirmPassword, {
+  path: ['confirmPassword'],
+  message: 'Passwords do not match',
 });
 
 type RequestValues = z.infer<typeof requestSchema>;
@@ -35,14 +48,22 @@ export default function NewStore() {
       category: '',
       tagline: '',
       notes: '',
+      username: '',
+      password: '',
+      confirmPassword: '',
     },
   });
 
-  const onSubmit = (data: RequestValues) => {
-    submitShopRequest(data);
-    setSubmitted(true);
-    form.reset();
-    toast({ title: 'Website request sent', description: 'The website team will review it and create the website from the standard template.', type: 'success' });
+  const onSubmit = async (data: RequestValues) => {
+    try {
+      const { confirmPassword: _confirm, ...payload } = data;
+      await submitShopRequest(payload);
+      setSubmitted(true);
+      form.reset();
+      toast({ title: 'Website request sent', description: 'The website team will review it and create the website from the standard template.', type: 'success' });
+    } catch (error) {
+      toast({ title: 'Could not send request', description: error instanceof Error ? error.message : 'Try again later.', type: 'error' });
+    }
   };
 
   return (
@@ -125,6 +146,25 @@ export default function NewStore() {
                 <Field label="Notes for the website team" error={form.formState.errors.notes?.message} className="md:col-span-2">
                   <Textarea {...form.register('notes')} rows={5} placeholder="Products or services, style, pages, policies, delivery needs..." />
                 </Field>
+              </div>
+
+              <div className="rounded-xl border border-line bg-paper p-4">
+                <div className="mb-1 text-sm font-black text-ink">Choose your admin sign-in</div>
+                <p className="mb-4 text-xs font-semibold leading-5 text-muted">
+                  You'll use these to manage the store after it's approved. Keep them safe — the password is stored hashed and can't be recovered (only reset).
+                </p>
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                  <Field label="Username" error={form.formState.errors.username?.message}>
+                    <Input {...form.register('username')} autoComplete="username" placeholder="e.g. coastal-goods" />
+                  </Field>
+                  <div className="hidden md:block" />
+                  <Field label="Password" error={form.formState.errors.password?.message}>
+                    <Input {...form.register('password')} type="password" autoComplete="new-password" placeholder="At least 10 chars, a letter & a number" />
+                  </Field>
+                  <Field label="Confirm password" error={form.formState.errors.confirmPassword?.message}>
+                    <Input {...form.register('confirmPassword')} type="password" autoComplete="new-password" placeholder="Re-enter password" />
+                  </Field>
+                </div>
               </div>
 
               <Button type="submit" variant="accent" size="lg" className="w-full">

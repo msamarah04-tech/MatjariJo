@@ -2,7 +2,14 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { computeOrderSummary } from './checkout';
 import { AnalyticsEvent, AnalyticsEventType, AuditLog, Discount, Order, OrderStatus, OwnerStatus, PlatformSettings, Product, ProductFlag, Role, ShopRequest, ShopRequestStatus, Store, StoreReviewStatus, StoreStatus, SupportTicket, TicketStatus, User } from './types';
-import { platformOwner, seedAnalyticsEvents, seedAuditLogs, seedDiscounts, seedOrders, seedOwnerStatuses, seedPlatformSettings, seedProductFlags, seedProducts, seedShopRequests, seedStores, seedSupportTickets, shopOwner } from './seed';
+import { BootstrapPayload, credentialsForRole, getBootstrap } from '@/api/bootstrap.api';
+import { login, logout as logoutApi, refreshSession, changePassword as changePasswordApi } from '@/api/auth.api';
+import { getPublicStore, placePublicOrder, trackAnalytics } from '@/api/storefront.api';
+import { submitShopRequest as submitPublicShopRequest } from '@/api/shopRequests.api';
+import * as adminApi from '@/api/admin.api';
+import * as platformApi from '@/api/platform.api';
+import { configureApiClient } from '@/api/client';
+import { CartVariantLine } from './productOptions';
 
 const ANALYTICS_RETENTION_MS = 1000 * 60 * 60 * 24 * 180;
 const ANALYTICS_MAX_EVENTS = 2500;
@@ -15,11 +22,19 @@ const normalizeStore = (store: Store): Store => ({
   reviewStatus: store.reviewStatus ?? 'APPROVED',
   suspensionReason: store.suspensionReason ?? '',
   internalNote: store.internalNote ?? '',
+  storefrontTemplate: store.storefrontTemplate ?? 'editorial',
+  themeOverrides: store.themeOverrides ?? undefined,
+  isFeatured: store.isFeatured ?? false,
+  // commissionOverrideBps stays undefined unless explicitly set (falls back to platform rate).
+  commissionOverrideBps: store.commissionOverrideBps,
 });
 
 const normalizeProduct = (product: Product): Product => ({
   ...product,
+  details: product.details ?? {},
+  category: product.category ?? '',
   collection: product.collection ?? '',
+  tags: product.tags ?? [],
   isFeatured: product.isFeatured ?? false,
   compareAtCents: product.compareAtCents,
 });
@@ -51,25 +66,46 @@ const normalizeAnalyticsEvent = (event: AnalyticsEvent): AnalyticsEvent => ({
   ts: event.ts || Date.now(),
 });
 
+const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
+  platformName: 'Plinth',
+  commissionRateBps: 800,
+  defaultCurrency: 'USD',
+  categories: ['Apparel', 'Home', 'Beauty', 'Food', 'Electronics'],
+  globalAnnouncement: '',
+  maintenanceMode: false,
+  supportEmail: 'support@example.com',
+  auditCap: 500,
+  autoFlagThreshold: 3,
+};
+
 const normalizePlatformSettings = (settings?: Partial<PlatformSettings>): PlatformSettings => ({
-  commissionRateBps: settings?.commissionRateBps ?? seedPlatformSettings.commissionRateBps,
-  defaultCurrency: settings?.defaultCurrency ?? seedPlatformSettings.defaultCurrency,
-  categories: settings?.categories ?? seedPlatformSettings.categories,
+  platformName: settings?.platformName ?? DEFAULT_PLATFORM_SETTINGS.platformName,
+  commissionRateBps: settings?.commissionRateBps ?? DEFAULT_PLATFORM_SETTINGS.commissionRateBps,
+  defaultCurrency: settings?.defaultCurrency ?? DEFAULT_PLATFORM_SETTINGS.defaultCurrency,
+  categories: settings?.categories ?? DEFAULT_PLATFORM_SETTINGS.categories,
   globalAnnouncement: settings?.globalAnnouncement ?? '',
   maintenanceMode: settings?.maintenanceMode ?? false,
-  supportEmail: settings?.supportEmail ?? seedPlatformSettings.supportEmail,
+  supportEmail: settings?.supportEmail ?? DEFAULT_PLATFORM_SETTINGS.supportEmail,
+  auditCap: settings?.auditCap ?? DEFAULT_PLATFORM_SETTINGS.auditCap,
+  autoFlagThreshold: settings?.autoFlagThreshold ?? DEFAULT_PLATFORM_SETTINGS.autoFlagThreshold,
 });
 
 const normalizeSupportTicket = (ticket: SupportTicket): SupportTicket => ({
   ...ticket,
   status: ticket.status ?? 'OPEN',
   priority: ticket.priority ?? 'MEDIUM',
+  // Backfill a thread from the original single message for tickets saved before threads existed.
+  messages: ticket.messages && ticket.messages.length > 0
+    ? ticket.messages
+    : [{ id: crypto.randomUUID(), from: 'OWNER', body: ticket.message, ts: ticket.createdAt ?? Date.now() }],
   createdAt: ticket.createdAt ?? Date.now(),
 });
 
 const normalizeProductFlag = (flag: ProductFlag): ProductFlag => ({
   ...flag,
   status: flag.status ?? 'OPEN',
+  severity: flag.severity ?? 'MEDIUM',
+  reporter: flag.reporter ?? 'Platform review',
   createdAt: flag.createdAt ?? Date.now(),
 });
 
@@ -100,6 +136,20 @@ const slugify = (value: string) => {
   return slug || 'store';
 };
 
+/**
+ * Per-store authorization guard. A mutation may proceed only when the current
+ * user owns the target store, or is a platform owner. Returns false when there
+ * is no user, so admin actions are inert before sign-in.
+ */
+const canManage = (currentUser: User | null, stores: Store[], storeId: string) => {
+  if (!currentUser) return false;
+  if (currentUser.role === 'PLATFORM_OWNER') return true;
+  return stores.some((store) => store.id === storeId && store.ownerId === currentUser.id);
+};
+
+/** Keys a shop owner must never change through an admin store edit (scope / ownership / platform-controlled). */
+const PROTECTED_STORE_KEYS = ['id', 'slug', 'ownerId', 'createdAt', 'status', 'reviewStatus', 'suspensionReason', 'internalNote', 'commissionOverrideBps', 'isFeatured'];
+
 export type ShopApprovalSetup = {
   logoEmoji?: string;
   themeId?: string;
@@ -109,20 +159,56 @@ export type ShopApprovalSetup = {
   products?: Omit<Product, 'id' | 'storeId' | 'createdAt'>[];
 };
 
+export type ShopCredentials = {
+  storeName: string;
+  email: string;
+  username: string;
+  // Present only for the legacy generated-password path; self-service owners use
+  // the password they chose at request time.
+  password?: string;
+  selfService?: boolean;
+};
+
 const defaultAbout = (request: ShopRequest) => [
   `${request.storeName} is a ${request.category.toLowerCase()} shop built around ${request.tagline.toLowerCase()}.`,
   request.notes ? `Customer request: ${request.notes}` : '',
   'Orders are reviewed before fulfillment so inventory, delivery details, and customer notes stay accurate.',
 ].filter(Boolean).join('\n\n');
 
-interface CartItem {
-  productId: string;
-  quantity: number;
-}
+const emptyPlatformSettings = normalizePlatformSettings(DEFAULT_PLATFORM_SETTINGS);
+
+const stateFromBootstrap = (payload: BootstrapPayload) => ({
+  currentUser: payload.currentUser,
+  stores: payload.stores.map(normalizeStore),
+  products: payload.products.map(normalizeProduct),
+  orders: payload.orders.map(normalizeOrder),
+  discounts: payload.discounts.map(normalizeDiscount),
+  analyticsEvents: pruneAnalyticsEvents(payload.analyticsEvents),
+  platformSettings: normalizePlatformSettings(payload.platformSettings),
+  supportTickets: payload.supportTickets.map(normalizeSupportTicket),
+  productFlags: payload.productFlags.map(normalizeProductFlag),
+  shopRequests: payload.shopRequests.map(normalizeShopRequest),
+  auditLogs: payload.auditLogs.map(normalizeAuditLog),
+  ownerStatuses: payload.ownerStatuses,
+});
+
+type CartItem = CartVariantLine;
 
 interface AppState {
   currentUser: User | null;
-  signInAs: (role: Role, email?: string, name?: string) => void;
+  token: string | null;
+  refreshToken: string | null;
+  isHydrating: boolean;
+  apiError: string | null;
+  shopCredentials: ShopCredentials | null;
+  clearShopCredentials: () => void;
+  initializeBackend: () => Promise<void>;
+  loadBootstrap: () => Promise<void>;
+  loadPublicStore: (slug: string) => Promise<void>;
+  signIn: (identifier: string, password: string) => Promise<User>;
+  signInAs: (role: Role, email?: string, name?: string) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  refreshAccessToken: () => Promise<string | null>;
   signOut: () => void;
 
   stores: Store[];
@@ -137,6 +223,8 @@ interface AppState {
   auditLogs: AuditLog[];
   ownerStatuses: Record<string, OwnerStatus>;
   carts: Record<string, CartItem[]>;
+  // Timestamp the operator last opened the notifications panel; anything newer is "unread".
+  lastSeenNotificationsAt: number;
 
   updateCart: (storeId: string, items: CartItem[]) => void;
   clearCart: (storeId: string) => void;
@@ -147,16 +235,17 @@ interface AppState {
   setStoreStatus: (id: string, status: StoreStatus) => void;
   reviewStore: (id: string, reviewStatus: StoreReviewStatus, note?: string) => void;
   suspendStore: (id: string, reason: string) => void;
+  deletePlatformStore: (id: string) => Promise<void>;
 
-  // product CRUD
-  addProduct: (storeId: string, p: Omit<Product, 'id' | 'storeId' | 'createdAt'>) => void;
-  updateProduct: (id: string, patch: Partial<Product>) => void;
-  deleteProduct: (id: string) => void;
+  // product CRUD — scoped to a store; each verifies ownership + record↔store match
+  addProduct: (storeId: string, p: Omit<Product, 'id' | 'storeId' | 'createdAt'>) => Promise<void>;
+  updateProduct: (storeId: string, id: string, patch: Partial<Product>) => Promise<void>;
+  deleteProduct: (storeId: string, id: string) => void;
 
-  // discount CRUD
+  // discount CRUD — scoped to a store
   addDiscount: (storeId: string, discount: Omit<Discount, 'id' | 'storeId' | 'createdAt' | 'usedCount'>) => void;
-  updateDiscount: (id: string, patch: Partial<Discount>) => void;
-  deleteDiscount: (id: string) => void;
+  updateDiscount: (storeId: string, id: string, patch: Partial<Discount>) => void;
+  deleteDiscount: (storeId: string, id: string) => void;
 
   // analytics
   recordEvent: (storeId: string, type: AnalyticsEventType, productId?: string) => void;
@@ -168,51 +257,140 @@ interface AppState {
   updateSupportTicket: (id: string, patch: Partial<SupportTicket>) => void;
   addProductFlag: (flag: Omit<ProductFlag, 'id' | 'createdAt' | 'status'>) => void;
   resolveProductFlag: (id: string) => void;
-  submitShopRequest: (request: Omit<ShopRequest, 'id' | 'status' | 'createdAt'>) => string;
+  submitShopRequest: (request: Omit<ShopRequest, 'id' | 'status' | 'createdAt'> & { username: string; password: string }) => Promise<string>;
   updateShopRequestStatus: (id: string, status: ShopRequestStatus) => void;
   approveShopRequest: (id: string, setup?: ShopApprovalSetup) => string | undefined;
+  rejectShopRequest: (id: string, reason: string) => void;
   addAuditLog: (action: string, target: string, detail?: string) => void;
 
-  // orders
-  placeOrder: (o: { storeId: string; customerName: string; customerEmail: string; items?: CartItem[]; discountCode?: string; note?: string }) => string;
-  approveOrder: (id: string) => void;
-  rejectOrder: (id: string) => void;
-  fulfillOrder: (id: string) => void;
+  // store oversight
+  setStoreCommission: (id: string, bps?: number) => void;
+  toggleFeatured: (id: string) => void;
 
-  resetDemo: () => void;
+  // moderation
+  resolveFlag: (id: string, resolution: 'DISMISSED' | 'ACTIONED') => void;
+  unpublishProduct: (id: string) => void;
+
+  // support inbox
+  replyToTicket: (id: string, body: string) => void;
+  setTicketStatus: (id: string, status: TicketStatus) => void;
+  assignTicket: (id: string, assignee: string) => void;
+
+  // notifications
+  markNotificationsSeen: () => void;
+
+  // orders
+  placeOrder: (o: { storeId: string; customerName: string; customerEmail?: string; customerPhone?: string; shippingAddress?: string; items?: CartItem[]; discountCode?: string; note?: string; idempotencyKey?: string }) => Promise<string>;
+  approveOrder: (storeId: string, id: string) => void;
+  rejectOrder: (storeId: string, id: string) => void;
+  fulfillOrder: (storeId: string, id: string) => void;
+
+  clearSession: () => void;
 }
 
 export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
       currentUser: null,
-      stores: seedStores.map(normalizeStore),
-      products: seedProducts.map(normalizeProduct),
-      orders: seedOrders.map(normalizeOrder),
-      discounts: seedDiscounts.map(normalizeDiscount),
-      analyticsEvents: pruneAnalyticsEvents(seedAnalyticsEvents),
-      platformSettings: normalizePlatformSettings(seedPlatformSettings),
-      supportTickets: seedSupportTickets.map(normalizeSupportTicket),
-      productFlags: seedProductFlags.map(normalizeProductFlag),
-      shopRequests: seedShopRequests.map(normalizeShopRequest),
-      auditLogs: seedAuditLogs.map(normalizeAuditLog),
-      ownerStatuses: seedOwnerStatuses,
+      token: null,
+      refreshToken: null,
+      isHydrating: false,
+      apiError: null,
+      shopCredentials: null,
+      stores: [],
+      products: [],
+      orders: [],
+      discounts: [],
+      analyticsEvents: [],
+      platformSettings: emptyPlatformSettings,
+      supportTickets: [],
+      productFlags: [],
+      shopRequests: [],
+      auditLogs: [],
+      ownerStatuses: {},
       carts: {},
+      lastSeenNotificationsAt: 0,
 
       updateCart: (storeId, items) => set((state) => ({ carts: { ...state.carts, [storeId]: items } })),
       clearCart: (storeId) => set((state) => ({ carts: { ...state.carts, [storeId]: [] } })),
 
-      signInAs: (role, email, name) => {
-        let user: User;
-        if (role === 'PLATFORM_OWNER') {
-          user = { ...platformOwner, email: email || platformOwner.email, name: name || platformOwner.name };
-        } else {
-          user = { ...shopOwner, email: email || shopOwner.email, name: name || shopOwner.name };
+      initializeBackend: async () => {
+        const token = get().token;
+        if (!token) return;
+        // A shop owner with a pending one-time-password change can't load app data
+        // yet; the UI shows the change-password screen instead.
+        if (get().currentUser?.mustChangePassword) return;
+        set({ isHydrating: true, apiError: null });
+        try {
+          await get().loadBootstrap();
+        } catch (error) {
+          console.error(error);
+          set({ currentUser: null, token: null, refreshToken: null, apiError: error instanceof Error ? error.message : 'Could not connect to backend.' });
+        } finally {
+          set({ isHydrating: false });
         }
-        set({ currentUser: user });
       },
 
-      signOut: () => set({ currentUser: null }),
+      loadBootstrap: async () => {
+        const token = get().token;
+        if (!token) return;
+        const payload = await getBootstrap(token);
+        set({ ...stateFromBootstrap(payload), apiError: null });
+      },
+
+      loadPublicStore: async (slug) => {
+        const payload = await getPublicStore(slug);
+        set((state) => ({
+          stores: [normalizeStore(payload.store), ...state.stores.filter((store) => store.id !== payload.store.id)],
+          products: [
+            ...payload.products.map(normalizeProduct),
+            ...state.products.filter((product) => product.storeId !== payload.store.id),
+          ],
+          discounts: [
+            ...payload.discounts.map(normalizeDiscount),
+            ...state.discounts.filter((discount) => discount.storeId !== payload.store.id),
+          ],
+        }));
+      },
+
+      signIn: async (identifier, password) => {
+        const auth = await login(identifier, password);
+        set({ token: auth.token, refreshToken: auth.refreshToken, currentUser: auth.user, apiError: null });
+        // Defer data load until any forced password change is completed.
+        if (!auth.user.mustChangePassword) await get().loadBootstrap();
+        return auth.user;
+      },
+
+      signInAs: async (role) => {
+        const credentials = credentialsForRole(role);
+        if (!credentials.password) throw new Error('Use the generated shop-admin password from the approval response.');
+        await get().signIn(credentials.identifier, credentials.password);
+      },
+
+      changePassword: async (currentPassword, newPassword) => {
+        const auth = await changePasswordApi(currentPassword, newPassword);
+        set({ token: auth.token, refreshToken: auth.refreshToken, currentUser: auth.user, apiError: null });
+        await get().loadBootstrap();
+      },
+
+      // Called transparently by the API client on a 401. Returns a fresh access token
+      // or null when the session is truly gone.
+      refreshAccessToken: async () => {
+        const refreshToken = get().refreshToken;
+        try {
+          const auth = await refreshSession(refreshToken);
+          set({ token: auth.token, refreshToken: auth.refreshToken, currentUser: auth.user });
+          return auth.token;
+        } catch {
+          set({ currentUser: null, token: null, refreshToken: null });
+          return null;
+        }
+      },
+
+      signOut: () => {
+        void logoutApi().catch(() => undefined);
+        get().clearSession();
+      },
 
       createStore: (input) => {
         const id = crypto.randomUUID();
@@ -240,6 +418,8 @@ export const useStore = create<AppState>()(
           shipping: input.shipping || { type: 'FLAT', flatCents: 0 },
           currency: input.currency || 'USD',
           themeId: input.themeId || 'mono',
+          storefrontTemplate: input.storefrontTemplate || 'editorial',
+          themeOverrides: input.themeOverrides,
         };
         
         let newProducts: Product[] = [];
@@ -265,17 +445,35 @@ export const useStore = create<AppState>()(
             target: newStore.name,
             detail: 'New shop submitted for website owner approval.',
             ts: Date.now(),
-          }), ...state.auditLogs].slice(0, 200),
+          }), ...state.auditLogs].slice(0, state.platformSettings.auditCap),
         }));
 
         return id;
       },
       updateStore: (id, patch) => {
-        set((state) => ({
-          stores: state.stores.map((s) => (s.id === id ? { ...s, ...patch } : s)),
-        }));
+        const token = get().token;
+        if (token) {
+          const { shipping, ...rest } = patch;
+          adminApi.updateAdminStore(id, { ...rest, shipping })
+            .then(() => get().loadBootstrap())
+            .catch((error) => set({ apiError: error instanceof Error ? error.message : 'Could not update store.' }));
+          return;
+        }
+        set((state) => {
+          if (!canManage(state.currentUser, state.stores, id)) return state;
+          const safePatch: Partial<Store> = { ...patch };
+          PROTECTED_STORE_KEYS.forEach((key) => delete (safePatch as Record<string, unknown>)[key]);
+          return { stores: state.stores.map((s) => (s.id === id ? { ...s, ...safePatch } : s)) };
+        });
       },
       setStoreStatus: (id, status) => {
+        const token = get().token;
+        if (token) {
+          (status === 'ACTIVE' ? platformApi.reactivateStore(id) : platformApi.suspendStore(id))
+            .then(() => get().loadBootstrap())
+            .catch((error) => set({ apiError: error instanceof Error ? error.message : 'Could not update store status.' }));
+          return;
+        }
         set((state) => ({
           stores: state.stores.map((s) => (s.id === id ? { ...s, status } : s)),
           auditLogs: [normalizeAuditLog({
@@ -284,7 +482,7 @@ export const useStore = create<AppState>()(
             action: `${status === 'ACTIVE' ? 'Activated' : 'Suspended'} store`,
             target: state.stores.find((s) => s.id === id)?.name || id,
             ts: Date.now(),
-          }), ...state.auditLogs].slice(0, 200),
+          }), ...state.auditLogs].slice(0, state.platformSettings.auditCap),
         }));
       },
       reviewStore: (id, reviewStatus, note) => {
@@ -303,7 +501,7 @@ export const useStore = create<AppState>()(
             target: state.stores.find((s) => s.id === id)?.name || id,
             detail: note,
             ts: Date.now(),
-          }), ...state.auditLogs].slice(0, 200),
+          }), ...state.auditLogs].slice(0, state.platformSettings.auditCap),
         }));
       },
       suspendStore: (id, reason) => {
@@ -316,11 +514,31 @@ export const useStore = create<AppState>()(
             target: state.stores.find((s) => s.id === id)?.name || id,
             detail: reason,
             ts: Date.now(),
-          }), ...state.auditLogs].slice(0, 200),
+          }), ...state.auditLogs].slice(0, state.platformSettings.auditCap),
         }));
       },
 
-      addProduct: (storeId, p) => {
+      // Permanently delete a store (and its data) on the backend, then refresh.
+      deletePlatformStore: async (id) => {
+        await platformApi.deleteStore(id);
+        await get().loadBootstrap();
+      },
+
+      addProduct: async (storeId, p) => {
+        const token = get().token;
+        if (token) {
+          // Surface failures to the caller so the UI can show a real error instead
+          // of an optimistic "success" toast, and keep the edit form open.
+          try {
+            await adminApi.createProduct(storeId, p);
+            await get().loadBootstrap();
+          } catch (error) {
+            set({ apiError: error instanceof Error ? error.message : 'Could not add product.' });
+            throw error;
+          }
+          return;
+        }
+        if (!canManage(get().currentUser, get().stores, storeId)) return;
         const id = crypto.randomUUID();
         const newProduct: Product = {
           ...p,
@@ -333,18 +551,49 @@ export const useStore = create<AppState>()(
         };
         set((state) => ({ products: [newProduct, ...state.products] }));
       },
-      updateProduct: (id, patch) => {
-        set((state) => ({
-          products: state.products.map((p) => (p.id === id ? { ...p, ...patch } : p)),
-        }));
+      updateProduct: async (storeId, id, patch) => {
+        const token = get().token;
+        if (token) {
+          try {
+            await adminApi.updateProduct(storeId, id, patch);
+            await get().loadBootstrap();
+          } catch (error) {
+            set({ apiError: error instanceof Error ? error.message : 'Could not update product.' });
+            throw error;
+          }
+          return;
+        }
+        set((state) => {
+          const product = state.products.find((p) => p.id === id);
+          if (!product || product.storeId !== storeId || !canManage(state.currentUser, state.stores, storeId)) return state;
+          const { id: _id, storeId: _storeId, ...safePatch } = patch;
+          return { products: state.products.map((p) => (p.id === id ? { ...p, ...safePatch } : p)) };
+        });
       },
-      deleteProduct: (id) => {
-        set((state) => ({
-          products: state.products.filter((p) => p.id !== id),
-        }));
+      deleteProduct: (storeId, id) => {
+        const token = get().token;
+        if (token) {
+          adminApi.deleteProduct(storeId, id)
+            .then(() => get().loadBootstrap())
+            .catch((error) => set({ apiError: error instanceof Error ? error.message : 'Could not delete product.' }));
+          return;
+        }
+        set((state) => {
+          const product = state.products.find((p) => p.id === id);
+          if (!product || product.storeId !== storeId || !canManage(state.currentUser, state.stores, storeId)) return state;
+          return { products: state.products.filter((p) => p.id !== id) };
+        });
       },
 
       addDiscount: (storeId, discount) => {
+        const token = get().token;
+        if (token) {
+          adminApi.createDiscount(storeId, discount)
+            .then(() => get().loadBootstrap())
+            .catch((error) => set({ apiError: error instanceof Error ? error.message : 'Could not add discount.' }));
+          return;
+        }
+        if (!canManage(get().currentUser, get().stores, storeId)) return;
         const normalized = normalizeDiscount({
           ...discount,
           id: crypto.randomUUID(),
@@ -354,18 +603,41 @@ export const useStore = create<AppState>()(
         });
         set((state) => ({ discounts: [normalized, ...state.discounts] }));
       },
-      updateDiscount: (id, patch) => {
-        set((state) => ({
-          discounts: state.discounts.map((d) => (d.id === id ? normalizeDiscount({ ...d, ...patch }) : d)),
-        }));
+      updateDiscount: (storeId, id, patch) => {
+        const token = get().token;
+        if (token) {
+          adminApi.updateDiscount(storeId, id, patch)
+            .then(() => get().loadBootstrap())
+            .catch((error) => set({ apiError: error instanceof Error ? error.message : 'Could not update discount.' }));
+          return;
+        }
+        set((state) => {
+          const discount = state.discounts.find((d) => d.id === id);
+          if (!discount || discount.storeId !== storeId || !canManage(state.currentUser, state.stores, storeId)) return state;
+          const { id: _id, storeId: _storeId, ...safePatch } = patch;
+          return { discounts: state.discounts.map((d) => (d.id === id ? normalizeDiscount({ ...d, ...safePatch }) : d)) };
+        });
       },
-      deleteDiscount: (id) => {
-        set((state) => ({
-          discounts: state.discounts.filter((d) => d.id !== id),
-        }));
+      deleteDiscount: (storeId, id) => {
+        const token = get().token;
+        if (token) {
+          adminApi.deleteDiscount(storeId, id)
+            .then(() => get().loadBootstrap())
+            .catch((error) => set({ apiError: error instanceof Error ? error.message : 'Could not delete discount.' }));
+          return;
+        }
+        set((state) => {
+          const discount = state.discounts.find((d) => d.id === id);
+          if (!discount || discount.storeId !== storeId || !canManage(state.currentUser, state.stores, storeId)) return state;
+          return { discounts: state.discounts.filter((d) => d.id !== id) };
+        });
       },
 
       recordEvent: (storeId, type, productId) => {
+        const store = get().stores.find((item) => item.id === storeId);
+        if (store && type !== 'order') {
+          trackAnalytics(store.slug, { type, productId }).catch(() => undefined);
+        }
         const event: AnalyticsEvent = {
           id: crypto.randomUUID(),
           storeId,
@@ -377,6 +649,13 @@ export const useStore = create<AppState>()(
       },
 
       updatePlatformSettings: (patch) => {
+        const token = get().token;
+        if (token) {
+          platformApi.updatePlatformSettings(patch)
+            .then(() => get().loadBootstrap())
+            .catch((error) => set({ apiError: error instanceof Error ? error.message : 'Could not update platform settings.' }));
+          return;
+        }
         set((state) => ({
           platformSettings: normalizePlatformSettings({ ...state.platformSettings, ...patch }),
           auditLogs: [normalizeAuditLog({
@@ -385,10 +664,20 @@ export const useStore = create<AppState>()(
             action: 'Updated platform settings',
             target: 'Platform settings',
             ts: Date.now(),
-          }), ...state.auditLogs].slice(0, 200),
+          }), ...state.auditLogs].slice(0, state.platformSettings.auditCap),
         }));
       },
       setOwnerStatus: (ownerId, status) => {
+        const token = get().token;
+        if (token) {
+          const store = get().stores.find((item) => item.ownerId === ownerId);
+          if (store) {
+            platformApi.setOwnerStatus(store.id, status)
+              .then(() => get().loadBootstrap())
+              .catch((error) => set({ apiError: error instanceof Error ? error.message : 'Could not update owner status.' }));
+            return;
+          }
+        }
         set((state) => ({
           ownerStatuses: { ...state.ownerStatuses, [ownerId]: status },
           auditLogs: [normalizeAuditLog({
@@ -397,10 +686,17 @@ export const useStore = create<AppState>()(
             action: `Set owner status to ${status}`,
             target: ownerId,
             ts: Date.now(),
-          }), ...state.auditLogs].slice(0, 200),
+          }), ...state.auditLogs].slice(0, state.platformSettings.auditCap),
         }));
       },
       addSupportTicket: (ticket) => {
+        const token = get().token;
+        if (token && ticket.storeId) {
+          adminApi.createSupportTicket(ticket.storeId, ticket)
+            .then(() => get().loadBootstrap())
+            .catch((error) => set({ apiError: error instanceof Error ? error.message : 'Could not create support ticket.' }));
+          return;
+        }
         const newTicket = normalizeSupportTicket({ ...ticket, id: crypto.randomUUID(), createdAt: Date.now() });
         set((state) => ({
           supportTickets: [newTicket, ...state.supportTickets],
@@ -410,7 +706,7 @@ export const useStore = create<AppState>()(
             action: 'Created support ticket',
             target: newTicket.subject,
             ts: Date.now(),
-          }), ...state.auditLogs].slice(0, 200),
+          }), ...state.auditLogs].slice(0, state.platformSettings.auditCap),
         }));
       },
       updateSupportTicket: (id, patch) => {
@@ -422,7 +718,7 @@ export const useStore = create<AppState>()(
             action: 'Updated support ticket',
             target: state.supportTickets.find((ticket) => ticket.id === id)?.subject || id,
             ts: Date.now(),
-          }), ...state.auditLogs].slice(0, 200),
+          }), ...state.auditLogs].slice(0, state.platformSettings.auditCap),
         }));
       },
       addProductFlag: (flag) => {
@@ -436,7 +732,7 @@ export const useStore = create<AppState>()(
             target: state.products.find((p) => p.id === newFlag.productId)?.name || newFlag.productId,
             detail: newFlag.reason,
             ts: Date.now(),
-          }), ...state.auditLogs].slice(0, 200),
+          }), ...state.auditLogs].slice(0, state.platformSettings.auditCap),
         }));
       },
       resolveProductFlag: (id) => {
@@ -448,29 +744,13 @@ export const useStore = create<AppState>()(
             action: 'Resolved product flag',
             target: state.productFlags.find((flag) => flag.id === id)?.productId || id,
             ts: Date.now(),
-          }), ...state.auditLogs].slice(0, 200),
+          }), ...state.auditLogs].slice(0, state.platformSettings.auditCap),
         }));
       },
-      submitShopRequest: (request) => {
-        const id = crypto.randomUUID();
-        const newRequest = normalizeShopRequest({
-          ...request,
-          id,
-          status: 'PENDING',
-          createdAt: Date.now(),
-        });
-        set((state) => ({
-          shopRequests: [newRequest, ...state.shopRequests],
-          auditLogs: [normalizeAuditLog({
-            id: crypto.randomUUID(),
-            actor: newRequest.ownerName,
-            action: 'Submitted website request',
-            target: newRequest.storeName,
-            detail: newRequest.ownerEmail,
-            ts: Date.now(),
-          }), ...state.auditLogs].slice(0, 200),
-        }));
-        return id;
+      submitShopRequest: async (request) => {
+        const { request: created } = await submitPublicShopRequest(request);
+        set((state) => ({ shopRequests: [normalizeShopRequest(created), ...state.shopRequests.filter((item) => item.id !== created.id)] }));
+        return created.id;
       },
       updateShopRequestStatus: (id, status) => {
         set((state) => ({
@@ -481,10 +761,30 @@ export const useStore = create<AppState>()(
             action: `Set website request to ${status}`,
             target: state.shopRequests.find((request) => request.id === id)?.storeName || id,
             ts: Date.now(),
-          }), ...state.auditLogs].slice(0, 200),
+          }), ...state.auditLogs].slice(0, state.platformSettings.auditCap),
         }));
       },
       approveShopRequest: (id, setup = {}) => {
+        const token = get().token;
+        if (token) {
+          platformApi.approveShopRequest(id)
+            .then(({ store, owner, credentials, selfService }) => {
+              if (credentials) {
+                set({
+                  shopCredentials: {
+                    storeName: store.name,
+                    email: owner.email,
+                    username: credentials.username,
+                    password: credentials.password,
+                    selfService,
+                  },
+                });
+              }
+              return get().loadBootstrap();
+            })
+            .catch((error) => set({ apiError: error instanceof Error ? error.message : 'Could not approve shop request.' }));
+          return undefined;
+        }
         const state = get();
         const request = state.shopRequests.find((item) => item.id === id);
         if (!request) return undefined;
@@ -507,10 +807,11 @@ export const useStore = create<AppState>()(
           about: setup.about || defaultAbout(request),
           shipping: setup.shipping || { type: 'FLAT', flatCents: 0 },
           themeId: setup.themeId || 'mono',
+          storefrontTemplate: 'editorial',
           currency: 'USD',
           status: 'ACTIVE',
           reviewStatus: 'APPROVED',
-          ownerId: shopOwner.id,
+          ownerId: get().currentUser?.id || 'local-shop-owner',
           createdAt: Date.now(),
         });
         const newProducts = (setup.products || []).map((item, index) => normalizeProduct({
@@ -523,7 +824,7 @@ export const useStore = create<AppState>()(
         set((state) => ({
           stores: [newStore, ...state.stores],
           products: [...newProducts, ...state.products],
-          ownerStatuses: { ...state.ownerStatuses, [shopOwner.id]: 'ACTIVE' },
+          ownerStatuses: { ...state.ownerStatuses, [get().currentUser?.id || 'local-shop-owner']: 'ACTIVE' },
           shopRequests: state.shopRequests.map((item) => (item.id === id ? { ...item, status: 'APPROVED', storeId, reviewedAt: Date.now() } : item)),
           auditLogs: [normalizeAuditLog({
             id: crypto.randomUUID(),
@@ -532,7 +833,7 @@ export const useStore = create<AppState>()(
             target: newStore.name,
             detail: `${request.ownerEmail} · ${newStore.themeId} theme · ${newProducts.length} team-added products`,
             ts: Date.now(),
-          }), ...state.auditLogs].slice(0, 200),
+          }), ...state.auditLogs].slice(0, state.platformSettings.auditCap),
         }));
         return storeId;
       },
@@ -545,19 +846,220 @@ export const useStore = create<AppState>()(
             target,
             detail,
             ts: Date.now(),
-          }), ...state.auditLogs].slice(0, 200),
+          }), ...state.auditLogs].slice(0, state.platformSettings.auditCap),
         }));
       },
 
-      placeOrder: (o) => {
+      rejectShopRequest: (id, reason) => {
+        const token = get().token;
+        if (token) {
+          platformApi.rejectShopRequest(id, reason)
+            .then(() => get().loadBootstrap())
+            .catch((error) => set({ apiError: error instanceof Error ? error.message : 'Could not reject shop request.' }));
+          return;
+        }
+        set((state) => ({
+          shopRequests: state.shopRequests.map((request) => (request.id === id ? { ...request, status: 'REJECTED', rejectionReason: reason, reviewedAt: Date.now() } : request)),
+          auditLogs: [normalizeAuditLog({
+            id: crypto.randomUUID(),
+            actor: get().currentUser?.name || 'Website Owner',
+            action: 'Rejected website request',
+            target: state.shopRequests.find((request) => request.id === id)?.storeName || id,
+            detail: reason,
+            ts: Date.now(),
+          }), ...state.auditLogs].slice(0, state.platformSettings.auditCap),
+        }));
+      },
+
+      setStoreCommission: (id, bps) => {
+        const token = get().token;
+        if (token) {
+          platformApi.setStoreCommission(id, bps ?? null)
+            .then(() => get().loadBootstrap())
+            .catch((error) => set({ apiError: error instanceof Error ? error.message : 'Could not update commission.' }));
+          return;
+        }
+        set((state) => ({
+          stores: state.stores.map((store) => (store.id === id ? { ...store, commissionOverrideBps: bps } : store)),
+          auditLogs: [normalizeAuditLog({
+            id: crypto.randomUUID(),
+            actor: get().currentUser?.name || 'Website Owner',
+            action: bps === undefined ? 'Cleared store commission override' : 'Set store commission override',
+            target: state.stores.find((store) => store.id === id)?.name || id,
+            detail: bps === undefined ? 'Falls back to platform rate' : `${(bps / 100).toFixed(2)}%`,
+            ts: Date.now(),
+          }), ...state.auditLogs].slice(0, state.platformSettings.auditCap),
+        }));
+      },
+
+      toggleFeatured: (id) => {
+        const token = get().token;
+        if (token) {
+          const store = get().stores.find((item) => item.id === id);
+          (store?.isFeatured ? platformApi.unfeatureStore(id) : platformApi.featureStore(id))
+            .then(() => get().loadBootstrap())
+            .catch((error) => set({ apiError: error instanceof Error ? error.message : 'Could not update featured state.' }));
+          return;
+        }
+        set((state) => {
+          const store = state.stores.find((item) => item.id === id);
+          const next = !store?.isFeatured;
+          return {
+            stores: state.stores.map((item) => (item.id === id ? { ...item, isFeatured: next } : item)),
+            auditLogs: [normalizeAuditLog({
+              id: crypto.randomUUID(),
+              actor: get().currentUser?.name || 'Website Owner',
+              action: next ? 'Featured store' : 'Unfeatured store',
+              target: store?.name || id,
+              ts: Date.now(),
+            }), ...state.auditLogs].slice(0, state.platformSettings.auditCap),
+          };
+        });
+      },
+
+      resolveFlag: (id, resolution) => {
+        const token = get().token;
+        if (token) {
+          (resolution === 'DISMISSED' ? platformApi.dismissFlag(id) : platformApi.actionFlag(id))
+            .then(() => get().loadBootstrap())
+            .catch((error) => set({ apiError: error instanceof Error ? error.message : 'Could not update flag.' }));
+          return;
+        }
+        set((state) => ({
+          productFlags: state.productFlags.map((flag) => (flag.id === id ? { ...flag, status: resolution } : flag)),
+          auditLogs: [normalizeAuditLog({
+            id: crypto.randomUUID(),
+            actor: get().currentUser?.name || 'Website Owner',
+            action: resolution === 'DISMISSED' ? 'Dismissed product flag' : 'Actioned product flag',
+            target: (() => {
+              const flag = state.productFlags.find((item) => item.id === id);
+              return state.products.find((p) => p.id === flag?.productId)?.name || flag?.productId || id;
+            })(),
+            ts: Date.now(),
+          }), ...state.auditLogs].slice(0, state.platformSettings.auditCap),
+        }));
+      },
+
+      unpublishProduct: (id) => {
+        const token = get().token;
+        const flag = get().productFlags.find((item) => item.productId === id && item.status === 'OPEN');
+        if (token && flag) {
+          platformApi.unpublishFlaggedProduct(flag.id)
+            .then(() => get().loadBootstrap())
+            .catch((error) => set({ apiError: error instanceof Error ? error.message : 'Could not unpublish product.' }));
+          return;
+        }
+        set((state) => ({
+          products: state.products.map((product) => (product.id === id ? { ...product, isActive: false } : product)),
+          auditLogs: [normalizeAuditLog({
+            id: crypto.randomUUID(),
+            actor: get().currentUser?.name || 'Website Owner',
+            action: 'Unpublished product',
+            target: state.products.find((product) => product.id === id)?.name || id,
+            ts: Date.now(),
+          }), ...state.auditLogs].slice(0, state.platformSettings.auditCap),
+        }));
+      },
+
+      replyToTicket: (id, body) => {
+        const token = get().token;
+        if (token) {
+          const ticket = get().supportTickets.find((item) => item.id === id);
+          (get().currentUser?.role === 'PLATFORM_OWNER'
+            ? platformApi.replyToPlatformTicket(id, { body })
+            : adminApi.replyToSupportTicket(ticket!.storeId!, id, { body }))
+            .then(() => get().loadBootstrap())
+            .catch((error) => set({ apiError: error instanceof Error ? error.message : 'Could not reply to ticket.' }));
+          return;
+        }
+        const message = { id: crypto.randomUUID(), from: 'PLATFORM' as const, body, ts: Date.now() };
+        set((state) => ({
+          supportTickets: state.supportTickets.map((ticket) => (ticket.id === id
+            ? normalizeSupportTicket({ ...ticket, status: ticket.status === 'OPEN' ? 'IN_PROGRESS' : ticket.status, messages: [...(ticket.messages || []), message] })
+            : ticket)),
+          auditLogs: [normalizeAuditLog({
+            id: crypto.randomUUID(),
+            actor: get().currentUser?.name || 'Website Owner',
+            action: 'Replied to support ticket',
+            target: state.supportTickets.find((ticket) => ticket.id === id)?.subject || id,
+            ts: Date.now(),
+          }), ...state.auditLogs].slice(0, state.platformSettings.auditCap),
+        }));
+      },
+
+      setTicketStatus: (id, status) => {
+        const token = get().token;
+        if (token) {
+          platformApi.updatePlatformTicketStatus(id, status)
+            .then(() => get().loadBootstrap())
+            .catch((error) => set({ apiError: error instanceof Error ? error.message : 'Could not update ticket status.' }));
+          return;
+        }
+        set((state) => ({
+          supportTickets: state.supportTickets.map((ticket) => (ticket.id === id ? normalizeSupportTicket({ ...ticket, status }) : ticket)),
+          auditLogs: [normalizeAuditLog({
+            id: crypto.randomUUID(),
+            actor: get().currentUser?.name || 'Website Owner',
+            action: `Set ticket status to ${status}`,
+            target: state.supportTickets.find((ticket) => ticket.id === id)?.subject || id,
+            ts: Date.now(),
+          }), ...state.auditLogs].slice(0, state.platformSettings.auditCap),
+        }));
+      },
+
+      assignTicket: (id, assignee) => {
+        const token = get().token;
+        if (token) {
+          platformApi.assignTicketToMe(id)
+            .then(() => get().loadBootstrap())
+            .catch((error) => set({ apiError: error instanceof Error ? error.message : 'Could not assign ticket.' }));
+          return;
+        }
+        set((state) => ({
+          supportTickets: state.supportTickets.map((ticket) => (ticket.id === id ? normalizeSupportTicket({ ...ticket, assignedTo: assignee }) : ticket)),
+          auditLogs: [normalizeAuditLog({
+            id: crypto.randomUUID(),
+            actor: get().currentUser?.name || 'Website Owner',
+            action: 'Assigned support ticket',
+            target: state.supportTickets.find((ticket) => ticket.id === id)?.subject || id,
+            detail: assignee,
+            ts: Date.now(),
+          }), ...state.auditLogs].slice(0, state.platformSettings.auditCap),
+        }));
+      },
+
+      markNotificationsSeen: () => set({ lastSeenNotificationsAt: Date.now() }),
+      clearShopCredentials: () => set({ shopCredentials: null }),
+
+      placeOrder: async (o) => {
+        const store = get().stores.find((s) => s.id === o.storeId);
+        if (store) {
+          const cartItems = o.items ?? get().carts[o.storeId] ?? [];
+          const { order } = await placePublicOrder(store.slug, {
+            customerName: o.customerName,
+            customerEmail: o.customerEmail,
+            customerPhone: o.customerPhone,
+            shippingAddress: o.shippingAddress,
+            discountCode: o.discountCode,
+            note: o.note,
+            // Idempotency: a retried submit (double-click / network retry) reuses this key.
+            idempotencyKey: o.idempotencyKey ?? crypto.randomUUID(),
+            items: cartItems,
+          });
+          set((state) => ({
+            orders: [normalizeOrder(order), ...state.orders.filter((item) => item.id !== order.id)],
+            carts: { ...state.carts, [o.storeId]: [] },
+          }));
+          return order.id;
+        }
         const id = crypto.randomUUID();
         const state = get();
-        const store = state.stores.find((s) => s.id === o.storeId);
-        if (!store) throw new Error('Store not found');
+        const fallbackStore = state.stores.find((s) => s.id === o.storeId);
+        if (!fallbackStore) throw new Error('Store not found');
         const cartItems = o.items ?? state.carts[o.storeId] ?? [];
         const discountCode = o.discountCode?.trim().toUpperCase();
         const discount = discountCode ? state.discounts.find((d) => d.storeId === o.storeId && d.code === discountCode) : undefined;
-        const summary = computeOrderSummary(store, state.products, cartItems, discount);
+        const summary = computeOrderSummary(fallbackStore, state.products, cartItems, discount);
         if (summary.items.length === 0) throw new Error('No order items');
 
         const order: Order = {
@@ -589,62 +1091,113 @@ export const useStore = create<AppState>()(
         }));
         return id;
       },
-      approveOrder: (id) => {
-        set((state) => ({
-          orders: state.orders.map((o) => (o.id === id ? { ...o, status: 'APPROVED' } : o)),
-        }));
+      approveOrder: (storeId, id) => {
+        const token = get().token;
+        if (token) {
+          // Single authority: the store-scoped endpoint. Platform owners reach it via
+          // their oversight store access.
+          adminApi.approveOrder(storeId, id)
+            .then(() => get().loadBootstrap())
+            .catch((error) => set({ apiError: error instanceof Error ? error.message : 'Could not approve order.' }));
+          return;
+        }
+        set((state) => {
+          const order = state.orders.find((o) => o.id === id);
+          if (!order || order.storeId !== storeId || !canManage(state.currentUser, state.stores, storeId)) return state;
+          return { orders: state.orders.map((o) => (o.id === id ? { ...o, status: 'APPROVED' } : o)) };
+        });
       },
-      rejectOrder: (id) => {
-        set((state) => ({
-          orders: state.orders.map((o) => (o.id === id ? { ...o, status: 'REJECTED' } : o)),
-        }));
+      rejectOrder: (storeId, id) => {
+        const token = get().token;
+        if (token) {
+          adminApi.rejectOrder(storeId, id, 'Rejected by admin')
+            .then(() => get().loadBootstrap())
+            .catch((error) => set({ apiError: error instanceof Error ? error.message : 'Could not reject order.' }));
+          return;
+        }
+        set((state) => {
+          const order = state.orders.find((o) => o.id === id);
+          if (!order || order.storeId !== storeId || !canManage(state.currentUser, state.stores, storeId)) return state;
+          return { orders: state.orders.map((o) => (o.id === id ? { ...o, status: 'REJECTED' } : o)) };
+        });
       },
-      fulfillOrder: (id) => {
-        set((state) => ({
-          orders: state.orders.map((o) => (o.id === id ? { ...o, status: 'FULFILLED' } : o)),
-        }));
+      fulfillOrder: (storeId, id) => {
+        const token = get().token;
+        if (token) {
+          adminApi.fulfillOrder(storeId, id)
+            .then(() => get().loadBootstrap())
+            .catch((error) => set({ apiError: error instanceof Error ? error.message : 'Could not fulfill order.' }));
+          return;
+        }
+        set((state) => {
+          const order = state.orders.find((o) => o.id === id);
+          if (!order || order.storeId !== storeId || !canManage(state.currentUser, state.stores, storeId)) return state;
+          return { orders: state.orders.map((o) => (o.id === id ? { ...o, status: 'FULFILLED' } : o)) };
+        });
       },
 
-      resetDemo: () => {
+      clearSession: () => {
         set({
-          stores: seedStores.map(normalizeStore),
-          products: seedProducts.map(normalizeProduct),
-          orders: seedOrders.map(normalizeOrder),
-          discounts: seedDiscounts.map(normalizeDiscount),
-          analyticsEvents: pruneAnalyticsEvents(seedAnalyticsEvents),
-          platformSettings: normalizePlatformSettings(seedPlatformSettings),
-          supportTickets: seedSupportTickets.map(normalizeSupportTicket),
-          productFlags: seedProductFlags.map(normalizeProductFlag),
-          shopRequests: seedShopRequests.map(normalizeShopRequest),
-          auditLogs: seedAuditLogs.map(normalizeAuditLog),
-          ownerStatuses: seedOwnerStatuses,
+          stores: [],
+          products: [],
+          orders: [],
+          discounts: [],
+          analyticsEvents: [],
+          platformSettings: emptyPlatformSettings,
+          supportTickets: [],
+          productFlags: [],
+          shopRequests: [],
+          auditLogs: [],
+          ownerStatuses: {},
           carts: {},
+          lastSeenNotificationsAt: 0,
           currentUser: null,
+          token: null,
+          refreshToken: null,
+          apiError: null,
         });
       },
     }),
     {
       name: 'plinth-v1',
-      version: 6,
+      version: 8,
       migrate: (persisted: any) => {
+        // v8 moves runtime entities to the backend. Keep auth/cart state only.
         const state = persisted?.state ? persisted.state : persisted;
         return {
           ...state,
-          stores: (state?.stores || seedStores).map(normalizeStore),
-          products: (state?.products || seedProducts).map(normalizeProduct),
-          orders: (state?.orders || seedOrders).map(normalizeOrder),
-          discounts: (state?.discounts || seedDiscounts).map(normalizeDiscount),
-          analyticsEvents: pruneAnalyticsEvents(state?.analyticsEvents || seedAnalyticsEvents),
-          platformSettings: normalizePlatformSettings(state?.platformSettings || seedPlatformSettings),
-          supportTickets: (state?.supportTickets || seedSupportTickets).map(normalizeSupportTicket),
-          productFlags: (state?.productFlags || seedProductFlags).map(normalizeProductFlag),
-          shopRequests: (state?.shopRequests || seedShopRequests).map(normalizeShopRequest),
-          auditLogs: (state?.auditLogs || seedAuditLogs).map(normalizeAuditLog),
-          ownerStatuses: state?.ownerStatuses || seedOwnerStatuses,
+          stores: [],
+          products: [],
+          orders: [],
+          discounts: [],
+          analyticsEvents: [],
+          platformSettings: emptyPlatformSettings,
+          supportTickets: [],
+          productFlags: [],
+          shopRequests: [],
+          auditLogs: [],
+          ownerStatuses: {},
           carts: state?.carts || {},
+          lastSeenNotificationsAt: state?.lastSeenNotificationsAt ?? 0,
           currentUser: state?.currentUser ?? null,
+          token: state?.token ?? null,
+          refreshToken: state?.refreshToken ?? null,
+          apiError: null,
         };
       },
+      partialize: (state) => ({
+        token: state.token,
+        refreshToken: state.refreshToken,
+        currentUser: state.currentUser,
+        carts: state.carts,
+        lastSeenNotificationsAt: state.lastSeenNotificationsAt,
+      }),
     }
   )
 );
+
+configureApiClient({
+  getToken: () => useStore.getState().token,
+  onUnauthorized: () => useStore.getState().clearSession(),
+  onRefresh: () => useStore.getState().refreshAccessToken(),
+});

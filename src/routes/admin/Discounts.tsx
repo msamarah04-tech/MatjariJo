@@ -1,215 +1,167 @@
-import { useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
 import { z } from 'zod';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Discount } from '@/lib/types';
-import { getDiscountStatus } from '@/lib/checkout';
+import { BadgePercent, Plus } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { money } from '@/lib/format';
+import { getDiscountStatus } from '@/lib/checkout';
+import { Discount } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Field } from '@/components/ui/Field';
-import { EmptyState } from '@/components/ui/EmptyState';
-import { Modal } from '@/components/ui/Modal';
+import { PageHeader } from '@/components/ui/dashboard';
+import { ResourceTable, Column } from '@/components/ui/ResourceTable';
+import { FieldDef, ResourceFormDrawer } from '@/components/ui/ResourceFormDrawer';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { toast } from '@/components/ui/Toast';
-import { BadgePercent, Pencil, Plus, Trash2 } from 'lucide-react';
+import { useFocusParam } from '@/lib/useFocusParam';
+import { cn } from '@/lib/cn';
+import { useAdminContext, useStoreDiscounts } from './shared';
 
-const formSchema = z.object({
-  code: z.string().min(2, 'Code is required'),
-  type: z.enum(['PERCENT', 'FIXED', 'FREE_SHIPPING']),
-  valueText: z.string().optional(),
-  minSubtotalText: z.string().optional(),
-  usageLimitText: z.string().optional(),
-  expiresDate: z.string().optional(),
-  active: z.boolean(),
-});
+const typeLabel = (d: Discount, currency: string) =>
+  d.type === 'PERCENT' ? `${d.value}% off` : d.type === 'FIXED' ? `${money(d.value, currency)} off` : 'Free shipping';
 
-type FormValues = z.infer<typeof formSchema>;
+const statusTone = (status: string) =>
+  status === 'Valid' ? 'border-green-200 bg-green-50 text-green-700' : status === 'Inactive' ? 'border-line bg-paper text-muted' : 'border-amber-200 bg-amber-50 text-amber-700';
 
 export default function Discounts() {
-  const storeId = useOutletContext<string>();
-  const { discounts, stores, addDiscount, updateDiscount, deleteDiscount } = useStore();
-  const store = stores.find((s) => s.id === storeId);
-  const storeDiscounts = discounts.filter((d) => d.storeId === storeId).sort((a, b) => b.createdAt - a.createdAt);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const { storeId, store } = useAdminContext();
+  const addDiscount = useStore((s) => s.addDiscount);
+  const updateDiscount = useStore((s) => s.updateDiscount);
+  const deleteDiscount = useStore((s) => s.deleteDiscount);
+  const scopedDiscounts = useStoreDiscounts(storeId);
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      code: '',
-      type: 'PERCENT',
-      valueText: '10',
-      minSubtotalText: '',
-      usageLimitText: '',
-      expiresDate: '',
-      active: true,
-    },
-  });
+  const [editing, setEditing] = useState<Discount | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [deleting, setDeleting] = useState<Discount | null>(null);
+  const [focusId, clearFocus] = useFocusParam();
 
-  const selectedType = form.watch('type');
+  const storeDiscounts = useMemo(() => [...scopedDiscounts].sort((a, b) => b.createdAt - a.createdAt), [scopedDiscounts]);
 
-  const handleOpenModal = (discount?: Discount) => {
-    form.reset({
-      code: discount?.code || '',
-      type: discount?.type || 'PERCENT',
-      valueText: discount?.type === 'FREE_SHIPPING' ? '' : discount?.type === 'FIXED' ? ((discount.value || 0) / 100).toString() : (discount?.value ?? 10).toString(),
-      minSubtotalText: discount?.minSubtotalCents ? (discount.minSubtotalCents / 100).toString() : '',
-      usageLimitText: discount?.usageLimit ? discount.usageLimit.toString() : '',
-      expiresDate: discount?.expiresAt ? new Date(discount.expiresAt).toISOString().slice(0, 10) : '',
-      active: discount?.active ?? true,
-    });
-    setEditingId(discount?.id || null);
-    setIsModalOpen(true);
-  };
+  useEffect(() => {
+    if (!focusId) return;
+    const discount = storeDiscounts.find((d) => d.id === focusId);
+    if (discount) { setEditing(discount); setDrawerOpen(true); }
+    clearFocus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusId]);
 
-  const onSubmit = (data: FormValues) => {
-    const code = data.code.trim().toUpperCase();
-    const duplicate = storeDiscounts.some((d) => d.code === code && d.id !== editingId);
-    if (duplicate) {
-      form.setError('code', { message: 'Code must be unique for this store' });
-      return;
+  const editingId = editing?.id ?? null;
+  const schema = useMemo(() => z.object({
+    code: z.string().min(2, 'Code is required').refine(
+      (code) => !storeDiscounts.some((d) => d.code === code.trim().toUpperCase() && d.id !== editingId),
+      'Code already exists for this store'
+    ),
+    type: z.enum(['PERCENT', 'FIXED', 'FREE_SHIPPING']),
+    valuePercent: z.string().optional(),
+    valueFixed: z.string().optional(),
+    minSubtotalCents: z.union([z.literal(''), z.coerce.number().nonnegative()]).optional(),
+    usageLimit: z.union([z.literal(''), z.coerce.number().int().positive('Must be > 0')]).optional(),
+    expiresAt: z.string().optional(),
+    active: z.boolean().optional(),
+  }).superRefine((data, ctx) => {
+    if (data.type === 'PERCENT') {
+      const v = Number(data.valuePercent);
+      if (!data.valuePercent || Number.isNaN(v) || v <= 0 || v > 100) ctx.addIssue({ code: 'custom', path: ['valuePercent'], message: 'Enter 1–100' });
     }
-
-    const value = data.type === 'FREE_SHIPPING'
-      ? 0
-      : data.type === 'FIXED'
-        ? Math.round(parseFloat(data.valueText || '0') * 100)
-        : Math.round(parseFloat(data.valueText || '0'));
-
-    if (data.type === 'PERCENT' && (value <= 0 || value > 100)) {
-      form.setError('valueText', { message: 'Percent must be between 1 and 100' });
-      return;
+    if (data.type === 'FIXED') {
+      const v = Number(data.valueFixed);
+      if (!data.valueFixed || Number.isNaN(v) || v <= 0) ctx.addIssue({ code: 'custom', path: ['valueFixed'], message: 'Must be greater than 0' });
     }
-    if (data.type === 'FIXED' && value <= 0) {
-      form.setError('valueText', { message: 'Fixed amount must be greater than 0' });
-      return;
-    }
+  }), [storeDiscounts, editingId]);
 
+  const fields: FieldDef[] = [
+    { name: 'code', label: 'Code', required: true, placeholder: 'WELCOME10' },
+    { name: 'type', label: 'Type', type: 'select', options: [
+      { value: 'PERCENT', label: 'Percent off' },
+      { value: 'FIXED', label: 'Fixed amount' },
+      { value: 'FREE_SHIPPING', label: 'Free shipping' },
+    ] },
+    { name: 'valuePercent', label: 'Percent off', type: 'number', step: '1', placeholder: '10', show: (v) => v.type === 'PERCENT' },
+    { name: 'valueFixed', label: 'Amount off', type: 'money', show: (v) => v.type === 'FIXED' },
+    { name: 'minSubtotalCents', label: 'Minimum subtotal', type: 'money', hint: 'Optional' },
+    { name: 'usageLimit', label: 'Usage limit', type: 'number', placeholder: 'Optional' },
+    { name: 'expiresAt', label: 'Expiry date', type: 'date' },
+    { name: 'active', label: 'Active', type: 'checkbox', hint: 'Customers can apply this code at checkout.' },
+  ];
+
+  const onSubmit = (values: Record<string, unknown>) => {
+    const type = values.type as Discount['type'];
+    const value = type === 'PERCENT' ? Number(values.valuePercent) : type === 'FIXED' ? (values.valueFixed as number) : 0;
     const payload = {
-      code,
-      type: data.type,
+      code: (values.code as string).trim().toUpperCase(),
+      type,
       value,
-      minSubtotalCents: data.minSubtotalText ? Math.round(parseFloat(data.minSubtotalText) * 100) : undefined,
-      usageLimit: data.usageLimitText ? parseInt(data.usageLimitText, 10) : undefined,
-      expiresAt: data.expiresDate ? new Date(`${data.expiresDate}T23:59:59`).getTime() : undefined,
-      active: data.active,
+      minSubtotalCents: values.minSubtotalCents as number | undefined,
+      usageLimit: values.usageLimit as number | undefined,
+      expiresAt: values.expiresAt ? new Date(`${values.expiresAt as string}T23:59:59`).getTime() : undefined,
+      active: (values.active as boolean) ?? true,
     };
-
-    if (editingId) {
-      updateDiscount(editingId, payload);
-      toast({ title: 'Discount updated', type: 'success' });
-    } else {
-      addDiscount(storeId, payload);
-      toast({ title: 'Discount created', type: 'success' });
-    }
-    setIsModalOpen(false);
+    if (editing) { updateDiscount(storeId, editing.id, payload); toast({ title: 'Discount updated', type: 'success' }); }
+    else { addDiscount(storeId, payload); toast({ title: 'Discount created', type: 'success' }); }
   };
 
-  const statusClass = (status: string) => status === 'Valid'
-    ? 'bg-green-50 text-green-700 border-green-200'
-    : 'bg-amber-50 text-amber-700 border-amber-200';
+  const columns: Column<Discount>[] = [
+    { key: 'code', label: 'Code', sortable: true, render: (d) => <span className="font-mono text-base font-black text-ink">{d.code}</span> },
+    { key: 'value', label: 'Reward', render: (d) => <span className="text-muted">{typeLabel(d, store.currency)}</span>, sortValue: (d) => d.type },
+    { key: 'minSubtotalCents', label: 'Minimum', align: 'right', hideOnMobile: true, render: (d) => <span className="text-muted">{d.minSubtotalCents ? money(d.minSubtotalCents, store.currency) : '—'}</span> },
+    { key: 'usedCount', label: 'Used', align: 'right', sortable: true, render: (d) => <span className="font-semibold">{d.usedCount}{d.usageLimit ? ` / ${d.usageLimit}` : ''}</span> },
+    { key: 'expiresAt', label: 'Expires', align: 'right', hideOnMobile: true, sortable: true, sortValue: (d) => d.expiresAt ?? Number.MAX_SAFE_INTEGER, render: (d) => <span className="text-muted">{d.expiresAt ? new Date(d.expiresAt).toLocaleDateString() : '—'}</span> },
+    { key: 'active', label: 'Status', align: 'right', render: (d) => {
+      const status = getDiscountStatus(d, Number.MAX_SAFE_INTEGER);
+      return <span className={cn('rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-widest', statusTone(status))}>{status}</span>;
+    } },
+  ];
 
-  if (!store) return null;
+  const openCreate = () => { setEditing(null); setDrawerOpen(true); };
 
   return (
-    <div className="animate-fade-in flex flex-col h-full">
-      <div className="flex flex-col md:flex-row md:items-end justify-between border-b border-line pb-6 mb-8 gap-4">
-        <div>
-          <h2 className="font-heading font-black text-4xl text-ink tracking-tight mb-2">Discounts</h2>
-          <p className="text-muted text-lg">Create promo codes for checkout.</p>
-        </div>
-        <Button onClick={() => handleOpenModal()} className="font-bold shrink-0 shadow-xs">
-          <Plus className="w-4 h-4 mr-2" /> New Discount
-        </Button>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Discounts"
+        subtitle="Promo codes customers can apply at checkout."
+        action={<Button variant="accent" className="gap-2" onClick={openCreate}><Plus className="h-4 w-4" /> New discount</Button>}
+      />
 
-      {storeDiscounts.length === 0 ? (
-        <EmptyState
-          icon={BadgePercent}
-          title="No discount codes yet"
-          description="Create percent, fixed amount, or free shipping codes for this store."
-          action={<Button onClick={() => handleOpenModal()}><Plus className="w-4 h-4 mr-2" /> Create a code</Button>}
-        />
-      ) : (
-        <div className="space-y-3">
-          {storeDiscounts.map((discount) => {
-            const status = getDiscountStatus(discount, Number.MAX_SAFE_INTEGER);
-            return (
-              <div key={discount.id} className="bg-surface border border-line rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-5">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2 mb-2">
-                    <span className="font-mono text-lg font-black text-ink">{discount.code}</span>
-                    <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full border ${statusClass(status)}`}>{status}</span>
-                  </div>
-                  <div className="text-sm text-muted flex flex-wrap gap-x-4 gap-y-1">
-                    <span>{discount.type === 'PERCENT' ? `${discount.value}% off` : discount.type === 'FIXED' ? `${money(discount.value, store.currency)} off` : 'Free shipping'}</span>
-                    {discount.minSubtotalCents ? <span>Min {money(discount.minSubtotalCents, store.currency)}</span> : <span>No minimum</span>}
-                    <span>Used {discount.usedCount}{discount.usageLimit ? ` / ${discount.usageLimit}` : ''}</span>
-                    {discount.expiresAt && <span>Expires {new Date(discount.expiresAt).toLocaleDateString()}</span>}
-                  </div>
-                </div>
-                <div className="flex gap-2 shrink-0">
-                  <Button variant="ghost" size="sm" onClick={() => handleOpenModal(discount)}><Pencil className="w-4 h-4" /></Button>
-                  <Button variant="ghost" size="sm" onClick={() => {
-                    if (window.confirm(`Delete ${discount.code}?`)) {
-                      deleteDiscount(discount.id);
-                      toast({ title: 'Discount deleted' });
-                    }
-                  }}><Trash2 className="w-4 h-4 text-red-600" /></Button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+      <ResourceTable
+        rows={storeDiscounts}
+        columns={columns}
+        getId={(d) => d.id}
+        searchKeys={['code']}
+        searchPlaceholder="Search by code"
+        onRowClick={(d) => { setEditing(d); setDrawerOpen(true); }}
+        onEdit={(d) => { setEditing(d); setDrawerOpen(true); }}
+        onDelete={(d) => setDeleting(d)}
+        emptyIcon={BadgePercent}
+        emptyTitle="No discount codes yet"
+        emptyText="Create percent, fixed amount, or free-shipping codes for this store."
+        emptyAction={<Button variant="accent" onClick={openCreate}><Plus className="mr-2 h-4 w-4" /> Create a code</Button>}
+      />
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingId ? 'Edit Discount' : 'New Discount'}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <Field label="Code" error={form.formState.errors.code?.message}>
-              <Input {...form.register('code')} placeholder="WELCOME10" className="uppercase" />
-            </Field>
-            <Field label="Type" error={form.formState.errors.type?.message}>
-              <select {...form.register('type')} className="w-full h-10 rounded-md border border-line bg-surface px-3 py-2 text-sm font-semibold text-ink focus:outline-none focus:ring-1 focus:ring-accent">
-                <option value="PERCENT">Percent off</option>
-                <option value="FIXED">Fixed amount</option>
-                <option value="FREE_SHIPPING">Free shipping</option>
-              </select>
-            </Field>
+      <ResourceFormDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        title={editing ? 'Edit discount' : 'New discount'}
+        description={editing ? editing.code : 'Create a checkout promo code.'}
+        record={editing}
+        fields={fields}
+        schema={schema}
+        defaultValues={{ code: '', type: 'PERCENT', valuePercent: '10', valueFixed: '', minSubtotalCents: '', usageLimit: '', expiresAt: '', active: true }}
+        toForm={(r) => ({
+          valuePercent: r.type === 'PERCENT' ? String(r.value) : '',
+          valueFixed: r.type === 'FIXED' ? String((r.value as number) / 100) : '',
+          expiresAt: r.expiresAt ? new Date(r.expiresAt as number).toISOString().slice(0, 10) : '',
+        })}
+        onSubmit={onSubmit}
+        submitLabel={editing ? 'Save changes' : 'Create discount'}
+      />
 
-            {selectedType !== 'FREE_SHIPPING' && (
-              <Field label={selectedType === 'PERCENT' ? 'Percent value' : 'Fixed amount ($)'} error={form.formState.errors.valueText?.message}>
-                <Input {...form.register('valueText')} type="number" step={selectedType === 'PERCENT' ? '1' : '0.01'} placeholder={selectedType === 'PERCENT' ? '10' : '5.00'} />
-              </Field>
-            )}
-
-            <Field label="Minimum subtotal ($)" error={form.formState.errors.minSubtotalText?.message}>
-              <Input {...form.register('minSubtotalText')} type="number" step="0.01" placeholder="Optional" />
-            </Field>
-            <Field label="Usage limit" error={form.formState.errors.usageLimitText?.message}>
-              <Input {...form.register('usageLimitText')} type="number" step="1" placeholder="Optional" />
-            </Field>
-            <Field label="Expiry date" error={form.formState.errors.expiresDate?.message}>
-              <Input {...form.register('expiresDate')} type="date" />
-            </Field>
-          </div>
-
-          <label className="flex items-center gap-3 p-3 border border-line rounded-lg cursor-pointer hover:bg-line/20 transition-colors">
-            <input type="checkbox" {...form.register('active')} className="w-4 h-4 rounded text-accent focus:ring-accent accent-accent" />
-            <div className="flex flex-col">
-              <span className="text-sm font-semibold text-ink">Active</span>
-              <span className="text-xs text-muted">Allow customers to apply this code.</span>
-            </div>
-          </label>
-
-          <div className="pt-2 flex justify-end gap-3">
-            <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-            <Button type="submit" variant="solid">{editingId ? 'Save Changes' : 'Create Discount'}</Button>
-          </div>
-        </form>
-      </Modal>
+      <ConfirmDialog
+        isOpen={Boolean(deleting)}
+        title="Delete this discount?"
+        description={deleting ? `Code “${deleting.code}” will no longer work at checkout.` : ''}
+        confirmLabel="Delete"
+        destructive
+        onCancel={() => setDeleting(null)}
+        onConfirm={() => { if (deleting) { deleteDiscount(storeId, deleting.id); toast({ title: 'Discount deleted' }); } setDeleting(null); }}
+      />
     </div>
   );
 }

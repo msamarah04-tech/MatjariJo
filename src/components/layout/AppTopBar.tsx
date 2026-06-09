@@ -52,7 +52,7 @@ export function AppTopBar() {
             <div className="font-logo font-black text-3xl tracking-tighter text-ink">
               PLINTH<span className="text-accent">.</span>
             </div>
-            <span className="bg-line text-muted text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-sm ml-2 hidden sm:inline-block">Prototype</span>
+            <span className="bg-line text-muted text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-sm ml-2 hidden sm:inline-block">Workspace</span>
           </div>
           
           <nav className="hidden md:flex gap-6 text-sm font-semibold uppercase tracking-wider text-muted">

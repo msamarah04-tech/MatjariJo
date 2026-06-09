@@ -6,3 +6,12 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Local SQLite + backups + e2e artifacts
+backups/
+prisma/dev.db
+*.db-wal
+*.db-shm
+prisma/shadow.db
+test-results/
+playwright-report/

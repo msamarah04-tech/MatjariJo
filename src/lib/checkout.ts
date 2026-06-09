@@ -1,13 +1,20 @@
 import { Discount, Product, Store } from './types';
+import { taxFromBase } from '@shared/money';
+import { findCartVariant, lineMaxQuantity, lineUnitPrice, isVariableProduct } from './productOptions';
 
 export interface CartLine {
   productId: string;
+  variantId?: string;
   quantity: number;
 }
 
 export interface OrderLine {
   productId: string;
+  variantId?: string;
   productName: string;
+  variantTitle?: string;
+  sku?: string;
+  imageUrl?: string;
   priceCents: number;
   quantity: number;
 }
@@ -16,6 +23,7 @@ export interface SummaryResult {
   items: OrderLine[];
   subtotalCents: number;
   discountCents: number;
+  taxCents: number;
   shippingCents: number;
   totalCents: number;
   discountCode?: string;
@@ -26,12 +34,20 @@ export function getActiveOrderItems(cartItems: CartLine[], products: Product[]):
   return cartItems
     .map((item) => {
       const product = products.find((p) => p.id === item.productId);
-      if (!product || !product.isActive || product.stock <= 0) return null;
+      if (!product || !product.isActive) return null;
+      const variant = findCartVariant(product, item);
+      if (isVariableProduct(product) && !variant) return null;
+      const stock = lineMaxQuantity(product, variant);
+      if (stock <= 0) return null;
       return {
         productId: product.id,
+        variantId: variant?.id,
         productName: product.name,
-        priceCents: product.priceCents,
-        quantity: Math.min(item.quantity, product.stock),
+        variantTitle: variant?.title,
+        sku: variant?.sku || product.details?.sku,
+        imageUrl: variant?.imageUrl || product.imageUrl,
+        priceCents: lineUnitPrice(product, variant),
+        quantity: Math.min(item.quantity, stock),
       };
     })
     .filter(Boolean) as OrderLine[];
@@ -74,12 +90,20 @@ export function computeOrderSummary(store: Store, products: Product[], cartItems
   const discountCents = getDiscountCents(validDiscount, subtotalCents);
   const freeShipping = validDiscount?.type === 'FREE_SHIPPING';
   const shippingCents = getShippingCents(store, subtotalCents, freeShipping);
+  // Mirror the server's GST math so the cart preview matches the final order/invoice.
+  const taxableBase = Math.max(0, subtotalCents - discountCents);
+  const pricesIncludeTax = store.pricesIncludeTax ?? false;
+  const taxCents = taxFromBase(taxableBase, store.taxRateBps ?? 0, pricesIncludeTax);
+  const totalCents = pricesIncludeTax
+    ? taxableBase + shippingCents
+    : taxableBase + taxCents + shippingCents;
   return {
     items,
     subtotalCents,
     discountCents,
+    taxCents,
     shippingCents,
-    totalCents: Math.max(0, subtotalCents - discountCents + shippingCents),
+    totalCents: Math.max(0, totalCents),
     discountCode: validDiscount?.code,
     freeShipping,
   };

@@ -1,8 +1,20 @@
-export function money(cents: number, currency: string = 'USD'): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-  }).format(cents / 100);
+import { formatMoney, DEFAULT_CURRENCY } from '@shared/money';
+
+// The active locale is set by the i18n LanguageProvider so every money() call across
+// the app becomes locale-aware (Arabic-Indic numerals in Arabic) without threading a
+// locale through every call site. Callers may still pass an explicit locale.
+let currentLocale = 'en-JO';
+export function setMoneyLocale(locale: string) {
+  currentLocale = locale;
+}
+
+/**
+ * Format an integer minor-unit amount as localized currency. Currency-aware: JOD
+ * renders 3 decimals (fils), USD 2. The legacy name `cents` is kept for callers;
+ * the value is interpreted as the currency's minor unit.
+ */
+export function money(cents: number, currency: string = DEFAULT_CURRENCY, locale: string = currentLocale): string {
+  return formatMoney(cents, currency, locale);
 }
 
 export function timeAgo(ts: number): string {

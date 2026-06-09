@@ -2,6 +2,7 @@ import { Navigate } from 'react-router-dom';
 import { useStore } from '@/lib/store';
 import { Role } from '@/lib/types';
 import { ReactNode } from 'react';
+import { ChangePassword } from './ChangePassword';
 
 interface RequireRoleProps {
   role?: Role | Role[];
@@ -9,10 +10,19 @@ interface RequireRoleProps {
 }
 
 export function RequireRole({ role, children }: RequireRoleProps) {
-  const { currentUser } = useStore();
+  const { currentUser, token, isHydrating } = useStore();
+
+  if (!currentUser && token && isHydrating) {
+    return <div className="min-h-screen bg-paper p-8 text-sm font-bold text-muted">Loading workspace...</div>;
+  }
 
   if (!currentUser) {
     return <Navigate to="/sign-in" replace />;
+  }
+
+  // Forced one-time-password rotation gates everything until completed.
+  if (currentUser.mustChangePassword) {
+    return <ChangePassword />;
   }
 
   if (role) {

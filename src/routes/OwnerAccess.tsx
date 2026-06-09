@@ -1,18 +1,8 @@
-import { useNavigate } from 'react-router-dom';
-import { useStore } from '@/lib/store';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
 import { ShieldCheck } from 'lucide-react';
 
 export default function OwnerAccess() {
-  const signInAs = useStore((s) => s.signInAs);
-  const navigate = useNavigate();
-
-  const enterPlatform = () => {
-    signInAs('PLATFORM_OWNER');
-    navigate('/platform/analytics');
-  };
-
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-ink text-surface">
       <Card className="w-full max-w-md bg-surface text-ink animate-fade-up">
@@ -26,9 +16,9 @@ export default function OwnerAccess() {
           </p>
         </CardHeader>
         <CardContent className="pb-10 px-8">
-          <Button size="lg" className="w-full" onClick={enterPlatform}>
+          <Link to="/sign-in" className="inline-flex h-12 w-full items-center justify-center rounded-md bg-ink px-6 text-lg font-semibold text-surface transition-colors hover:bg-ink/90 active:scale-95">
             Enter Platform Control
-          </Button>
+          </Link>
         </CardContent>
       </Card>
     </div>

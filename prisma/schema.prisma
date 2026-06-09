@@ -1,0 +1,329 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  username     String   @unique
+  passwordHash String
+  name         String?
+  role         String
+  ownerStatus  String   @default("ACTIVE")
+  // Bumped on logout / password change / reset; embedded in JWTs and checked per
+  // request so old or stolen tokens stop working (server-side revocation).
+  tokenVersion       Int       @default(0)
+  // Generated shop-owner accounts must rotate their one-time password on first login.
+  mustChangePassword Boolean   @default(false)
+  // Per-account brute-force lockout (persisted so it survives restarts).
+  failedLoginCount   Int       @default(0)
+  lockedUntil        DateTime?
+  passwordChangedAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  stores          Store[]
+  assignedTickets SupportTicket[] @relation("TicketAssignee")
+  createdTickets  SupportTicket[] @relation("TicketCreator")
+  ticketMessages  TicketMessage[]
+  auditLogs       AuditLog[]
+}
+
+model Store {
+  id                    String   @id @default(cuid())
+  ownerId               String
+  owner                 User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  slug                  String   @unique
+  name                  String
+  tagline               String   @default("")
+  category              String   @default("General")
+  logoUrl               String?
+  logoEmoji             String?
+  announcement          String   @default("")
+  about                 String   @default("")
+  themeId               String   @default("mono")
+  storefrontTemplate    String   @default("editorial")
+  themeOverrides         String?
+  currency              String   @default("JOD")
+  status                String   @default("ACTIVE")
+  reviewStatus          String   @default("APPROVED")
+  suspensionReason      String   @default("")
+  internalNote          String   @default("")
+  isFeatured            Boolean  @default(false)
+  commissionOverrideBps Int?
+  shippingType          String   @default("FLAT")
+  shippingFlatCents     Int?
+  freeOverCents         Int?
+  // Jordan tax + invoicing (GST). taxRateBpsOverride falls back to the platform default.
+  taxRateBpsOverride    Int?
+  pricesIncludeTax      Boolean  @default(false)
+  taxRegistrationNumber String?
+  contactPhone          String?
+  address               String?
+  // Monotonic per-store counter that backs sequential internal tax-invoice numbers.
+  nextInvoiceSeq        Int      @default(1)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  products        Product[]
+  orders          Order[]
+  discounts       Discount[]
+  analyticsEvents AnalyticsEvent[]
+  supportTickets  SupportTicket[]
+  productFlags    ProductFlag[]
+  shopRequests    ShopRequest[]
+
+  @@index([ownerId])
+  @@index([status])
+}
+
+model Product {
+  id             String   @id @default(cuid())
+  storeId        String
+  store          Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  name           String
+  description    String   @default("")
+  details        String   @default("{}")
+  category       String   @default("")
+  collection     String   @default("")
+  tags           String   @default("[]")
+  isFeatured     Boolean  @default(false)
+  compareAtCents Int?
+  priceCents     Int
+  imageUrl       String?
+  imageEmoji     String?
+  stock          Int      @default(0)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  orderItems      OrderItem[]
+  analyticsEvents AnalyticsEvent[]
+  flags           ProductFlag[]
+
+  @@index([storeId])
+  @@index([storeId, isActive])
+}
+
+model Order {
+  id              String   @id @default(cuid())
+  storeId         String
+  store           Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  customerName    String
+  customerEmail   String
+  customerPhone   String?
+  shippingAddress String?
+  status          String   @default("PENDING")
+  // Currency snapshot so historical orders format correctly even if the store changes currency.
+  currency        String   @default("JOD")
+  subtotalCents   Int
+  discountCents   Int      @default(0)
+  // GST applied at checkout (minor units) plus the rate/inclusive flag actually used.
+  taxCents        Int      @default(0)
+  taxRateBps      Int      @default(0)
+  pricesIncludeTax Boolean @default(false)
+  shippingCents   Int      @default(0)
+  totalCents      Int
+  // Platform commission captured at order time for internal settlement reporting.
+  commissionCents Int      @default(0)
+  // Cash on Delivery is the only method for now; the column keeps the seam for gateways.
+  paymentMethod   String   @default("COD")
+  discountCode    String?
+  note            String?
+  rejectionReason String?
+  // Checkout idempotency: a retried POST with the same key returns the original order.
+  idempotencyKey  String?
+  // Sequential internal tax-invoice number, assigned once the order is approved.
+  invoiceNumber   String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  items           OrderItem[]
+  analyticsEvents AnalyticsEvent[]
+
+  @@unique([storeId, idempotencyKey])
+  @@index([storeId])
+  @@index([storeId, status])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id                  String   @id @default(cuid())
+  orderId             String
+  order               Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId           String?
+  product             Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  variantId           String?
+  productNameSnapshot String
+  variantTitleSnapshot String?
+  variantSkuSnapshot   String?
+  variantImageUrlSnapshot String?
+  unitPriceCents      Int
+  quantity            Int
+  lineTotalCents      Int
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([variantId])
+}
+
+model Discount {
+  id               String    @id @default(cuid())
+  storeId          String
+  store            Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  code             String
+  type             String
+  value            Int
+  minSubtotalCents Int?
+  usageLimit       Int?
+  usedCount        Int       @default(0)
+  active           Boolean   @default(true)
+  expiresAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([storeId, code])
+  @@index([storeId])
+}
+
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  type      String
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  orderId   String?
+  order     Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  sessionId String?
+  metadata  String?
+  createdAt DateTime @default(now())
+
+  @@index([storeId, createdAt])
+  @@index([type, createdAt])
+}
+
+model SupportTicket {
+  id           String   @id @default(cuid())
+  storeId      String?
+  store        Store?   @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  subject      String
+  message      String
+  priority     String   @default("MEDIUM")
+  status       String   @default("OPEN")
+  assignedToId String?
+  assignedTo   User?    @relation("TicketAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  createdById  String?
+  createdBy    User?    @relation("TicketCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  messages TicketMessage[]
+
+  @@index([storeId])
+  @@index([status])
+}
+
+model TicketMessage {
+  id        String        @id @default(cuid())
+  ticketId  String
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId  String?
+  author    User?         @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  from      String
+  body      String
+  createdAt DateTime      @default(now())
+
+  @@index([ticketId])
+}
+
+model ProductFlag {
+  id        String   @id @default(cuid())
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  reason    String
+  reporter  String?
+  severity  String   @default("MEDIUM")
+  status    String   @default("OPEN")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([storeId])
+  @@index([productId])
+  @@index([status])
+}
+
+model ShopRequest {
+  id              String    @id @default(cuid())
+  ownerName       String
+  ownerEmail      String
+  storeName       String
+  category        String
+  tagline         String    @default("")
+  notes           String?
+  plan            String?
+  // Self-service credentials chosen by the requester. Only the bcrypt hash is stored;
+  // on approval the account is created with these so the owner already knows them.
+  desiredUsername String?
+  passwordHash    String?
+  rejectionReason String?
+  status          String    @default("PENDING")
+  storeId         String?
+  store           Store?    @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  reviewedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([status])
+  @@index([ownerEmail])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  actorEmail String?
+  actorName  String?
+  action     String
+  target     String
+  targetType String?
+  targetId   String?
+  detail     String?
+  // Security-relevant entries are append-only and exempt from auditCap pruning.
+  security   Boolean  @default(false)
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([actorEmail])
+  @@index([security])
+  @@index([targetType, targetId])
+}
+
+model PlatformSettings {
+  id                      String    @id @default("platform")
+  platformName            String    @default("Plinth")
+  commissionRateBps       Int       @default(800)
+  defaultCurrency         String    @default("JOD")
+  categories              String    @default("[\"Apparel\",\"Home\",\"Beauty\",\"Food\",\"Electronics\"]")
+  globalAnnouncement      String    @default("")
+  maintenanceMode         Boolean   @default(false)
+  supportEmail            String    @default("support@example.com")
+  auditCap                Int       @default(500)
+  autoFlagThreshold       Int       @default(3)
+  // Jordan GST defaults. Stores may override the rate; prices are exclusive by default.
+  taxRateBps              Int       @default(1600)
+  pricesIncludeTax        Boolean   @default(false)
+  taxLabel                String    @default("GST")
+  lastSeenNotificationsAt DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+}
