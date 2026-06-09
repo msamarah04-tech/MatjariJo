@@ -7,6 +7,10 @@ export type PublicStorePayload = {
   discounts: Discount[];
 };
 
+export type PublicStoreListPayload = {
+  stores: Store[];
+};
+
 export type PublicOrderPayload = {
   customerName: string;
   customerEmail?: string;
@@ -18,6 +22,8 @@ export type PublicOrderPayload = {
   idempotencyKey?: string;
   items: { productId: string; variantId?: string; quantity: number }[];
 };
+
+export const getPublicStores = () => apiFetch<PublicStoreListPayload>('/public/stores');
 
 export const getPublicStore = (slug: string) => apiFetch<PublicStorePayload>(`/public/stores/${slug}`);
 

@@ -20,6 +20,14 @@ import {
 
 export const storefrontRouter = Router();
 
+storefrontRouter.get('/public/stores', asyncRoute(async (req, res) => {
+  const stores = await prisma.store.findMany({
+    where: { status: 'ACTIVE' },
+    orderBy: [{ isFeatured: 'desc' }, { createdAt: 'desc' }],
+  });
+  res.json({ stores: stores.map(serializePublicStore) });
+}));
+
 storefrontRouter.get('/public/stores/:slug', asyncRoute(async (req, res) => {
   const store = await prisma.store.findFirst({
     where: { slug: req.params.slug },

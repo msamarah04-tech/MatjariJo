@@ -12,6 +12,8 @@ import OwnerAccess from '@/routes/OwnerAccess';
 import Platform from '@/routes/platform/Platform';
 import Admin from '@/routes/admin/Admin';
 import NewStore from '@/routes/admin/NewStore';
+import HowItWorks from '@/routes/HowItWorks';
+import Brands from '@/routes/Brands';
 
 const StorefrontRoot = lazy(() => import('@/routes/storefront/Storefront'));
 
@@ -50,6 +52,14 @@ const router = createHashRouter([
             <Platform />
           </RequireRole>
         ),
+      },
+      {
+        path: '/how-it-works',
+        element: <HowItWorks />,
+      },
+      {
+        path: '/brands',
+        element: <Brands />,
       },
       {
         path: '/request-website',

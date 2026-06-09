@@ -195,19 +195,24 @@ export default function Landing() {
 
           {/* center nav links */}
           <div className="hidden md:flex items-center gap-1">
-            {([
-              { label: t('navFeatures'), href: '#features' },
-              { label: t('navHowItWorks'), href: '#how-it-works' },
-              { label: t('navBrands'), href: '#brands' },
-            ] as const).map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                className="rounded-full px-4 py-2 text-xs font-bold uppercase tracking-widest text-stone-400 transition-all hover:bg-stone-100 hover:text-stone-900"
-              >
-                {link.label}
-              </a>
-            ))}
+            <a
+              href="#features"
+              className="rounded-full px-4 py-2 text-xs font-bold uppercase tracking-widest text-stone-400 transition-all hover:bg-stone-100 hover:text-stone-900"
+            >
+              {t('navFeatures')}
+            </a>
+            <Link
+              to="/how-it-works"
+              className="rounded-full px-4 py-2 text-xs font-bold uppercase tracking-widest text-stone-400 transition-all hover:bg-stone-100 hover:text-stone-900"
+            >
+              {t('navHowItWorks')}
+            </Link>
+            <Link
+              to="/brands"
+              className="rounded-full px-4 py-2 text-xs font-bold uppercase tracking-widest text-stone-400 transition-all hover:bg-stone-100 hover:text-stone-900"
+            >
+              {t('navBrands')}
+            </Link>
           </div>
 
           {/* right actions */}
