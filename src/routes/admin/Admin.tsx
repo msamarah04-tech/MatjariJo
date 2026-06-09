@@ -27,6 +27,8 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Button } from '@/components/ui/Button';
 import { AdminContextValue, StoreBadges, useStoreBadges } from './shared';
 import { CommandPalette } from './CommandPalette';
+import { useI18n } from '@/lib/i18n';
+import { LangToggle } from '@/components/ui/LangToggle';
 
 import Overview from './Overview';
 import Products from './Products';
@@ -34,11 +36,10 @@ import Orders from './Orders';
 import Discounts from './Discounts';
 import Appearance from './Appearance';
 
-// Analytics pulls in Recharts — load it on demand, like the platform dashboard.
 const Analytics = lazy(() => import('./Analytics'));
 
 interface NavItem {
-  label: string;
+  labelKey: string;
   to: string;
   icon: typeof LayoutDashboard;
   end?: boolean;
@@ -46,12 +47,12 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  { label: 'Overview', to: '', icon: LayoutDashboard, end: true },
-  { label: 'Products', to: 'products', icon: PackageSearch, badge: 'lowStock' },
-  { label: 'Orders', to: 'orders', icon: ClipboardList, badge: 'orders' },
-  { label: 'Discounts', to: 'discounts', icon: BadgePercent },
-  { label: 'Analytics', to: 'analytics', icon: BarChart3 },
-  { label: 'Appearance', to: 'appearance', icon: Paintbrush },
+  { labelKey: 'navOverview', to: '', icon: LayoutDashboard, end: true },
+  { labelKey: 'navProducts', to: 'products', icon: PackageSearch, badge: 'lowStock' },
+  { labelKey: 'navOrders', to: 'orders', icon: ClipboardList, badge: 'orders' },
+  { labelKey: 'navDiscounts', to: 'discounts', icon: BadgePercent },
+  { labelKey: 'navAnalytics', to: 'analytics', icon: BarChart3 },
+  { labelKey: 'navAppearance', to: 'appearance', icon: Paintbrush },
 ];
 
 export default function Admin() {
@@ -75,7 +76,6 @@ export default function Admin() {
   );
 }
 
-/** Pick the user's first store and redirect, or show the no-stores state. */
 function StoreResolver() {
   const stores = useStore((s) => s.stores);
   const currentUser = useStore((s) => s.currentUser);
@@ -102,7 +102,6 @@ function AdminShell() {
   const store = stores.find((s) => s.id === storeId);
   const canAccess = store && (isPlatformViewer || userStores.some((s) => s.id === storeId));
 
-  // Close the mobile drawer on navigation.
   useEffect(() => setMobileOpen(false), [location.pathname]);
 
   if (!store || !canAccess) {
@@ -116,12 +115,10 @@ function AdminShell() {
     <div className="flex min-h-screen bg-paper">
       <CommandPalette storeId={storeId} />
 
-      {/* Desktop sidebar */}
       <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-line bg-surface lg:flex">
         <SidebarContent store={store} userStores={userStores} isPlatformViewer={isPlatformViewer} />
       </aside>
 
-      {/* Mobile drawer */}
       <AnimatePresence>
         {mobileOpen && (
           <div className="fixed inset-0 z-50 lg:hidden">
@@ -160,6 +157,7 @@ function AdminShell() {
 
 function SidebarContent({ store, userStores, isPlatformViewer, onClose }: { store: Store; userStores: Store[]; isPlatformViewer: boolean; onClose?: () => void }) {
   const badges = useStoreBadges(store.id);
+  const { t } = useI18n();
   return (
     <>
       <div className="flex h-20 items-center justify-between gap-2 border-b border-line px-4">
@@ -177,7 +175,7 @@ function SidebarContent({ store, userStores, isPlatformViewer, onClose }: { stor
           const Icon = item.icon;
           return (
             <NavLink
-              key={item.label}
+              key={item.labelKey}
               to={item.to ? `/admin/${store.id}/${item.to}` : `/admin/${store.id}`}
               end={item.end}
               className={({ isActive }) =>
@@ -190,7 +188,7 @@ function SidebarContent({ store, userStores, isPlatformViewer, onClose }: { stor
               {({ isActive }) => (
                 <>
                   <Icon className="h-4 w-4 shrink-0" />
-                  <span className="flex-1">{item.label}</span>
+                  <span className="flex-1">{t(item.labelKey)}</span>
                   {count > 0 && (
                     <span className={cn('flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-black', isActive ? 'bg-surface/20 text-surface' : 'bg-accent text-white')}>
                       {count}
@@ -210,15 +208,15 @@ function SidebarContent({ store, userStores, isPlatformViewer, onClose }: { stor
           rel="noreferrer"
           className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-muted transition-colors hover:bg-paper hover:text-ink"
         >
-          <ExternalLink className="h-4 w-4 shrink-0" /> View storefront
+          <ExternalLink className="h-4 w-4 shrink-0" /> {t('adminViewStorefront')}
         </a>
         {isPlatformViewer ? (
           <Link to="/platform/stores" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-muted transition-colors hover:bg-paper hover:text-ink">
-            <ArrowLeft className="h-4 w-4 shrink-0" /> Back to platform
+            <ArrowLeft className="h-4 w-4 shrink-0" /> {t('adminBackToPlatform')}
           </Link>
         ) : (
           <Link to="/request-website" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-accent transition-colors hover:bg-accent-soft">
-            <Plus className="h-4 w-4 shrink-0" /> Request website
+            <Plus className="h-4 w-4 shrink-0" /> {t('adminRequestWebsite')}
           </Link>
         )}
       </div>
@@ -278,7 +276,8 @@ function AdminTopBar({ store, onMenu }: { store: Store; onMenu: () => void }) {
   const currentUser = useStore((s) => s.currentUser);
   const signOut = useStore((s) => s.signOut);
   const navigate = useNavigate();
-  const initials = currentUser?.name?.split(' ').map((part) => part[0]).join('').substring(0, 2) || 'U';
+  const { t } = useI18n();
+  const initials = currentUser?.name?.split(' ').map((p) => p[0]).join('').substring(0, 2) || 'U';
 
   return (
     <header className="sticky top-0 z-30 flex h-20 items-center justify-between gap-4 border-b border-line bg-surface/90 px-5 backdrop-blur md:px-8">
@@ -287,19 +286,20 @@ function AdminTopBar({ store, onMenu }: { store: Store; onMenu: () => void }) {
           <Menu className="h-5 w-5" />
         </button>
         <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-muted">Store dashboard</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-muted">{t('adminStoreDashboard')}</p>
           <p className="truncate text-sm font-bold text-ink">{store.name}</p>
         </div>
       </div>
 
       <div className="flex items-center gap-2 md:gap-3">
+        <LangToggle variant="light" className="hidden sm:inline-flex" />
         <button
           onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
           className="hidden items-center gap-2 rounded-full border border-line bg-surface px-3 py-2 text-xs font-bold text-muted transition-colors hover:bg-paper sm:flex"
           aria-label="Open command palette"
         >
           <Search className="h-3.5 w-3.5" />
-          Search
+          {t('adminSearch')}
           <kbd className="rounded border border-line px-1.5 py-0.5 text-[10px] font-black">⌘K</kbd>
         </button>
         <a
@@ -308,7 +308,7 @@ function AdminTopBar({ store, onMenu }: { store: Store; onMenu: () => void }) {
           rel="noreferrer"
           className="hidden items-center gap-2 rounded-full border border-line bg-surface px-3 py-2 text-xs font-bold text-muted transition-colors hover:bg-paper sm:flex"
         >
-          <ExternalLink className="h-3.5 w-3.5" /> Storefront
+          <ExternalLink className="h-3.5 w-3.5" /> {t('adminStorefront')}
         </a>
         <button
           onClick={() => { signOut(); navigate('/sign-in'); }}
@@ -325,25 +325,27 @@ function AdminTopBar({ store, onMenu }: { store: Store; onMenu: () => void }) {
 
 function MaintenanceBanner() {
   const maintenanceMode = useStore((s) => s.platformSettings.maintenanceMode);
+  const { t } = useI18n();
   if (!maintenanceMode) return null;
   return (
     <div className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-5 py-2.5 text-sm font-bold text-amber-800 md:px-8">
       <TriangleAlert className="h-4 w-4 shrink-0" />
-      Maintenance mode is on — your storefront shows a maintenance notice to customers.
+      {t('adminMaintenanceMsg')}
     </div>
   );
 }
 
 function NoStores() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   return (
     <div className="flex min-h-screen items-center justify-center bg-paper p-6">
       <div className="max-w-md">
         <EmptyState
           icon={PackageSearch}
-          title="No stores yet"
-          description="You don't have any stores. Send a website request and the team will set one up for you."
-          action={<Button variant="solid" onClick={() => navigate('/request-website')}><Plus className="mr-2 h-4 w-4" /> Request your first website</Button>}
+          title={t('adminNoStoresTitle')}
+          description={t('adminNoStoresDesc')}
+          action={<Button variant="solid" onClick={() => navigate('/request-website')}><Plus className="mr-2 h-4 w-4" /> {t('adminRequestFirst')}</Button>}
         />
       </div>
     </div>
@@ -352,14 +354,15 @@ function NoStores() {
 
 function NoAccess() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   return (
     <div className="flex min-h-screen items-center justify-center bg-paper p-6">
       <div className="max-w-md">
         <EmptyState
           icon={TriangleAlert}
-          title="Store not available"
-          description="This store doesn't exist or you don't have access to it."
-          action={<Button variant="solid" onClick={() => navigate('/admin')}>Go to my stores</Button>}
+          title={t('adminNoAccessTitle')}
+          description={t('adminNoAccessDesc')}
+          action={<Button variant="solid" onClick={() => navigate('/admin')}>{t('adminGoToMyStores')}</Button>}
         />
       </div>
     </div>

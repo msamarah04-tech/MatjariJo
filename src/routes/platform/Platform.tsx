@@ -22,6 +22,8 @@ import { SkeletonCards } from '@/components/ui/Skeleton';
 import { CommandPalette } from './CommandPalette';
 import { NotificationsBell } from './NotificationsBell';
 import { PlatformBadges, usePlatformBadges } from './shared';
+import { useI18n } from '@/lib/i18n';
+import { LangToggle } from '@/components/ui/LangToggle';
 
 import Overview from './Overview';
 import ShopRequests from './ShopRequests';
@@ -31,13 +33,12 @@ import Support from './Support';
 import AuditLog from './AuditLog';
 import Settings from './Settings';
 
-// Analytics is the heaviest view (Recharts + aggregations) — load it on demand.
 const Analytics = lazy(() => import('./Analytics'));
 
 type BadgeKey = keyof PlatformBadges;
 
 interface NavItem {
-  label: string;
+  labelKey: string;
   to: string;
   icon: typeof LayoutDashboard;
   end?: boolean;
@@ -45,14 +46,14 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  { label: 'Overview', to: '/platform', icon: LayoutDashboard, end: true, badge: 'orders' },
-  { label: 'Shop Requests', to: '/platform/shop-requests', icon: ClipboardList, badge: 'requests' },
-  { label: 'Stores', to: '/platform/stores', icon: StoreIcon },
-  { label: 'Moderation', to: '/platform/moderation', icon: ShieldAlert, badge: 'flags' },
-  { label: 'Support', to: '/platform/support', icon: MessageSquare, badge: 'tickets' },
-  { label: 'Analytics', to: '/platform/analytics', icon: BarChart3 },
-  { label: 'Audit Log', to: '/platform/audit', icon: ScrollText },
-  { label: 'Settings', to: '/platform/settings', icon: SettingsIcon },
+  { labelKey: 'navOverview', to: '/platform', icon: LayoutDashboard, end: true, badge: 'orders' },
+  { labelKey: 'navShopRequests', to: '/platform/shop-requests', icon: ClipboardList, badge: 'requests' },
+  { labelKey: 'navStores', to: '/platform/stores', icon: StoreIcon },
+  { labelKey: 'navModeration', to: '/platform/moderation', icon: ShieldAlert, badge: 'flags' },
+  { labelKey: 'navSupport', to: '/platform/support', icon: MessageSquare, badge: 'tickets' },
+  { labelKey: 'navAnalytics', to: '/platform/analytics', icon: BarChart3 },
+  { labelKey: 'navAuditLog', to: '/platform/audit', icon: ScrollText },
+  { labelKey: 'navSettings', to: '/platform/settings', icon: SettingsIcon },
 ];
 
 export default function Platform() {
@@ -60,19 +61,16 @@ export default function Platform() {
   const badges = usePlatformBadges();
   const location = useLocation();
 
-  // Close the mobile drawer on navigation.
   useEffect(() => setMobileOpen(false), [location.pathname]);
 
   return (
     <div className="flex min-h-screen bg-paper">
       <CommandPalette />
 
-      {/* Desktop sidebar */}
       <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-line bg-surface lg:flex">
         <SidebarContent badges={badges} />
       </aside>
 
-      {/* Mobile drawer */}
       <AnimatePresence>
         {mobileOpen && (
           <div className="fixed inset-0 z-50 lg:hidden">
@@ -117,7 +115,6 @@ export default function Platform() {
               />
               <Route path="audit" element={<AuditLog />} />
               <Route path="settings" element={<Settings />} />
-              {/* Legacy routes from the previous dashboard redirect into the new IA. */}
               <Route path="requests" element={<Navigate to="/platform" replace />} />
               <Route path="governance" element={<Navigate to="/platform/stores" replace />} />
               <Route path="finance" element={<Navigate to="/platform/analytics" replace />} />
@@ -132,6 +129,7 @@ export default function Platform() {
 }
 
 function SidebarContent({ badges, onClose }: { badges: PlatformBadges; onClose?: () => void }) {
+  const { t } = useI18n();
   return (
     <>
       <div className="flex h-20 items-center justify-between border-b border-line px-5">
@@ -165,7 +163,7 @@ function SidebarContent({ badges, onClose }: { badges: PlatformBadges; onClose?:
               {({ isActive }) => (
                 <>
                   <Icon className="h-4 w-4 shrink-0" />
-                  <span className="flex-1">{item.label}</span>
+                  <span className="flex-1">{t(item.labelKey)}</span>
                   {count > 0 && (
                     <span className={cn(
                       'flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-black',
@@ -181,7 +179,7 @@ function SidebarContent({ badges, onClose }: { badges: PlatformBadges; onClose?:
         })}
       </nav>
       <div className="border-t border-line p-4 text-[10px] font-bold uppercase tracking-widest text-muted">
-        Backend-connected workspace
+        {t('platformWorkspace')}
       </div>
     </>
   );
@@ -192,8 +190,9 @@ function PlatformTopBar({ onMenu }: { onMenu: () => void }) {
   const platformName = useStore((s) => s.platformSettings.platformName);
   const navigate = useNavigate();
   const signOut = useStore((s) => s.signOut);
+  const { t } = useI18n();
 
-  const initials = currentUser?.name?.split(' ').map((part) => part[0]).join('').substring(0, 2) || 'U';
+  const initials = currentUser?.name?.split(' ').map((p) => p[0]).join('').substring(0, 2) || 'U';
 
   return (
     <header className="sticky top-0 z-30 flex h-20 items-center justify-between gap-4 border-b border-line bg-surface/90 px-5 backdrop-blur md:px-8">
@@ -202,27 +201,25 @@ function PlatformTopBar({ onMenu }: { onMenu: () => void }) {
           <Menu className="h-5 w-5" />
         </button>
         <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-muted">{platformName} · Control Center</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-muted">{platformName} · {t('platformControlCenter')}</p>
           <p className="truncate text-sm font-bold text-ink">{currentUser?.name || 'Operator'}</p>
         </div>
       </div>
 
       <div className="flex items-center gap-2 md:gap-3">
+        <LangToggle variant="light" className="hidden sm:inline-flex" />
         <button
           onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
           className="hidden items-center gap-2 rounded-full border border-line bg-surface px-3 py-2 text-xs font-bold text-muted transition-colors hover:bg-paper sm:flex"
           aria-label="Open command palette"
         >
           <Search className="h-3.5 w-3.5" />
-          Search
+          {t('platformSearch')}
           <kbd className="rounded border border-line px-1.5 py-0.5 text-[10px] font-black">⌘K</kbd>
         </button>
         <NotificationsBell />
         <button
-          onClick={() => {
-            signOut();
-            navigate('/sign-in');
-          }}
+          onClick={() => { signOut(); navigate('/sign-in'); }}
           title={`Sign out ${currentUser?.name || ''}`}
           className="flex items-center gap-2 rounded-full border border-line bg-surface py-1 pl-1 pr-3 transition-colors hover:bg-paper"
         >
@@ -236,11 +233,12 @@ function PlatformTopBar({ onMenu }: { onMenu: () => void }) {
 
 function MaintenanceBanner() {
   const maintenanceMode = useStore((s) => s.platformSettings.maintenanceMode);
+  const { t } = useI18n();
   if (!maintenanceMode) return null;
   return (
     <div className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-5 py-2.5 text-sm font-bold text-amber-800 md:px-8">
       <TriangleAlert className="h-4 w-4 shrink-0" />
-      Maintenance mode is on — storefronts show a maintenance notice to customers.
+      {t('platformMaintenanceMsg')}
     </div>
   );
 }
