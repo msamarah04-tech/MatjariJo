@@ -1,64 +1,112 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Plinth
 
-# Run and deploy your AI Studio app
+A **self-hosted, multi-store e-commerce SaaS** built for the Jordanian market. One **platform
+owner** onboards and oversees the shop owners they approve; each **shop owner** runs a single
+storefront; the **public** browses and checks out with Cash on Delivery — no shopper account
+required.
 
-This contains everything you need to run your app locally.
+> 📚 **Full overview + project structure:** [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md)  ·
+> **Architecture:** [ARCHITECTURE.md](ARCHITECTURE.md)  ·  **Runbook:** [OPERATIONS.md](OPERATIONS.md)
+> ·  **Admin UI conventions:** [ADMIN_FRONTEND_TEMPLATE.md](ADMIN_FRONTEND_TEMPLATE.md)
 
-View your app in AI Studio: https://ai.studio/apps/1beeb990-7a5e-437c-963b-166cfa20ea28
+## What it is
 
-## Run Locally
+Three actors define the product:
 
-**Prerequisites:**  Node.js
+| Actor | What they do |
+| --- | --- |
+| **Public customer** | Browse a storefront, add to cart, place a COD order, request a website. No login. |
+| **Shop owner** | Manage their one store: products (incl. variants), orders, discounts, appearance, analytics, support, tax invoices, data export. |
+| **Platform owner** | Manage all stores: approve/reject requests, suspend/feature/delete stores, set commission, moderate flagged products, run support, read platform analytics + the audit log, edit settings. |
 
+Two principles run through the codebase:
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+1. **The backend is the single source of truth.** Money totals, tax, stock, and discount usage are
+   all (re)computed **server-side** at checkout — client values are never trusted.
+2. **No third-party integrations.** Everything runs inside this app and its own SQLite database.
+   Payment gateways, e-invoicing, and email/SMS are designed as **adapter seams** to drop in later.
 
-## Backend API
+### Jordan-first
 
-Plinth now includes a real Express + TypeScript API backed by SQLite through Prisma. It uses the frontend domain model directly: stores, products, orders, discounts, analytics events, support tickets, product flags, shop requests, audit logs, and platform settings.
+- **JOD with 3 decimals** (1 JOD = 1000 fils). Money is always an integer count of minor units.
+- **GST 16%** computed server-side at checkout, plus printable **internal tax invoices** (EN LTR / AR RTL).
+- **Arabic + English with full RTL**, Asia/Amman dates, Arabic-Indic numerals, **+962** mobile validation.
+- **Cash on Delivery**, with a per-order platform **commission** captured for settlement reporting.
 
-1. Copy `.env.example` to `.env` and set `DATABASE_URL`, `JWT_SECRET`, and the initial platform-owner credentials.
-2. Generate Prisma client and create the database:
-   `npm run db:generate && npm run db:migrate`
-3. If Prisma's migration engine is unavailable locally, apply the committed SQL migration with:
-   `npm run db:apply:sql`
-4. Seed only the first platform owner and default settings:
-   `npm run db:seed`
-5. Start the API:
-   `npm run api:dev`
+## Tech stack
 
-The API listens on `http://localhost:4000` by default. The seeded login from `.env.example` is `platform-admin` / `ChangeMe123!` or `owner@plinth.local` / `ChangeMe123!`; change it before using the backend for anything real. When a platform owner approves a shop request, the response returns one-time shop-admin credentials where the username is derived from the shop slug, for example `botanica-admin`.
+- **Frontend:** React 19, TypeScript, Vite, React Router (hash), Zustand, TanStack Query,
+  Tailwind CSS, React Hook Form + Zod, Recharts, Framer Motion.
+- **Backend:** Express, TypeScript, Prisma, SQLite (WAL), bcrypt, JWT (access + refresh), helmet, pino.
+- **Shared:** a typed domain contract + money + phone + product-category taxonomy under
+  [`shared/`](shared/), imported by **both** sides so they can't drift.
 
-### Default Development Credentials
+## Quick start
 
-| Area | Username | Email | Password |
-| --- | --- | --- | --- |
-| Platform owner | `platform-admin` | `owner@plinth.local` | `ChangeMe123!` |
-
-Shop-owner accounts are created when the platform owner approves a shop request. The username is based on the shop slug and the password is returned once in the approval response.
-
-| Shop example | Generated username | Password |
-| --- | --- | --- |
-| Botanica | `botanica-admin` | Returned once as `credentials.password` from `POST /api/platform/shop-requests/:id/approve` |
-| Arabica Roasters | `arabica-roasters-admin` | Returned once as `credentials.password` from `POST /api/platform/shop-requests/:id/approve` |
-| MINIMAL | `minimal-admin` | Returned once as `credentials.password` from `POST /api/platform/shop-requests/:id/approve` |
-| Midnight Apothecary | `midnight-apothecary-admin` | Returned once as `credentials.password` from `POST /api/platform/shop-requests/:id/approve` |
-
-Example approval response:
-
-```json
-{
-  "credentials": {
-    "username": "botanica-admin",
-    "password": "botanica-secure-random-suffix"
-  }
-}
+```bash
+npm install
+cp .env.example .env       # set JWT_SECRET + the initial platform-owner credentials
+npm run db:generate        # generate the Prisma client
+npm run db:deploy          # apply migrations
+npm run db:seed            # seed the platform owner + settings (no demo data)
+npm run dev:all            # frontend (:3000) + backend (:4000), both auto-reload
 ```
 
-The backend does not store shop passwords in plaintext, so copy the generated password from the approval response during local development.
+- Frontend: `http://localhost:3000`
+- Backend API: `http://localhost:4000/api`
+
+### Sign in
+
+The platform owner is seeded from `.env` (sign in with username **or** email):
+
+| Username | Email | Password |
+| --- | --- | --- |
+| `platform-admin` | `owner@plinth.local` | `ChangeMe123!` |
+
+**Change it before any real use.** Shop owners are **self-service**: they choose their own username +
+password on the public "request a website" form, and once the platform owner approves the request
+they sign in directly — no relay, no forced change. (See [OPERATIONS.md](OPERATIONS.md) for password
+resets and the production fail-closed boot checks.)
+
+## Scripts
+
+| Script | Purpose |
+| --- | --- |
+| `npm run dev:all` | Frontend + backend together. |
+| `npm run dev` / `npm run api:dev` | Frontend only / backend only. |
+| `npm run db:generate` | Generate the Prisma client. |
+| `npm run db:deploy` / `npm run db:migrate` | Apply migrations (deploy) / create + apply in dev. |
+| `npm run db:seed` | Seed the platform owner + platform settings. |
+| `npm run db:backup` | Consistent SQLite snapshot via `VACUUM INTO`. |
+| `npm run test` | API tests (`node --test`) then web tests (Vitest). |
+| `npm run test:api` / `npm run test:web` | Backend / frontend tests individually. |
+| `npm run typecheck` | `tsc --noEmit`. |
+| `npm run build` / `npm run preview` | Production build / serve the build. |
+
+End-to-end tests run via `npx playwright test` (run `npx playwright install` once first).
+
+## Project structure
+
+```text
+shared/    typed contract + money + phone + product-category taxonomy (imported by both sides)
+prisma/    schema, migrations (single migration path), seed
+server/    Express API — routes/ · services/ · policies/ · security/ + commerce, auth, invoices
+src/       React app — api/ · components/ · lib/ · routes/ (admin, platform, storefront)
+tests/     API (node --test) · web (Vitest) · e2e (Playwright)
+```
+
+See [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md) for the complete annotated tree, the API surface, and
+the data model.
+
+## Testing & CI
+
+```bash
+npm run typecheck
+npm run test            # API + web
+npx playwright test     # E2E (optional; install browsers first)
+npm run build
+```
+
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs typecheck + API tests + web tests +
+build on every push and PR.
+</content>
