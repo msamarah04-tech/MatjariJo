@@ -7,9 +7,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import {
   AlertCircle,
   ArrowLeft,
-  ArrowRight,
   CheckCircle2,
   ChevronDown,
+  Instagram,
+  Menu,
   Minus,
   Plus,
   Printer,
@@ -101,11 +102,11 @@ const text = {
     noProducts: 'No products yet',
     noResults: 'No results',
     noResultsHint: 'Try a different search or filter.',
-    featured: 'Featured products',
+    featured: 'Featured',
     allProducts: 'All products',
     addToCart: 'Add to cart',
     soldOut: 'Sold out',
-    related: 'Related products',
+    related: 'You may also like',
     aboutTitle: 'About this store',
     shippingReturns: 'Shipping and returns',
     emptyCart: 'Your cart is empty',
@@ -138,6 +139,8 @@ const text = {
     offline: 'You appear to be offline. Existing content stays available; retry when connection returns.',
     cartUpdated: 'Cart updated with current stock.',
     powered: 'Powered by Plinth',
+    shopNow: 'Shop now',
+    viewAll: 'View all →',
   },
   ar: {
     unavailableTitle: 'المتجر غير متاح',
@@ -159,11 +162,11 @@ const text = {
     noProducts: 'لا توجد منتجات بعد',
     noResults: 'لا توجد نتائج',
     noResultsHint: 'جرب بحثا أو فلتر آخر.',
-    featured: 'منتجات مختارة',
+    featured: 'مختارة',
     allProducts: 'كل المنتجات',
     addToCart: 'أضف إلى السلة',
     soldOut: 'نفدت الكمية',
-    related: 'منتجات مشابهة',
+    related: 'قد يعجبك أيضاً',
     aboutTitle: 'عن هذا المتجر',
     shippingReturns: 'الشحن والإرجاع',
     emptyCart: 'سلتك فارغة',
@@ -196,6 +199,8 @@ const text = {
     offline: 'يبدو أنك غير متصل. سيبقى المحتوى الحالي متاحا وأعد المحاولة عند عودة الاتصال.',
     cartUpdated: 'تم تحديث السلة حسب المخزون الحالي.',
     powered: 'مشغل بواسطة Plinth',
+    shopNow: 'تسوق الآن',
+    viewAll: 'عرض الكل ←',
   },
 } as const;
 
@@ -214,6 +219,17 @@ function productCategory(product: Product, store: Store) {
 
 function isOnSale(product: Product) {
   return Boolean(product.compareAtCents && product.compareAtCents > product.priceCents);
+}
+
+function getCtaClass(style?: string): string {
+  const base = 'inline-flex h-11 w-full items-center justify-center text-[11px] font-black uppercase tracking-[0.12em] transition-all duration-200 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed';
+  if (style === 'outline') {
+    return `${base} rounded-[var(--c-radius)] border-2 border-[var(--c-text)] text-[var(--c-text)] hover:bg-[var(--c-text)] hover:text-[var(--c-bg)]`;
+  }
+  if (style === 'pill') {
+    return `${base} rounded-full bg-[var(--c-primary)] text-white hover:opacity-85 shadow-sm`;
+  }
+  return `${base} rounded-[var(--c-radius)] bg-[var(--c-text)] text-[var(--c-bg)] hover:opacity-80`;
 }
 
 function useOnlineStatus() {
@@ -271,7 +287,7 @@ class StorefrontErrorBoundary extends Component<{ children: React.ReactNode }, {
     if (this.state.failed) {
       return (
         <div className="min-h-screen bg-neutral-100 p-6 text-neutral-950 flex items-center justify-center">
-          <div className="w-full max-w-md rounded-2xl bg-white p-10 text-center shadow-xl border border-black/5 transition-all">
+          <div className="w-full max-w-md rounded-2xl bg-white p-10 text-center shadow-xl border border-black/5">
             <AlertCircle className="mx-auto mb-6 h-12 w-12 text-red-500" />
             <h1 className="mb-3 text-3xl font-black tracking-tight">Storefront error</h1>
             <p className="mb-8 text-sm text-neutral-500">Something went wrong while rendering this store.</p>
@@ -330,6 +346,7 @@ function StorefrontFrame({ store, products, discounts }: { store: Store; product
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [announcement, setAnnouncement] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [appliedCode, setAppliedCode] = useState<string>();
   const [promoInput, setPromoInput] = useState('');
   const [promoMessage, setPromoMessage] = useState<string>();
@@ -338,6 +355,7 @@ function StorefrontFrame({ store, products, discounts }: { store: Store; product
   const [submitting, setSubmitting] = useState(false);
   const idempotencyRef = useRef('');
   const queryClient = useQueryClient();
+  const overrides = store.themeOverrides as Record<string, string> | null | undefined;
 
   const themeVars = {
     '--c-bg': theme.bg,
@@ -400,9 +418,9 @@ function StorefrontFrame({ store, products, discounts }: { store: Store; product
   }, [activeDiscount, summary.subtotalCents]);
 
   useEffect(() => {
-    if (!drawerOpen) return;
+    if (!drawerOpen && !mobileMenuOpen) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setDrawerOpen(false);
+      if (event.key === 'Escape') { setDrawerOpen(false); setMobileMenuOpen(false); }
     };
     document.body.style.overflow = 'hidden';
     window.addEventListener('keydown', onKey);
@@ -410,7 +428,7 @@ function StorefrontFrame({ store, products, discounts }: { store: Store; product
       document.body.style.overflow = '';
       window.removeEventListener('keydown', onKey);
     };
-  }, [drawerOpen]);
+  }, [drawerOpen, mobileMenuOpen]);
 
   const addToCart = (productId: string, quantity = 1, variantId?: string) => {
     const product = products.find((item) => item.id === productId);
@@ -509,45 +527,92 @@ function StorefrontFrame({ store, products, discounts }: { store: Store; product
     }
   };
 
+  const hasSocial = overrides?.instagram || overrides?.whatsapp || overrides?.tiktok;
+
   return (
-    <div className="min-h-screen bg-[var(--c-bg)] text-[var(--c-text)] selection:bg-[var(--c-text)] selection:text-[var(--c-bg)] font-sans" dir={dir} style={themeVars}>
+    <div className="min-h-screen bg-[var(--c-bg)] text-[var(--c-text)] selection:bg-[var(--c-text)] selection:text-[var(--c-bg)]" dir={dir} style={themeVars}>
       <div aria-live="polite" className="sr-only">{liveMessage}</div>
+
+      {/* Announcement bar */}
       {store.announcement && announcement && (
-        <div className="relative z-50 flex min-h-12 items-center justify-center bg-[var(--c-text)] px-12 py-3 text-center text-[11px] font-black uppercase tracking-[0.2em] text-[var(--c-bg)]">
+        <div className="relative z-50 flex min-h-10 items-center justify-center bg-[var(--c-primary)] px-10 py-2.5 text-center text-[11px] font-bold uppercase tracking-[0.18em] text-white">
           <span>{store.announcement}</span>
-          <button type="button" aria-label="Dismiss announcement" className="absolute end-4 rounded-full p-2 opacity-60 hover:opacity-100 transition-opacity" onClick={() => setAnnouncement(false)}>
-            <X className="h-4 w-4" />
+          <button type="button" aria-label="Dismiss" className="absolute end-3 rounded-full p-1.5 opacity-70 hover:opacity-100 transition-opacity" onClick={() => setAnnouncement(false)}>
+            <X className="h-3.5 w-3.5" />
           </button>
         </div>
       )}
 
-      <header className="sticky top-0 z-40 border-b border-[var(--c-line)]/30 bg-[var(--c-surface)]/80 backdrop-blur-2xl transition-all duration-300">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:h-24 sm:px-6 lg:px-8">
-          <Link to={`/s/${store.slug}`} className="flex min-w-0 items-center gap-4 group">
+      {/* Header */}
+      <header className="sticky top-0 z-40 bg-[var(--c-bg)]/90 backdrop-blur-xl border-b border-[var(--c-line)]/40 transition-all duration-300">
+        <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8">
+          {/* Logo + Name */}
+          <Link to={`/s/${store.slug}`} className="flex min-w-0 items-center gap-3 group shrink-0">
             <ProductLogo store={store} />
-            <span className="truncate text-xl font-black tracking-tighter sm:text-3xl group-hover:opacity-80 transition-opacity" style={{ fontFamily: theme.hero }}>{store.name}</span>
+            <span className="hidden sm:block truncate text-base font-black tracking-tight group-hover:opacity-70 transition-opacity" style={{ fontFamily: theme.hero }}>
+              {store.name}
+            </span>
           </Link>
-          <nav className="hidden items-center gap-8 text-xs font-bold uppercase tracking-[0.15em] opacity-60 md:flex">
-            <Link to={`/s/${store.slug}`} className="hover:opacity-100 transition-opacity">{c.shop}</Link>
-            <Link to={`/s/${store.slug}/about`} className="hover:opacity-100 transition-opacity">{c.about}</Link>
-            <Link to={`/s/${store.slug}/cart`} className="hover:opacity-100 transition-opacity">{c.cart}</Link>
+
+          {/* Center nav */}
+          <nav className="hidden md:flex flex-1 items-center justify-center gap-8 text-[11px] font-bold uppercase tracking-[0.14em]">
+            <Link to={`/s/${store.slug}`} className="opacity-50 hover:opacity-100 transition-opacity">{c.shop}</Link>
+            <Link to={`/s/${store.slug}/about`} className="opacity-50 hover:opacity-100 transition-opacity">{c.about}</Link>
           </nav>
-          <div className="flex items-center gap-3 sm:gap-4">
-            <LanguageToggle className="border-[var(--c-line)]/50 bg-[var(--c-bg)] text-[var(--c-text)] hover:bg-[var(--c-soft)] rounded-xl transition-colors" />
+
+          {/* Right side */}
+          <div className="flex items-center gap-2 ms-auto">
+            <LanguageToggle className="border-[var(--c-line)]/50 bg-[var(--c-surface)] text-[var(--c-text)] hover:bg-[var(--c-soft)] rounded-lg transition-colors text-xs h-8 px-2" />
             <button
               type="button"
               aria-label={`${c.cart}: ${cartCount}`}
-              className="relative inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--c-surface)] shadow-sm border border-[var(--c-line)]/50 hover:bg-[var(--c-soft)] transition-all active:scale-95 group"
+              className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--c-surface)] border border-[var(--c-line)]/40 hover:bg-[var(--c-soft)] transition-all active:scale-95"
               onClick={() => setDrawerOpen(true)}
             >
-              <ShoppingBag className="h-5 w-5 opacity-80 group-hover:opacity-100 transition-opacity" />
-              {cartCount > 0 && <span className="absolute -end-2 -top-2 grid h-6 min-w-6 place-items-center rounded-full bg-[var(--c-text)] px-1.5 text-[11px] font-black text-[var(--c-bg)] shadow-md animate-in zoom-in-50 duration-300">{cartCount}</span>}
+              <ShoppingBag className="h-4.5 w-4.5" />
+              {cartCount > 0 && (
+                <span className="absolute -end-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--c-text)] px-1 text-[10px] font-black text-[var(--c-bg)] shadow">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+            {/* Mobile menu toggle */}
+            <button
+              type="button"
+              aria-label="Menu"
+              className="md:hidden flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--c-surface)] border border-[var(--c-line)]/40 hover:bg-[var(--c-soft)] transition-all"
+              onClick={() => setMobileMenuOpen(true)}
+            >
+              <Menu className="h-4 w-4" />
             </button>
           </div>
         </div>
       </header>
 
-      <main className="pb-16">
+      {/* Mobile nav drawer */}
+      {mobileMenuOpen && (
+        <>
+          <div className="fixed inset-0 z-[90] bg-black/40 backdrop-blur-sm md:hidden" onClick={() => setMobileMenuOpen(false)} />
+          <div className="fixed inset-y-0 end-0 z-[91] w-72 bg-[var(--c-bg)] shadow-2xl flex flex-col md:hidden" role="dialog" aria-modal="true">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--c-line)]/30">
+              <span className="font-black tracking-tight" style={{ fontFamily: theme.hero }}>{store.name}</span>
+              <button type="button" onClick={() => setMobileMenuOpen(false)} className="rounded-full p-2 hover:bg-[var(--c-soft)] transition-colors">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <nav className="flex flex-col p-4 gap-1 text-sm font-bold">
+              <Link to={`/s/${store.slug}`} onClick={() => setMobileMenuOpen(false)} className="px-4 py-3 rounded-xl hover:bg-[var(--c-soft)] transition-colors">{c.shop}</Link>
+              <Link to={`/s/${store.slug}/about`} onClick={() => setMobileMenuOpen(false)} className="px-4 py-3 rounded-xl hover:bg-[var(--c-soft)] transition-colors">{c.about}</Link>
+              <button type="button" onClick={() => { setMobileMenuOpen(false); setDrawerOpen(true); }} className="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-[var(--c-soft)] transition-colors text-start">
+                <span>{c.cart}</span>
+                {cartCount > 0 && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--c-text)] px-1 text-[10px] font-black text-[var(--c-bg)]">{cartCount}</span>}
+              </button>
+            </nav>
+          </div>
+        </>
+      )}
+
+      <main>
         <Routes>
           <Route path="/" element={<HomePage store={store} products={products} addToCart={addToCart} />} />
           <Route path="/p/:productId" element={<ProductDetail store={store} products={products} addToCart={addToCart} />} />
@@ -557,13 +622,41 @@ function StorefrontFrame({ store, products, discounts }: { store: Store; product
         </Routes>
       </main>
 
-      <footer className="border-t border-[var(--c-line)]/30 bg-[var(--c-surface)]">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 px-4 py-12 text-center sm:px-6 md:flex-row md:text-start lg:px-8">
-          <div>
-            <p className="text-xl font-black tracking-tight">{store.name}</p>
-            <p className="mt-2 text-sm font-medium opacity-50">{store.tagline}</p>
+      {/* Footer */}
+      <footer className="border-t border-[var(--c-line)]/30 bg-[var(--c-surface)] mt-8">
+        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div>
+              <p className="text-lg font-black tracking-tight" style={{ fontFamily: theme.hero }}>{store.name}</p>
+              {store.tagline && <p className="mt-1 text-sm font-medium opacity-50">{store.tagline}</p>}
+            </div>
+            {hasSocial && (
+              <div className="flex items-center gap-3">
+                {overrides?.instagram && (
+                  <a href={overrides.instagram.startsWith('http') ? overrides.instagram : `https://instagram.com/${overrides.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--c-soft)] hover:bg-[var(--c-line)]/40 transition-colors opacity-60 hover:opacity-100">
+                    <Instagram className="h-4 w-4" />
+                  </a>
+                )}
+                {overrides?.whatsapp && (
+                  <a href={`https://wa.me/${overrides.whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--c-soft)] hover:bg-[var(--c-line)]/40 transition-colors opacity-60 hover:opacity-100" aria-label="WhatsApp">
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
+                  </a>
+                )}
+                {overrides?.tiktok && (
+                  <a href={overrides.tiktok.startsWith('http') ? overrides.tiktok : `https://tiktok.com/@${overrides.tiktok.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--c-soft)] hover:bg-[var(--c-line)]/40 transition-colors opacity-60 hover:opacity-100" aria-label="TikTok">
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.3 6.3 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.16 8.16 0 004.77 1.52V6.76a4.85 4.85 0 01-1-.07z"/></svg>
+                  </a>
+                )}
+              </div>
+            )}
           </div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.2em] opacity-40 hover:opacity-100 transition-opacity cursor-default">{store.name} · {c.powered}</p>
+          <div className="mt-8 border-t border-[var(--c-line)]/20 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] font-bold uppercase tracking-[0.18em] opacity-35">
+            <nav className="flex gap-6">
+              <Link to={`/s/${store.slug}`} className="hover:opacity-100 transition-opacity">{c.shop}</Link>
+              <Link to={`/s/${store.slug}/about`} className="hover:opacity-100 transition-opacity">{c.about}</Link>
+            </nav>
+            <span>{store.name} · {c.powered}</span>
+          </div>
         </div>
       </footer>
 
@@ -626,73 +719,212 @@ function HomePage({ store, products, addToCart }: { store: Store; products: Prod
 
   useEffect(() => setPage(1), [collection, debouncedQuery, inStockOnly, onSaleOnly, sort]);
 
+  const featuredProduct = featured[0] || products[0];
+
   return (
     <>
-      <section className={cn('relative overflow-hidden bg-[var(--c-surface)] border-b border-[var(--c-line)]/20', template.id === 'lookbook' && 'bg-[var(--c-soft)]')}>
-        {/* Subtle decorative background gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-[var(--c-surface)] via-transparent to-[var(--c-soft)] opacity-50 pointer-events-none" />
-        
-        <div className={cn(
-          'relative mx-auto grid min-h-[calc(100vh-6rem)] max-w-7xl items-center gap-12 px-4 py-20 sm:px-6 lg:px-8',
-          template.id === 'editorial' && 'lg:grid-cols-[1.1fr_0.9fr]',
-          template.id === 'boutique' && 'lg:grid-cols-2',
-          template.id === 'market' && 'min-h-0 py-16 lg:grid-cols-[0.8fr_1.2fr]',
-          template.id === 'lookbook' && 'lg:grid-cols-[0.85fr_1.15fr]',
-        )}>
-          <div className="z-10">
-            <p className="mb-6 w-fit rounded-full bg-[var(--c-bg)]/80 backdrop-blur-md px-5 py-2 text-[11px] font-black uppercase tracking-[0.2em] border border-[var(--c-line)]/40 shadow-sm">{store.category}</p>
-            <h1 className={cn('max-w-4xl font-black leading-[1.05] tracking-tighter', template.id === 'market' ? 'text-5xl sm:text-6xl lg:text-7xl' : 'text-6xl sm:text-7xl lg:text-8xl')} style={{ fontFamily: theme.hero }}>{store.tagline || store.name}</h1>
-            {template.id === 'market' && <p className="mt-6 max-w-xl text-lg font-medium leading-relaxed opacity-60">{store.name} catalog, ready for quick browsing and COD orders.</p>}
-            <div className="mt-10 flex flex-wrap gap-4 text-xs font-bold uppercase tracking-[0.15em] opacity-60">
-              <span className="inline-flex items-center gap-2 bg-[var(--c-soft)] px-4 py-2 rounded-xl"><Truck className="h-4 w-4" /> Jordan delivery</span>
-              <span className="inline-flex items-center gap-2 bg-[var(--c-soft)] px-4 py-2 rounded-xl"><ShieldCheck className="h-4 w-4" /> {c.cod}</span>
+      {/* ── EDITORIAL ────────────────────────────────────────────────── */}
+      {template.id === 'editorial' && (
+        <section className="relative overflow-hidden bg-[var(--c-surface)] border-b border-[var(--c-line)]/20">
+          <div className="mx-auto grid min-h-[78vh] max-w-7xl items-center gap-8 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:gap-16 lg:px-8 lg:py-20">
+            <div className="z-10 flex flex-col justify-center">
+              <span className="mb-6 w-fit rounded-full bg-[var(--c-soft)] px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.2em] border border-[var(--c-line)]/40">
+                {store.category}
+              </span>
+              <h1 className="text-5xl font-black leading-[1.02] tracking-tighter sm:text-6xl lg:text-7xl xl:text-8xl" style={{ fontFamily: theme.hero }}>
+                {store.tagline || store.name}
+              </h1>
+              <div className="mt-8 flex flex-wrap gap-3 text-[11px] font-bold uppercase tracking-[0.14em] opacity-55">
+                <span className="inline-flex items-center gap-2 bg-[var(--c-bg)] border border-[var(--c-line)]/40 px-4 py-2 rounded-full"><Truck className="h-3.5 w-3.5" /> Jordan delivery</span>
+                <span className="inline-flex items-center gap-2 bg-[var(--c-bg)] border border-[var(--c-line)]/40 px-4 py-2 rounded-full"><ShieldCheck className="h-3.5 w-3.5" /> {c.cod}</span>
+              </div>
+              <div className="mt-10 flex gap-3">
+                <a href="#all-products" className={cn(getCtaClass((store.themeOverrides as Record<string,string>)?.buttonStyle), 'w-auto px-8 no-underline')}>
+                  {c.shopNow}
+                </a>
+                {store.about && (
+                  <Link to={`/s/${store.slug}/about`} className="inline-flex h-11 items-center gap-2 px-6 text-[11px] font-black uppercase tracking-[0.12em] opacity-50 hover:opacity-100 transition-opacity">
+                    {c.about}
+                  </Link>
+                )}
+              </div>
+            </div>
+            <div className="relative">
+              <div className="aspect-[4/5] overflow-hidden rounded-2xl bg-[var(--c-soft)] shadow-2xl shadow-[var(--c-text)]/8 border border-[var(--c-line)]/20">
+                {featuredProduct ? (
+                  <Link to={`/s/${store.slug}/p/${featuredProduct.id}`}>
+                    <ProductThumb product={featuredProduct} className="h-full w-full" />
+                  </Link>
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center">
+                    <ProductLogo store={store} large />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-          <div className={cn('group relative grid place-items-center overflow-hidden bg-[var(--c-bg)] shadow-2xl shadow-[var(--c-text)]/5 border border-[var(--c-line)]/20', template.id === 'lookbook' ? 'aspect-[16/10] rounded-none' : template.id === 'market' ? 'aspect-[16/9] rounded-2xl' : 'aspect-[4/5] rounded-3xl')}>
-            {featured[0] ? <ProductThumb product={featured[0]} className="h-full w-full text-8xl group-hover:scale-105 transition-transform duration-700 ease-out" /> : <ProductLogo store={store} large />}
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
-      {featured.length > 0 && (
-        <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
-          <SectionHeading title={c.featured} />
+      {/* ── BOUTIQUE ─────────────────────────────────────────────────── */}
+      {template.id === 'boutique' && (
+        <section className="overflow-hidden border-b border-[var(--c-line)]/20">
+          <div className="mx-auto grid max-w-7xl lg:grid-cols-2">
+            <div className="flex flex-col justify-center px-6 py-16 sm:px-10 lg:px-14 lg:py-24">
+              <span className="mb-5 w-fit rounded-sm bg-[var(--c-soft)] px-3 py-1 text-[11px] font-black uppercase tracking-[0.2em]">{store.category}</span>
+              <h1 className="text-5xl font-black leading-[1.03] tracking-tighter sm:text-6xl lg:text-7xl" style={{ fontFamily: theme.hero }}>
+                {store.tagline || store.name}
+              </h1>
+              <p className="mt-5 max-w-sm text-base font-medium leading-relaxed opacity-55">
+                {store.name} — curated collection, delivered across Jordan.
+              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <a href="#all-products" className={cn(getCtaClass((store.themeOverrides as Record<string,string>)?.buttonStyle), 'w-auto px-8 no-underline')}>
+                  {c.shopNow}
+                </a>
+              </div>
+              <div className="mt-8 flex flex-wrap gap-4 text-[11px] font-bold uppercase tracking-[0.14em] opacity-50">
+                <span className="inline-flex items-center gap-2"><Truck className="h-3.5 w-3.5" /> Jordan delivery</span>
+                <span className="inline-flex items-center gap-2"><ShieldCheck className="h-3.5 w-3.5" /> {c.cod}</span>
+              </div>
+            </div>
+            <div className={cn('relative min-h-[55vw] overflow-hidden bg-[var(--c-soft)] lg:min-h-[600px]', !featuredProduct && 'flex items-center justify-center')}>
+              {featuredProduct ? (
+                <Link to={`/s/${store.slug}/p/${featuredProduct.id}`} className="absolute inset-0">
+                  <ProductThumb product={featuredProduct} className="h-full w-full object-cover" />
+                </Link>
+              ) : (
+                <ProductLogo store={store} large />
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── MARKET ───────────────────────────────────────────────────── */}
+      {template.id === 'market' && (
+        <section className="border-b border-[var(--c-line)]/20 bg-[var(--c-surface)]">
+          <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h1 className="text-3xl font-black tracking-tight sm:text-4xl" style={{ fontFamily: theme.hero }}>{store.name}</h1>
+                <p className="mt-1 text-sm font-medium opacity-50">{store.tagline}</p>
+              </div>
+              <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] opacity-50">
+                <span className="inline-flex items-center gap-1.5"><Truck className="h-3 w-3" /> Jordan delivery</span>
+                <span className="opacity-30">·</span>
+                <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-3 w-3" /> {c.cod}</span>
+              </div>
+            </div>
+            {collections.length > 1 && (
+              <div className="mt-5 flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                {collections.slice(0, 10).map((col) => (
+                  <button
+                    key={col}
+                    type="button"
+                    onClick={() => setCollection(col)}
+                    className={cn(
+                      'shrink-0 rounded-full px-4 py-1.5 text-xs font-bold transition-all',
+                      collection === col
+                        ? 'bg-[var(--c-text)] text-[var(--c-bg)] shadow-sm'
+                        : 'bg-[var(--c-bg)] border border-[var(--c-line)]/40 hover:border-[var(--c-text)]/40'
+                    )}
+                  >
+                    {col}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* ── LOOKBOOK ─────────────────────────────────────────────────── */}
+      {template.id === 'lookbook' && (
+        <section className="relative overflow-hidden border-b border-[var(--c-line)]/20 min-h-[65vh] flex items-end">
+          <div className="absolute inset-0 bg-[var(--c-soft)]">
+            {featuredProduct && productPrimaryImage(featuredProduct) && (
+              <img
+                src={productPrimaryImage(featuredProduct)!}
+                alt={featuredProduct.name}
+                className="h-full w-full object-cover opacity-70"
+              />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+          </div>
+          <div className="relative z-10 mx-auto w-full max-w-7xl px-6 pb-14 sm:px-8 lg:pb-20 lg:px-12">
+            <span className="mb-4 inline-block rounded-full bg-white/20 backdrop-blur-md px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.2em] text-white border border-white/20">
+              {store.category}
+            </span>
+            <h1 className="max-w-3xl text-5xl font-black leading-[1.02] tracking-tighter text-white sm:text-6xl lg:text-7xl" style={{ fontFamily: theme.hero }}>
+              {store.tagline || store.name}
+            </h1>
+            <div className="mt-8 flex gap-3">
+              <a href="#all-products" className="inline-flex h-11 w-auto items-center justify-center rounded-full bg-white px-8 text-[11px] font-black uppercase tracking-[0.12em] text-black transition-all hover:opacity-90 active:scale-[0.97] no-underline">
+                {c.shopNow}
+              </a>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Featured products (editorial + boutique + lookbook show this) */}
+      {featured.length > 0 && template.id !== 'market' && (
+        <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between gap-4 mb-8">
+            <h2 className="text-2xl font-black tracking-tight sm:text-3xl">{c.featured}</h2>
+            <a href="#all-products" className="text-[11px] font-bold uppercase tracking-[0.14em] opacity-50 hover:opacity-100 transition-opacity">{c.viewAll}</a>
+          </div>
           <ProductGrid products={featured} store={store} addToCart={addToCart} templateId={template.id} />
         </section>
       )}
 
-      <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
-        <SectionHeading title={c.allProducts} />
-        <div className="mb-10 rounded-2xl bg-[var(--c-surface)] p-4 shadow-sm border border-[var(--c-line)]/40">
-          <div className="grid gap-4 lg:grid-cols-[1fr_auto_auto]">
-            <label className="relative block">
-              <Search className="pointer-events-none absolute start-4 top-1/2 h-5 w-5 -translate-y-1/2 opacity-40" />
-              <span className="sr-only">{c.search}</span>
-              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={c.search} className="h-14 w-full rounded-xl border border-[var(--c-line)]/50 bg-[var(--c-bg)] pe-4 ps-12 text-sm font-medium transition-all focus:border-[var(--c-text)] focus:ring-1 focus:ring-[var(--c-text)] outline-none" />
+      {/* All products */}
+      <section id="all-products" className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+        {template.id !== 'market' && <h2 className="mb-8 text-2xl font-black tracking-tight sm:text-3xl">{c.allProducts}</h2>}
+
+        {/* Filter bar */}
+        <div className="mb-8 rounded-2xl bg-[var(--c-surface)] p-3 shadow-sm border border-[var(--c-line)]/30">
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <label className="relative flex-1">
+              <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 opacity-35" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={c.search}
+                className="h-10 w-full rounded-xl border border-[var(--c-line)]/40 bg-[var(--c-bg)] ps-9 pe-4 text-sm font-medium transition-all focus:border-[var(--c-text)]/50 focus:ring-1 focus:ring-[var(--c-text)]/30 outline-none"
+              />
             </label>
-            <label className="relative block">
-              <span className="sr-only">Collection</span>
-              <select value={collection} onChange={(event) => setCollection(event.target.value)} className="h-14 min-w-[12rem] appearance-none rounded-xl border border-[var(--c-line)]/50 bg-[var(--c-bg)] pe-12 ps-4 text-sm font-medium transition-all focus:border-[var(--c-text)] focus:ring-1 focus:ring-[var(--c-text)] outline-none">
+            <label className="relative">
+              <select
+                value={collection}
+                onChange={(e) => setCollection(e.target.value)}
+                className="h-10 appearance-none rounded-xl border border-[var(--c-line)]/40 bg-[var(--c-bg)] ps-3 pe-9 text-sm font-medium transition-all focus:border-[var(--c-text)]/50 focus:ring-1 focus:ring-[var(--c-text)]/30 outline-none min-w-[10rem]"
+              >
                 {collections.map((item) => <option key={item} value={item}>{item}</option>)}
               </select>
-              <ChevronDown className="pointer-events-none absolute end-4 top-1/2 h-5 w-5 -translate-y-1/2 opacity-40" />
+              <ChevronDown className="pointer-events-none absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 opacity-35" />
             </label>
-            <label className="relative block">
-              <span className="sr-only">Sort</span>
-              <select value={sort} onChange={(event) => setSort(event.target.value as SortMode)} className="h-14 min-w-[12rem] appearance-none rounded-xl border border-[var(--c-line)]/50 bg-[var(--c-bg)] pe-12 ps-4 text-sm font-medium transition-all focus:border-[var(--c-text)] focus:ring-1 focus:ring-[var(--c-text)] outline-none">
+            <label className="relative">
+              <select
+                value={sort}
+                onChange={(e) => setSort(e.target.value as SortMode)}
+                className="h-10 appearance-none rounded-xl border border-[var(--c-line)]/40 bg-[var(--c-bg)] ps-3 pe-9 text-sm font-medium transition-all focus:border-[var(--c-text)]/50 focus:ring-1 focus:ring-[var(--c-text)]/30 outline-none min-w-[10rem]"
+              >
                 <option value="newest">{c.newest}</option>
                 <option value="price-asc">{c.priceLow}</option>
                 <option value="price-desc">{c.priceHigh}</option>
                 <option value="name">{c.name}</option>
               </select>
-              <SlidersHorizontal className="pointer-events-none absolute end-4 top-1/2 h-4 w-4 -translate-y-1/2 opacity-40" />
+              <SlidersHorizontal className="pointer-events-none absolute end-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 opacity-35" />
             </label>
           </div>
-          <div className="mt-4 flex flex-wrap gap-3">
-            <Toggle active={inStockOnly} onClick={() => setInStockOnly((value) => !value)} label={c.inStock} />
-            <Toggle active={onSaleOnly} onClick={() => setOnSaleOnly((value) => !value)} label={c.onSale} />
+          <div className="mt-3 flex flex-wrap gap-2">
+            <FilterChip active={inStockOnly} onClick={() => setInStockOnly((v) => !v)} label={c.inStock} />
+            <FilterChip active={onSaleOnly} onClick={() => setOnSaleOnly((v) => !v)} label={c.onSale} />
           </div>
         </div>
+
         {products.length === 0 ? (
           <EmptyState title={c.noProducts} body="" />
         ) : filtered.length === 0 ? (
@@ -701,8 +933,12 @@ function HomePage({ store, products, addToCart }: { store: Store; products: Prod
           <>
             <ProductGrid products={visible} store={store} addToCart={addToCart} templateId={template.id} />
             {visible.length < filtered.length && (
-              <div className="mt-14 text-center">
-                <button type="button" className="rounded-xl bg-[var(--c-text)] px-8 py-4 text-xs font-black uppercase tracking-[0.2em] text-[var(--c-bg)] hover:scale-105 active:scale-95 transition-all shadow-xl" onClick={() => setPage((value) => value + 1)}>
+              <div className="mt-12 text-center">
+                <button
+                  type="button"
+                  className="rounded-xl bg-[var(--c-surface)] border border-[var(--c-line)]/40 px-8 py-3.5 text-xs font-black uppercase tracking-[0.15em] hover:bg-[var(--c-soft)] transition-all active:scale-95"
+                  onClick={() => setPage((v) => v + 1)}
+                >
                   Load more
                 </button>
               </div>
@@ -734,7 +970,7 @@ function ProductDetail({ store, products, addToCart }: { store: Store; products:
     window.scrollTo(0, 0);
   }, [product, recordEvent, store.id]);
 
-  if (!product) return <EmptyState title="Product not found" body="" action={<Link className="rounded-xl bg-[var(--c-text)] px-6 py-4 text-sm font-bold text-[var(--c-bg)] transition-transform hover:scale-105" to={`/s/${store.slug}`}>Back to shop</Link>} />;
+  if (!product) return <EmptyState title="Product not found" body="" action={<Link className={cn(getCtaClass((store.themeOverrides as Record<string,string>)?.buttonStyle), 'w-auto px-6')} to={`/s/${store.slug}`}>Back to shop</Link>} />;
 
   const collection = productCollection(product, store);
   const details = product.details || {};
@@ -777,84 +1013,115 @@ function ProductDetail({ store, products, addToCart }: { store: Store; products:
     details.weightGrams !== undefined ? ['Weight', `${details.weightGrams} g`] : undefined,
     details.countryOfOrigin ? ['Origin', details.countryOfOrigin] : undefined,
   ].filter(Boolean) as [string, string][];
-  // Schema-driven category attributes (localized, public-only) take precedence over the
-  // legacy flat spec rows when this product has a category assigned.
   const categoryRows = categoryDetailRows(details.categoryKey, details.attributes, lang);
   const detailRows = categoryRows.length > 0 ? categoryRows : specRows;
 
   return (
-    <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-      <div className="mb-10 flex items-center gap-3 text-xs font-bold uppercase tracking-[0.15em] opacity-50">
+    <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+      {/* Breadcrumb */}
+      <div className="mb-8 flex items-center gap-2.5 text-[11px] font-bold uppercase tracking-[0.14em] opacity-40">
         <Link to={`/s/${store.slug}`} className="hover:opacity-100 transition-opacity">{c.shop}</Link>
         <span>/</span>
         <span>{collection}</span>
       </div>
-      <div className="grid gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
+
+      <div className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
         <ProductImageGallery product={product} activeImage={displayImage} />
-        <div className="flex flex-col justify-center">
-          <p className="mb-4 text-[11px] font-black uppercase tracking-[0.2em] opacity-40">{productCategory(product, store)} · {collection}</p>
-          <h1 className="text-5xl font-black leading-none tracking-tighter sm:text-6xl md:text-7xl" style={{ fontFamily: theme.hero }}>{product.name}</h1>
-          {details.subtitle && <p className="mt-5 text-xl font-bold opacity-60">{details.subtitle}</p>}
-          <p className="my-8 flex flex-wrap items-baseline gap-3 text-4xl font-black tracking-tight">
-            {displayCompareAt && displayCompareAt > displayPrice && <span className="text-xl font-bold line-through opacity-35">{money(displayCompareAt, store.currency)}</span>}
+        <div className="flex flex-col justify-start lg:pt-4">
+          <p className="mb-3 text-[11px] font-black uppercase tracking-[0.18em] opacity-40">{productCategory(product, store)}</p>
+          <h1 className="text-4xl font-black leading-tight tracking-tighter sm:text-5xl md:text-6xl" style={{ fontFamily: theme.hero }}>{product.name}</h1>
+          {details.subtitle && <p className="mt-4 text-lg font-bold opacity-55">{details.subtitle}</p>}
+
+          <div className="my-7 flex flex-wrap items-baseline gap-3 text-3xl font-black tracking-tight">
+            {displayCompareAt && displayCompareAt > displayPrice && (
+              <span className="text-lg font-bold line-through opacity-35">{money(displayCompareAt, store.currency)}</span>
+            )}
             <span>{money(displayPrice, store.currency)}</span>
-          </p>
-          {details.shortDescription && <p className="mb-4 text-xl font-bold leading-relaxed">{details.shortDescription}</p>}
-          <p className="mb-6 whitespace-pre-line text-lg font-medium leading-relaxed opacity-60">{product.description}</p>
+            {isOnSale(product) && (
+              <span className="text-sm font-black text-red-600 bg-red-50 px-2.5 py-1 rounded-full">Sale</span>
+            )}
+          </div>
+
+          {details.shortDescription && <p className="mb-4 text-lg font-bold leading-relaxed">{details.shortDescription}</p>}
+          <p className="mb-6 whitespace-pre-line text-base font-medium leading-relaxed opacity-55">{product.description}</p>
+
           {(product.tags || []).length > 0 && (
-            <div className="mb-10 flex flex-wrap gap-2">
+            <div className="mb-8 flex flex-wrap gap-2">
               {product.tags!.map((tag) => (
-                <span key={tag} className="rounded-md bg-[var(--c-soft)] px-3 py-1.5 text-xs font-black uppercase tracking-[0.12em] ring-1 ring-[var(--c-line)]">{tag}</span>
+                <span key={tag} className="rounded-lg bg-[var(--c-soft)] px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] border border-[var(--c-line)]/30">{tag}</span>
               ))}
             </div>
           )}
+
           {variable && (
             <ProductOptionSelector product={product} selections={selections} setSelections={setSelections} />
           )}
-          <div className="mb-10 rounded-2xl bg-[var(--c-surface)] p-6 shadow-sm border border-[var(--c-line)]/30">
-            <div className="mb-5 flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-[0.15em] opacity-50">Quantity</span>
-              {displayStock <= 5 && displayStock > 0 && <span className="text-xs font-bold text-orange-600 bg-orange-100/50 px-3 py-1 rounded-full">Only {displayStock} left</span>}
-              {displayStock <= 0 && <span className="text-xs font-bold text-red-600 bg-red-100/50 px-3 py-1 rounded-full">Out of stock</span>}
+
+          <div className="rounded-2xl bg-[var(--c-surface)] p-5 shadow-sm border border-[var(--c-line)]/25 mb-6">
+            <div className="mb-4 flex items-center justify-between">
+              <span className="text-[11px] font-black uppercase tracking-[0.15em] opacity-45">Quantity</span>
+              {displayStock <= 5 && displayStock > 0 && (
+                <span className="text-[11px] font-bold text-orange-600 bg-orange-50 px-2.5 py-1 rounded-full">Only {displayStock} left</span>
+              )}
+              {displayStock <= 0 && (
+                <span className="text-[11px] font-bold text-red-600 bg-red-50 px-2.5 py-1 rounded-full">Out of stock</span>
+              )}
             </div>
             {variable && (
-              <p className="mb-4 text-sm font-bold opacity-60">
-                {chosenVariant ? `Selected: ${chosenVariant.title}` : `Choose ${options.filter((option) => !selections[option.name]).map((option) => option.name.toLowerCase()).join(', ')}`}
+              <p className="mb-4 text-sm font-bold opacity-55">
+                {chosenVariant ? `Selected: ${chosenVariant.title}` : `Choose ${options.filter((o) => !selections[o.name]).map((o) => o.name.toLowerCase()).join(', ')}`}
               </p>
             )}
-            <div className="flex flex-col gap-4 sm:flex-row">
+            <div className="flex flex-col gap-3 sm:flex-row">
               <QuantityStepper value={quantity} max={Math.max(displayStock, 1)} onChange={setQuantity} />
-              <button type="button" disabled={displayStock <= 0 || (variable && !chosenVariant)} className="h-14 flex-1 rounded-xl bg-[var(--c-text)] px-6 text-sm font-black uppercase tracking-[0.15em] text-[var(--c-bg)] shadow-xl transition-all hover:-translate-y-1 active:translate-y-0 disabled:transform-none disabled:cursor-not-allowed disabled:opacity-40" onClick={() => addToCart(product.id, quantity, chosenVariant?.id)}>
+              <button
+                type="button"
+                disabled={displayStock <= 0 || (variable && !chosenVariant)}
+                className={cn(getCtaClass((store.themeOverrides as Record<string,string>)?.buttonStyle), 'flex-1 h-12 shadow-md disabled:opacity-40')}
+                onClick={() => addToCart(product.id, quantity, chosenVariant?.id)}
+              >
                 {displayStock <= 0 ? c.soldOut : variable && !chosenVariant ? 'Choose options' : c.addToCart}
               </button>
             </div>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Feature icon={<Truck />} text="Jordan delivery" />
-            <Feature icon={<ShieldCheck />} text={c.cod} />
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="flex items-center gap-3 rounded-xl bg-[var(--c-surface)] p-4 text-sm font-bold border border-[var(--c-line)]/25">
+              <Truck className="h-5 w-5 opacity-60 shrink-0" />
+              <span>Jordan delivery</span>
+            </div>
+            <div className="flex items-center gap-3 rounded-xl bg-[var(--c-surface)] p-4 text-sm font-bold border border-[var(--c-line)]/25">
+              <ShieldCheck className="h-5 w-5 opacity-60 shrink-0" />
+              <span>{c.cod}</span>
+            </div>
           </div>
         </div>
       </div>
-      <section className="mt-16 grid gap-5 lg:grid-cols-3">
-        {(details.highlights || []).length > 0 && <ProductInfoList title="Highlights" items={details.highlights!} />}
-        {detailRows.length > 0 && <ProductSpecs title="Product details" rows={detailRows} />}
-        {(details.specifications || []).length > 0 && <ProductInfoList title="Specifications" items={details.specifications!} />}
-        {(details.detailsRows || []).map((row) => <ProductInfoText key={row.id} title={row.name} body={row.value} />)}
-        {details.sizeGuide && <ProductInfoText title="Size guide" body={details.sizeGuide} />}
-        {details.ingredients && <ProductInfoText title="Ingredients" body={details.ingredients} />}
-        {(details.allergens || []).length > 0 && <ProductInfoList title="Allergens" items={details.allergens!} />}
-        {details.storageInstructions && <ProductInfoText title="Storage" body={details.storageInstructions} />}
-        {details.nutrition && <ProductInfoText title="Nutrition" body={details.nutrition} />}
-        {details.compatibility && <ProductInfoText title="Compatibility" body={details.compatibility} />}
-        {(details.includedItems || []).length > 0 && <ProductInfoList title="Included" items={details.includedItems!} />}
-        {details.careInstructions && <ProductInfoText title="Care instructions" body={details.careInstructions} />}
-        {details.shippingNote && <ProductInfoText title="Shipping note" body={details.shippingNote} />}
-        {details.warranty && <ProductInfoText title="Warranty" body={details.warranty} />}
-        {details.returnPolicy && <ProductInfoText title="Returns" body={details.returnPolicy} />}
-      </section>
+
+      {/* Product details grid */}
+      {(detailRows.length > 0 || (details.highlights || []).length > 0 || (details.specifications || []).length > 0) && (
+        <section className="mt-14 grid gap-4 lg:grid-cols-3">
+          {(details.highlights || []).length > 0 && <ProductInfoList title="Highlights" items={details.highlights!} />}
+          {detailRows.length > 0 && <ProductSpecs title="Product details" rows={detailRows} />}
+          {(details.specifications || []).length > 0 && <ProductInfoList title="Specifications" items={details.specifications!} />}
+          {(details.detailsRows || []).map((row) => <ProductInfoText key={row.id} title={row.name} body={row.value} />)}
+          {details.sizeGuide && <ProductInfoText title="Size guide" body={details.sizeGuide} />}
+          {details.ingredients && <ProductInfoText title="Ingredients" body={details.ingredients} />}
+          {(details.allergens || []).length > 0 && <ProductInfoList title="Allergens" items={details.allergens!} />}
+          {details.storageInstructions && <ProductInfoText title="Storage" body={details.storageInstructions} />}
+          {details.nutrition && <ProductInfoText title="Nutrition" body={details.nutrition} />}
+          {details.compatibility && <ProductInfoText title="Compatibility" body={details.compatibility} />}
+          {(details.includedItems || []).length > 0 && <ProductInfoList title="Included" items={details.includedItems!} />}
+          {details.careInstructions && <ProductInfoText title="Care instructions" body={details.careInstructions} />}
+          {details.shippingNote && <ProductInfoText title="Shipping note" body={details.shippingNote} />}
+          {details.warranty && <ProductInfoText title="Warranty" body={details.warranty} />}
+          {details.returnPolicy && <ProductInfoText title="Returns" body={details.returnPolicy} />}
+        </section>
+      )}
+
       {related.length > 0 && (
-        <section className="mt-24 border-t border-[var(--c-line)]/20 pt-16">
-          <SectionHeading title={c.related} />
+        <section className="mt-20 border-t border-[var(--c-line)]/20 pt-14">
+          <h2 className="mb-8 text-2xl font-black tracking-tight sm:text-3xl">{c.related}</h2>
           <ProductGrid products={related} store={store} addToCart={addToCart} templateId={template.id} />
         </section>
       )}
@@ -864,18 +1131,30 @@ function ProductDetail({ store, products, addToCart }: { store: Store; products:
 
 function ProductImageGallery({ product, activeImage }: { product: Product; activeImage?: string }) {
   const images = productImages(product);
-  const main = activeImage || images[0]?.url;
+  const [selected, setSelected] = useState<string | undefined>(activeImage);
+  const main = selected || activeImage || images[0]?.url;
+
+  useEffect(() => { setSelected(activeImage); }, [activeImage]);
+
   return (
-    <div className="lg:sticky lg:top-32">
-      <div className="grid aspect-square w-full place-items-center overflow-hidden rounded-3xl border border-[var(--c-line)]/20 bg-[var(--c-surface)] text-8xl shadow-2xl shadow-black/5">
-        {main ? <img src={main} alt={product.name} className="h-full w-full object-cover" /> : <span className="opacity-30">{product.imageEmoji || 'Bag'}</span>}
+    <div className="lg:sticky lg:top-24 space-y-3">
+      <div className="aspect-square w-full overflow-hidden rounded-2xl border border-[var(--c-line)]/20 bg-[var(--c-surface)] shadow-xl shadow-black/5">
+        {main
+          ? <img src={main} alt={product.name} className="h-full w-full object-cover" />
+          : <div className="h-full w-full flex items-center justify-center text-7xl opacity-25">{product.imageEmoji || '📦'}</div>
+        }
       </div>
       {images.length > 1 && (
-        <div className="mt-4 grid grid-cols-5 gap-3">
+        <div className="grid grid-cols-5 gap-2">
           {images.slice(0, 5).map((image) => (
-            <div key={image.id} className={cn('aspect-square overflow-hidden rounded-xl border bg-[var(--c-surface)]', image.url === main ? 'border-[var(--c-text)]' : 'border-[var(--c-line)]/30')}>
+            <button
+              key={image.id}
+              type="button"
+              onClick={() => setSelected(image.url)}
+              className={cn('aspect-square overflow-hidden rounded-xl border-2 bg-[var(--c-surface)] transition-all', image.url === main ? 'border-[var(--c-text)] shadow-sm' : 'border-[var(--c-line)]/30 hover:border-[var(--c-text)]/50')}
+            >
               <img src={image.url} alt={image.altText || product.name} className="h-full w-full object-cover" />
-            </div>
+            </button>
           ))}
         </div>
       )}
@@ -886,14 +1165,14 @@ function ProductImageGallery({ product, activeImage }: { product: Product; activ
 function ProductOptionSelector({ product, selections, setSelections }: { product: Product; selections: Record<string, string>; setSelections: React.Dispatch<React.SetStateAction<Record<string, string>>> }) {
   const options = productOptions(product);
   return (
-    <div className="mb-8 space-y-5">
+    <div className="mb-6 space-y-5">
       {options.map((option) => {
         const isColor = /colou?r/i.test(option.name);
         return (
           <div key={option.id}>
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <p className="text-xs font-black uppercase tracking-[0.15em] opacity-50">Choose {option.name.toLowerCase()}</p>
-              {selections[option.name] && <p className="text-xs font-bold opacity-60">{selections[option.name]}</p>}
+            <div className="mb-2.5 flex items-center justify-between gap-3">
+              <p className="text-[11px] font-black uppercase tracking-[0.15em] opacity-45">Choose {option.name.toLowerCase()}</p>
+              {selections[option.name] && <p className="text-xs font-bold opacity-55">{selections[option.name]}</p>}
             </div>
             <div className="flex flex-wrap gap-2">
               {option.values.map((value) => {
@@ -906,578 +1185,5 @@ function ProductOptionSelector({ product, selections, setSelections }: { product
                     disabled={!available}
                     onClick={() => setSelections((current) => ({ ...current, [option.name]: value.value }))}
                     className={cn(
-                      'min-h-11 rounded-xl border px-4 text-sm font-black transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-30',
-                      selected ? 'border-[var(--c-text)] bg-[var(--c-text)] text-[var(--c-bg)] shadow-md' : 'border-[var(--c-line)] bg-[var(--c-surface)] hover:border-[var(--c-text)]',
-                      isColor && 'flex items-center gap-2',
-                    )}
-                  >
-                    {isColor && <span className="h-4 w-4 rounded-full ring-1 ring-[var(--c-line)]" style={{ backgroundColor: value.colorHex || value.value }} />}
-                    {value.displayValue || value.value}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function AboutPage({ store }: { store: Store }) {
-  const c = useCopy();
-  const theme = resolveStoreTheme(store.themeId || 'mono', store.themeOverrides);
-  useStorefrontMeta(store);
-  return (
-    <section className="mx-auto max-w-5xl px-4 py-20 sm:px-6 lg:px-8">
-      <p className="mb-5 text-[12px] font-black uppercase tracking-[0.2em] opacity-40">{c.aboutTitle}</p>
-      <h1 className="mb-12 text-6xl font-black tracking-tighter sm:text-7xl" style={{ fontFamily: theme.hero }}>{store.name}</h1>
-      <div className="grid gap-8 md:grid-cols-[1.2fr_0.8fr]">
-        <div className="whitespace-pre-line rounded-3xl bg-[var(--c-surface)] p-8 text-lg font-medium leading-relaxed shadow-sm border border-[var(--c-line)]/30">{store.about || store.tagline}</div>
-        <div className="rounded-3xl bg-[var(--c-surface)] p-8 shadow-sm border border-[var(--c-line)]/30 h-fit">
-          <h2 className="mb-5 text-sm font-black uppercase tracking-[0.15em] opacity-80">{c.shippingReturns}</h2>
-          <p className="text-sm font-medium leading-relaxed opacity-60">{shippingPolicyText(store)}</p>
-          {(store.contactPhone || store.address) && <div className="mt-8 pt-8 border-t border-[var(--c-line)]/20">
-            {store.contactPhone && <p className="mb-2 text-sm font-medium opacity-80 flex items-center gap-2">📞 {store.contactPhone}</p>}
-            {store.address && <p className="text-sm font-medium opacity-80 flex items-center gap-2">📍 {store.address}</p>}
-          </div>}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function ProductInfoList({ title, items }: { title: string; items: string[] }) {
-  return (
-    <section className="rounded-2xl bg-[var(--c-surface)] p-6 ring-1 ring-[var(--c-line)]/40">
-      <h2 className="mb-4 text-[11px] font-black uppercase tracking-[0.2em] opacity-45">{title}</h2>
-      <div className="space-y-3">
-        {items.map((item) => <p key={item} className="text-sm font-bold leading-6 opacity-75">{item}</p>)}
-      </div>
-    </section>
-  );
-}
-
-function ProductSpecs({ title, rows }: { title: string; rows: [string, string][] }) {
-  return (
-    <section className="rounded-2xl bg-[var(--c-surface)] p-6 ring-1 ring-[var(--c-line)]/40">
-      <h2 className="mb-4 text-[11px] font-black uppercase tracking-[0.2em] opacity-45">{title}</h2>
-      <div className="divide-y divide-[var(--c-line)]/40">
-        {rows.map(([label, value]) => (
-          <div key={label} className="grid grid-cols-[7rem_1fr] gap-4 py-3 text-sm">
-            <span className="font-black opacity-45">{label}</span>
-            <span className="font-bold opacity-75">{value}</span>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function ProductInfoText({ title, body }: { title: string; body: string }) {
-  return (
-    <section className="rounded-2xl bg-[var(--c-surface)] p-6 ring-1 ring-[var(--c-line)]/40">
-      <h2 className="mb-4 text-[11px] font-black uppercase tracking-[0.2em] opacity-45">{title}</h2>
-      <p className="whitespace-pre-line text-sm font-bold leading-6 opacity-75">{body}</p>
-    </section>
-  );
-}
-
-function CartPage({ store, products, cartItems, summary, setQuantity, openCheckout }: { store: Store; products: Product[]; cartItems: CartItem[]; summary: ReturnType<typeof computeOrderSummary>; setQuantity: (productId: string, quantity: number, variantId?: string) => void; openCheckout: () => void }) {
-  const c = useCopy();
-  return (
-    <section className="mx-auto max-w-5xl px-4 py-16 sm:px-6 lg:px-8">
-      <SectionHeading title={c.cart} />
-      <div className="grid gap-8 lg:grid-cols-[1fr_24rem]">
-        <CartLines store={store} products={products} cartItems={cartItems} setQuantity={setQuantity} />
-        <div className="h-fit rounded-3xl bg-[var(--c-surface)] p-6 shadow-sm border border-[var(--c-line)]/30">
-          <SummaryRows store={store} summary={summary} />
-          <button type="button" disabled={cartItems.length === 0} onClick={openCheckout} className="mt-6 h-14 w-full rounded-xl bg-[var(--c-text)] text-sm font-black uppercase tracking-[0.15em] text-[var(--c-bg)] shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98] disabled:transform-none disabled:opacity-40">{c.checkout}</button>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function OrderConfirmation({ store }: { store: Store }) {
-  const { orderId } = useParams();
-  const c = useCopy();
-  const { date } = useI18n();
-  const orders = useStore((s) => s.orders);
-  const order = orders.find((item) => item.id === orderId) as (Order & { customerPhone?: string; shippingAddress?: string }) | undefined;
-  useStorefrontMeta(store);
-
-  if (!order) return <EmptyState title="Order not found" body="Refresh protection for guest order lookup is deferred until the public lookup endpoint exists." />;
-
-  const invoiceNumber = order.invoiceNumber || `DRAFT-${order.id.slice(0, 8).toUpperCase()}`;
-  return (
-    <section className="mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8">
-      <div className="mb-10 rounded-3xl bg-[var(--c-surface)] p-10 text-center shadow-sm border border-[var(--c-line)]/30">
-        <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
-          <CheckCircle2 className="h-10 w-10 text-green-600" />
-        </div>
-        <h1 className="text-4xl font-black tracking-tighter sm:text-5xl">{c.confirmed}</h1>
-        <p className="mt-4 text-sm font-medium opacity-60">{c.reference}: <span className="font-mono font-bold">{order.id}</span></p>
-      </div>
-
-      <div id="invoice" className="rounded-3xl bg-white p-8 text-neutral-950 shadow-xl border border-black/5 print:shadow-none print:border-none print:p-0">
-        <div className="mb-8 flex flex-col justify-between gap-6 border-b border-neutral-100 pb-8 sm:flex-row">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-neutral-400">{c.invoice}</p>
-            <h2 className="mt-2 text-3xl font-black tracking-tight">{store.name}</h2>
-            <p className="mt-2 text-sm text-neutral-500">{store.address}</p>
-            {store.taxRegistrationNumber && <p className="mt-1 text-sm text-neutral-500">Tax No. {store.taxRegistrationNumber}</p>}
-          </div>
-          <div className="text-start sm:text-end">
-            <p className="font-mono text-sm font-bold text-neutral-800">{invoiceNumber}</p>
-            <p className="mt-1 text-sm text-neutral-500">{date(order.createdAt)}</p>
-            <p className="mt-3 inline-block rounded-md bg-neutral-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-neutral-600">{order.paymentMethod || 'COD'}</p>
-          </div>
-        </div>
-        <div className="mb-8 grid gap-8 sm:grid-cols-2">
-          <InvoiceBlock title={c.customer} lines={[order.customerName, order.customerPhone, order.customerEmail].filter(Boolean) as string[]} />
-          <InvoiceBlock title={c.delivery} lines={[order.shippingAddress || 'COD delivery address on file', order.note].filter(Boolean) as string[]} />
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-neutral-100 text-start text-xs font-black uppercase tracking-[0.15em] text-neutral-400">
-                <th className="py-4 text-start">Item</th>
-                <th className="py-4 text-end">Qty</th>
-                <th className="py-4 text-end">Unit</th>
-                <th className="py-4 text-end">Line</th>
-              </tr>
-            </thead>
-            <tbody>
-              {order.items.map((item, index) => (
-                <tr key={`${item.productName}-${index}`} className="border-b border-neutral-50 last:border-0">
-                  <td className="py-4 font-bold text-neutral-800">{item.productName}</td>
-                  <td className="py-4 text-end font-medium text-neutral-600">{item.quantity}</td>
-                  <td className="py-4 text-end font-medium text-neutral-600">{money(item.priceCents, order.currency || store.currency)}</td>
-                  <td className="py-4 text-end font-black text-neutral-900">{money(item.priceCents * item.quantity, order.currency || store.currency)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="ms-auto mt-8 max-w-sm space-y-3 text-sm rounded-2xl bg-neutral-50 p-6">
-          <InvoiceRow label={c.subtotal} value={money(order.subtotalCents, order.currency || store.currency)} />
-          {(order.discountCents ?? 0) > 0 && <InvoiceRow label={c.discount} value={`-${money(order.discountCents ?? 0, order.currency || store.currency)}`} />}
-          <InvoiceRow label={c.gst} value={money(order.taxCents ?? 0, order.currency || store.currency)} />
-          <InvoiceRow label={c.shipping} value={money(order.shippingCents ?? 0, order.currency || store.currency)} />
-          <div className="border-t border-neutral-200 pt-4 mt-2">
-            <InvoiceRow label={c.total} value={money(order.totalCents, order.currency || store.currency)} strong />
-          </div>
-        </div>
-      </div>
-      <div className="mt-8 flex flex-col gap-4 sm:flex-row print:hidden">
-        <button type="button" onClick={() => window.print()} className="inline-flex h-14 flex-1 items-center justify-center gap-3 rounded-xl bg-[var(--c-text)] text-xs font-black uppercase tracking-[0.15em] text-[var(--c-bg)] transition-transform hover:scale-[1.02] active:scale-[0.98] shadow-xl"><Printer className="h-5 w-5" />{c.print}</button>
-        <Link to={`/s/${store.slug}`} className="inline-flex h-14 flex-1 items-center justify-center rounded-xl bg-[var(--c-surface)] text-xs font-black uppercase tracking-[0.15em] border border-[var(--c-line)]/40 transition-colors hover:bg-[var(--c-soft)]">{c.continueShopping}</Link>
-      </div>
-    </section>
-  );
-}
-
-function CartDrawer(props: {
-  open: boolean;
-  checkoutOpen: boolean;
-  submitting: boolean;
-  checkoutError: string;
-  store: Store;
-  products: Product[];
-  cartItems: CartItem[];
-  discounts: Discount[];
-  summary: ReturnType<typeof computeOrderSummary>;
-  promoInput: string;
-  promoMessage?: string;
-  form: UseFormReturn<CheckoutValues>;
-  setPromoInput: (value: string) => void;
-  applyPromo: () => void;
-  removePromo: () => void;
-  setQuantity: (productId: string, quantity: number, variantId?: string) => void;
-  close: () => void;
-  openCheckout: () => void;
-  backToCart: () => void;
-  submitCheckout: (values: CheckoutValues) => void;
-}) {
-  const c = useCopy();
-  const firstFocusable = useRef<HTMLButtonElement | null>(null);
-  
-  useEffect(() => {
-    if (props.open) firstFocusable.current?.focus();
-  }, [props.open]);
-
-  return (
-    <>
-      {/* Backdrop */}
-      <div 
-        className={cn(
-          "fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm transition-opacity duration-300", 
-          props.open ? "opacity-100 visible" : "opacity-0 invisible pointer-events-none"
-        )} 
-        onMouseDown={(event) => { if (event.target === event.currentTarget) props.close(); }} 
-      />
-      
-      {/* Drawer */}
-      <aside 
-        role="dialog" 
-        aria-modal="true" 
-        aria-label={props.checkoutOpen ? c.checkout : c.cart} 
-        className={cn(
-          "fixed top-0 right-0 z-[101] flex h-full w-full max-w-[32rem] flex-col bg-[var(--c-bg)] text-[var(--c-text)] shadow-2xl shadow-black/20 transition-transform duration-500 cubic-bezier(0.32, 0.72, 0, 1)",
-          props.open ? "translate-x-0" : "translate-x-full"
-        )}
-      >
-        <div className="flex h-20 items-center justify-between border-b border-[var(--c-line)]/30 bg-[var(--c-surface)]/80 backdrop-blur-xl px-6">
-          <h2 className="text-2xl font-black tracking-tight">{props.checkoutOpen ? c.checkout : c.cart}</h2>
-          <button ref={firstFocusable} type="button" aria-label="Close cart" onClick={props.close} className="grid h-10 w-10 place-items-center rounded-full bg-[var(--c-soft)] hover:bg-[var(--c-line)]/20 transition-colors">
-            <X className="h-5 w-5 opacity-70" />
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto p-6 scroll-smooth">
-          {props.checkoutOpen ? (
-            <CheckoutForm {...props} />
-          ) : (
-            <CartLines store={props.store} products={props.products} cartItems={props.cartItems} setQuantity={props.setQuantity} />
-          )}
-        </div>
-        {props.cartItems.length > 0 && (
-          <div className="border-t border-[var(--c-line)]/30 bg-[var(--c-surface)] p-6 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
-            <PromoBox {...props} />
-            <SummaryRows store={props.store} summary={props.summary} />
-            {props.checkoutError && <p className="mt-5 rounded-xl bg-red-50 p-4 text-sm font-bold text-red-700 border border-red-200 shadow-sm">{props.checkoutError}</p>}
-            <button
-              type={props.checkoutOpen ? 'submit' : 'button'}
-              form={props.checkoutOpen ? 'cod-checkout-form' : undefined}
-              disabled={props.submitting || props.summary.items.length === 0}
-              onClick={props.checkoutOpen ? undefined : props.openCheckout}
-              className="mt-6 h-14 w-full rounded-xl bg-[var(--c-text)] text-sm font-black uppercase tracking-[0.15em] text-[var(--c-bg)] shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98] disabled:transform-none disabled:cursor-wait disabled:opacity-40"
-            >
-              {props.checkoutOpen ? (props.submitting ? 'Placing...' : c.placeOrder) : c.checkout}
-            </button>
-          </div>
-        )}
-      </aside>
-    </>
-  );
-}
-
-function CartLines({ store, products, cartItems, setQuantity }: { store: Store; products: Product[]; cartItems: CartItem[]; setQuantity: (productId: string, quantity: number, variantId?: string) => void }) {
-  const c = useCopy();
-  if (cartItems.length === 0) return <EmptyState title={c.emptyCart} body="" />;
-  return (
-    <div className="space-y-5">
-      {cartItems.map((item) => {
-        const product = products.find((candidate) => candidate.id === item.productId);
-        if (!product) return null;
-        const variant = findCartVariant(product, item);
-        const unitPrice = lineUnitPrice(product, variant);
-        const max = lineMaxQuantity(product, variant);
-        return (
-          <div key={cartLineKey(item)} className="grid grid-cols-[6rem_1fr] gap-5 rounded-2xl bg-[var(--c-surface)] p-4 border border-[var(--c-line)]/30 shadow-sm transition-all hover:shadow-md group">
-            {variant?.imageUrl ? (
-              <img src={variant.imageUrl} alt={variant.title} className="aspect-square rounded-xl bg-[var(--c-bg)] object-cover transition-transform group-hover:scale-[1.02]" />
-            ) : (
-              <ProductThumb product={product} className="aspect-square rounded-xl bg-[var(--c-bg)] text-4xl overflow-hidden group-hover:scale-[1.02] transition-transform" />
-            )}
-            <div className="min-w-0 flex flex-col justify-between">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <Link to={`/s/${store.slug}/p/${product.id}`} className="block truncate text-base font-black hover:opacity-70 transition-opacity">{product.name}</Link>
-                  {variant && <p className="mt-1 truncate text-xs font-black uppercase tracking-[0.12em] opacity-45">{variant.title}{variant.sku ? ` · ${variant.sku}` : ''}</p>}
-                  <p className="mt-1 text-sm font-medium opacity-60">{money(unitPrice, store.currency)}</p>
-                </div>
-                <button type="button" aria-label={c.remove} className="rounded-full p-2 opacity-40 hover:opacity-100 hover:bg-[var(--c-soft)] transition-all" onClick={() => setQuantity(product.id, 0, item.variantId)}>
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="mt-4 flex items-center justify-between">
-                <QuantityStepper value={item.quantity} max={max} onChange={(value) => setQuantity(product.id, value, item.variantId)} compact />
-                <p className="text-base font-black">{money(unitPrice * item.quantity, store.currency)}</p>
-              </div>
-              {max <= 0 && <p className="mt-2 text-xs font-bold text-red-500">{c.soldOut}</p>}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function CheckoutForm({ form, store, submitCheckout, backToCart }: { form: UseFormReturn<CheckoutValues>; store: Store; submitCheckout: (values: CheckoutValues) => void; backToCart: () => void }) {
-  const c = useCopy();
-  return (
-    <form id="cod-checkout-form" className="space-y-6" onSubmit={form.handleSubmit(submitCheckout)}>
-      <div className="rounded-2xl bg-[var(--c-soft)] p-5 border border-[var(--c-line)]/20">
-        <p className="flex items-center gap-3 text-sm font-black"><ShieldCheck className="h-5 w-5" /> {c.cod}</p>
-        <p className="mt-2 text-xs font-medium leading-relaxed opacity-60">The server recalculates stock, discount, GST, shipping, and total before creating the order.</p>
-      </div>
-      <Field form={form} name="customerName" label={c.fullName} />
-      <Field form={form} name="customerPhone" label={c.phone} type="tel" placeholder="0790000000" />
-      <Field form={form} name="customerEmail" label={c.emailOptional} type="email" />
-      <label className="block">
-        <span className="mb-2 block text-[11px] font-black uppercase tracking-[0.15em] opacity-50">{c.governorate}</span>
-        <select {...form.register('governorate')} className="h-14 w-full rounded-xl border border-[var(--c-line)]/50 bg-[var(--c-surface)] px-4 text-sm font-medium transition-all focus:border-[var(--c-text)] focus:ring-1 focus:ring-[var(--c-text)] outline-none">
-          {GOVERNORATES.map((item) => <option key={item} value={item}>{item}</option>)}
-        </select>
-        <FieldError form={form} name="governorate" />
-      </label>
-      <label className="block">
-        <span className="mb-2 block text-[11px] font-black uppercase tracking-[0.15em] opacity-50">{c.shipping}</span>
-        <select {...form.register('shippingOption')} className="h-14 w-full rounded-xl border border-[var(--c-line)]/50 bg-[var(--c-surface)] px-4 text-sm font-medium transition-all focus:border-[var(--c-text)] focus:ring-1 focus:ring-[var(--c-text)] outline-none">
-          <option value={store.shipping?.type === 'PICKUP' ? 'PICKUP' : 'DELIVERY'}>{store.shipping?.type === 'PICKUP' ? 'Pickup' : 'Delivery'}</option>
-        </select>
-      </label>
-      <Field form={form} name="address" label={c.address} />
-      <label className="block">
-        <span className="mb-2 block text-[11px] font-black uppercase tracking-[0.15em] opacity-50">{c.note}</span>
-        <textarea {...form.register('note')} rows={3} className="w-full rounded-xl border border-[var(--c-line)]/50 bg-[var(--c-surface)] px-4 py-3 text-sm font-medium transition-all focus:border-[var(--c-text)] focus:ring-1 focus:ring-[var(--c-text)] outline-none resize-none" />
-        <FieldError form={form} name="note" />
-      </label>
-      <button type="button" onClick={backToCart} className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.15em] opacity-50 hover:opacity-100 transition-opacity"><ArrowLeft className="h-4 w-4" /> {c.cart}</button>
-    </form>
-  );
-}
-
-function PromoBox(props: { checkoutOpen: boolean; promoInput: string; promoMessage?: string; setPromoInput: (value: string) => void; applyPromo: () => void; removePromo: () => void; summary: ReturnType<typeof computeOrderSummary> }) {
-  const c = useCopy();
-  if (!props.checkoutOpen) return null;
-  return (
-    <div className="mb-6">
-      <div className="flex rounded-xl bg-[var(--c-surface)] p-1.5 border border-[var(--c-line)]/40 focus-within:border-[var(--c-text)] focus-within:ring-1 focus-within:ring-[var(--c-text)] transition-all">
-        <input value={props.promoInput} onChange={(event) => props.setPromoInput(event.target.value.toUpperCase())} placeholder={c.promo} className="h-11 min-w-0 flex-1 rounded-lg border-0 bg-transparent px-4 text-sm font-mono font-bold uppercase focus:outline-none" />
-        {props.summary.discountCode ? (
-          <button type="button" onClick={props.removePromo} className="rounded-lg px-4 text-xs font-black uppercase tracking-[0.1em] hover:bg-red-50 hover:text-red-600 transition-colors">{c.remove}</button>
-        ) : (
-          <button type="button" onClick={props.applyPromo} className="rounded-lg bg-[var(--c-text)] px-4 text-xs font-black uppercase tracking-[0.1em] text-[var(--c-bg)] transition-transform active:scale-95">{c.apply}</button>
-        )}
-      </div>
-      {props.promoMessage && <p className="mt-3 text-xs font-bold opacity-70 px-1">{props.promoMessage}</p>}
-    </div>
-  );
-}
-
-export function SummaryRows({ store, summary }: { store: Store; summary: ReturnType<typeof computeOrderSummary> }) {
-  const c = useCopy();
-  return (
-    <div className="space-y-3 text-sm">
-      <SummaryRow label={c.subtotal} value={money(summary.subtotalCents, store.currency)} />
-      {summary.discountCents > 0 && <SummaryRow label={`${c.discount}${summary.discountCode ? ` (${summary.discountCode})` : ''}`} value={`-${money(summary.discountCents, store.currency)}`} />}
-      <SummaryRow label={c.gst} value={money(summary.taxCents, store.currency)} />
-      <SummaryRow label={c.shipping} value={summary.shippingCents === 0 ? c.free : money(summary.shippingCents, store.currency)} />
-      <div className="mt-4 border-t border-[var(--c-line)]/20 pt-4">
-        <SummaryRow label={c.total} value={money(summary.totalCents, store.currency)} strong />
-      </div>
-    </div>
-  );
-}
-
-function ProductGrid({ products, store, addToCart, templateId = 'editorial' }: { products: Product[]; store: Store; addToCart: (productId: string, quantity?: number, variantId?: string) => void; templateId?: 'editorial' | 'boutique' | 'market' | 'lookbook' }) {
-  return (
-    <div className={cn(
-      'grid grid-cols-2 gap-4 sm:gap-6',
-      templateId === 'market' ? 'md:grid-cols-4 lg:grid-cols-5' : 'md:grid-cols-3 lg:grid-cols-4',
-      templateId === 'lookbook' && '[&>*:first-child]:md:col-span-2',
-    )}>
-      {products.map((product, index) => <ProductCard key={product.id} product={product} store={store} addToCart={addToCart} templateId={templateId} featured={templateId === 'lookbook' && index === 0} />)}
-    </div>
-  );
-}
-
-function ProductCard({ product, store, addToCart, templateId, featured = false }: { product: Product; store: Store; addToCart: (productId: string, quantity?: number, variantId?: string) => void; templateId: 'editorial' | 'boutique' | 'market' | 'lookbook'; featured?: boolean }) {
-  const c = useCopy();
-  const variable = isVariableProduct(product);
-  const soldOut = productStock(product) <= 0;
-  const priceRange = productPriceRange(product);
-  const swatches = colorValues(product);
-  return (
-    <article className={cn('group flex min-h-0 flex-col bg-[var(--c-surface)] border border-[var(--c-line)]/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-[var(--c-text)]/5', templateId === 'market' ? 'rounded-xl p-3' : 'rounded-3xl p-4')}>
-      <Link to={`/s/${store.slug}/p/${product.id}`} className="relative overflow-hidden rounded-2xl bg-[var(--c-bg)]">
-        <ProductThumb product={product} className={cn('w-full text-6xl transition-transform duration-500 group-hover:scale-105', featured ? 'aspect-[16/10]' : templateId === 'market' ? 'aspect-square' : 'aspect-[4/5]')} />
-        {soldOut && <span className="absolute inset-x-4 top-4 rounded-xl bg-[var(--c-text)]/90 backdrop-blur-md px-3 py-2 text-center text-[10px] font-black uppercase tracking-[0.2em] text-[var(--c-bg)] shadow-md">{c.soldOut}</span>}
-        {isOnSale(product) && !soldOut && <span className="absolute start-4 top-4 rounded-xl bg-red-600/90 backdrop-blur-md px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.15em] text-white shadow-md">{c.onSale}</span>}
-      </Link>
-      <p className="mt-4 truncate text-[10px] font-black uppercase tracking-[0.16em] opacity-45">{productCategory(product, store)}</p>
-      <Link to={`/s/${store.slug}/p/${product.id}`} className={cn('mt-1 truncate font-black tracking-tight', templateId === 'market' ? 'text-sm sm:text-base' : 'text-base sm:text-lg')}>{product.name}</Link>
-      {product.details?.shortDescription && <p className="mt-1 line-clamp-2 text-xs font-medium opacity-50">{product.details.shortDescription}</p>}
-      <p className={cn('mt-1.5 flex flex-wrap items-baseline gap-2 font-bold opacity-70', templateId === 'market' ? 'text-xs' : 'text-sm')}>
-        {variable && priceRange.min !== priceRange.max ? `From ${money(priceRange.min, store.currency)}` : money(priceRange.min, store.currency)}
-      </p>
-      {swatches.length > 0 && (
-        <div className="mt-3 flex gap-1.5">
-          {swatches.slice(0, 5).map((value) => <span key={value.id} title={value.value} className="h-4 w-4 rounded-full ring-1 ring-[var(--c-line)]" style={{ backgroundColor: value.colorHex }} />)}
-        </div>
-      )}
-      {variable ? (
-        <Link to={`/s/${store.slug}/p/${product.id}`} className={cn('mt-5 grid place-items-center rounded-xl bg-[var(--c-bg)] font-black uppercase tracking-[0.15em] border border-[var(--c-line)]/50 transition-all hover:bg-[var(--c-text)] hover:text-[var(--c-bg)] hover:shadow-lg active:scale-95', templateId === 'market' ? 'h-10 text-[10px]' : 'h-12 text-[11px]')}>
-          Choose options
-        </Link>
-      ) : (
-        <button type="button" disabled={soldOut} onClick={() => addToCart(product.id)} className={cn('mt-5 rounded-xl bg-[var(--c-bg)] font-black uppercase tracking-[0.15em] border border-[var(--c-line)]/50 transition-all hover:bg-[var(--c-text)] hover:text-[var(--c-bg)] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[var(--c-bg)] disabled:hover:text-[var(--c-text)] disabled:hover:shadow-none active:scale-95', templateId === 'market' ? 'h-10 text-[10px]' : 'h-12 text-[11px]')}>
-          {soldOut ? c.soldOut : c.addToCart}
-        </button>
-      )}
-    </article>
-  );
-}
-
-function ProductThumb({ product, className = '' }: { product: Product; className?: string }) {
-  const image = productPrimaryImage(product);
-  return (
-    <div className={cn('grid place-items-center overflow-hidden', className)}>
-      {image ? (
-        <img src={image} alt={product.name} width={700} height={875} loading="lazy" decoding="async" className="h-full w-full object-cover" />
-      ) : (
-        <span className="opacity-30">{product.imageEmoji || 'Bag'}</span>
-      )}
-    </div>
-  );
-}
-
-function ProductLogo({ store, large = false }: { store: Store; large?: boolean }) {
-  if (store.logoUrl) return <img src={store.logoUrl} alt={store.name} width={large ? 160 : 44} height={large ? 160 : 44} className={cn('rounded-xl object-cover shadow-sm border border-[var(--c-line)]/20', large ? 'h-40 w-40' : 'h-11 w-11')} />;
-  return <span className={cn('grid place-items-center rounded-xl bg-[var(--c-surface)] shadow-sm border border-[var(--c-line)]/30', large ? 'h-40 w-40 text-7xl rounded-3xl' : 'h-11 w-11 text-2xl')}>{store.logoEmoji || 'Shop'}</span>;
-}
-
-function PriceLine({ product, currency, className }: { product: Product; currency: string; className?: string }) {
-  return (
-    <p className={cn('flex flex-wrap items-baseline gap-2.5', className)}>
-      {isOnSale(product) && <span className="text-sm font-medium line-through opacity-40">{money(product.compareAtCents!, currency)}</span>}
-      <span>{money(product.priceCents, currency)}</span>
-    </p>
-  );
-}
-
-function QuantityStepper({ value, max, onChange, compact = false }: { value: number; max: number; onChange: (value: number) => void; compact?: boolean }) {
-  return (
-    <div className={cn('inline-flex items-center rounded-xl bg-[var(--c-surface)] p-1 border border-[var(--c-line)]/40', compact ? 'h-10' : 'h-14')}>
-      <button type="button" aria-label="Decrease quantity" disabled={value <= 1} onClick={() => onChange(value - 1)} className="grid h-full w-10 place-items-center rounded-lg hover:bg-[var(--c-soft)] transition-colors disabled:opacity-20 active:scale-90"><Minus className="h-4 w-4" /></button>
-      <span className="w-12 text-center text-sm font-black">{value}</span>
-      <button type="button" aria-label="Increase quantity" disabled={value >= max} onClick={() => onChange(value + 1)} className="grid h-full w-10 place-items-center rounded-lg hover:bg-[var(--c-soft)] transition-colors disabled:opacity-20 active:scale-90"><Plus className="h-4 w-4" /></button>
-    </div>
-  );
-}
-
-function Field({ form, name, label, type = 'text', placeholder }: { form: UseFormReturn<CheckoutValues>; name: FieldPath<CheckoutValues>; label: string; type?: string; placeholder?: string }) {
-  return (
-    <label className="block">
-      <span className="mb-2 block text-[11px] font-black uppercase tracking-[0.15em] opacity-50">{label}</span>
-      <input type={type} placeholder={placeholder} {...form.register(name)} className="h-14 w-full rounded-xl border border-[var(--c-line)]/50 bg-[var(--c-surface)] px-4 text-sm font-medium transition-all focus:border-[var(--c-text)] focus:ring-1 focus:ring-[var(--c-text)] outline-none placeholder:opacity-30" />
-      <FieldError form={form} name={name} />
-    </label>
-  );
-}
-
-function FieldError({ form, name }: { form: UseFormReturn<CheckoutValues>; name: FieldPath<CheckoutValues> }) {
-  const error = form.formState.errors[name]?.message;
-  return error ? <span className="mt-2 block text-[11px] font-bold text-red-500">{String(error)}</span> : null;
-}
-
-function SummaryRow({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
-  return (
-    <div className={cn('flex items-center justify-between gap-4', strong && 'text-lg font-black tracking-tight')}>
-      <span className="font-medium opacity-60">{label}</span>
-      <span className={cn('font-black', !strong && 'opacity-80')}>{value}</span>
-    </div>
-  );
-}
-
-function InvoiceRow({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
-  return <div className={cn('flex justify-between gap-4', strong && 'text-lg font-black text-neutral-900')}><span className="text-neutral-500">{label}</span><span className="font-bold text-neutral-800">{value}</span></div>;
-}
-
-function InvoiceBlock({ title, lines }: { title: string; lines: string[] }) {
-  return (
-    <div>
-      <h3 className="mb-3 text-xs font-black uppercase tracking-[0.2em] text-neutral-400">{title}</h3>
-      <div className="space-y-1">
-        {lines.map((line) => <p key={line} className="text-sm font-medium text-neutral-700">{line}</p>)}
-      </div>
-    </div>
-  );
-}
-
-function Toggle({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
-  return (
-    <button type="button" aria-pressed={active} onClick={onClick} className={cn('rounded-xl px-5 py-2.5 text-[11px] font-black uppercase tracking-[0.15em] border transition-all active:scale-95', active ? 'border-[var(--c-text)] bg-[var(--c-text)] text-[var(--c-bg)] shadow-md' : 'border-[var(--c-line)]/50 bg-[var(--c-surface)] opacity-60 hover:opacity-100')}>
-      {label}
-    </button>
-  );
-}
-
-function SectionHeading({ title }: { title: string }) {
-  return <h2 className="mb-8 text-4xl font-black tracking-tighter sm:text-5xl">{title}</h2>;
-}
-
-function Feature({ icon, text }: { icon: React.ReactNode; text: string }) {
-  return <div className="flex items-center gap-4 rounded-2xl bg-[var(--c-surface)] p-5 text-sm font-bold border border-[var(--c-line)]/30 shadow-sm">{React.cloneElement(icon as React.ReactElement<{ className?: string }>, { className: 'h-6 w-6 opacity-70' })}<span>{text}</span></div>;
-}
-
-function EmptyState({ title, body, action }: { title: string; body: string; action?: React.ReactNode }) {
-  return (
-    <div className="rounded-3xl bg-[var(--c-surface)] p-12 text-center border border-[var(--c-line)]/30 shadow-sm">
-      <AlertCircle className="mx-auto mb-6 h-12 w-12 opacity-20" />
-      <h3 className="text-3xl font-black tracking-tight">{title}</h3>
-      {body && <p className="mx-auto mt-3 max-w-md text-sm font-medium opacity-50">{body}</p>}
-      {action && <div className="mt-8">{action}</div>}
-    </div>
-  );
-}
-
-function StorefrontSkeleton() {
-  return (
-    <div className="min-h-screen animate-pulse bg-neutral-50/50">
-      <div className="h-24 bg-white/60 border-b border-black/5" />
-      <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-        <div className="mb-16 h-96 rounded-3xl bg-black/5" />
-        <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, index) => <div key={index} className="h-72 rounded-3xl bg-black/5" />)}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Unavailable({ title, body, actionLabel, onAction }: { title: string; body: string; actionLabel?: string; onAction?: () => void }) {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-neutral-50 p-6 text-neutral-950">
-      <div className="w-full max-w-md rounded-3xl bg-white p-10 text-center shadow-xl border border-black/5">
-        <AlertCircle className="mx-auto mb-6 h-12 w-12 text-neutral-300" />
-        <h1 className="text-4xl font-black tracking-tight">{title}</h1>
-        <p className="mt-4 text-sm font-medium leading-relaxed text-neutral-500">{body}</p>
-        <div className="mt-8 flex flex-col gap-3">
-          {onAction && <button type="button" onClick={onAction} className="h-14 rounded-xl bg-black text-sm font-black text-white transition-transform active:scale-95 shadow-xl">{actionLabel}</button>}
-          <Link to="/" className="inline-flex h-14 items-center justify-center rounded-xl bg-neutral-100 text-sm font-bold transition-colors hover:bg-neutral-200">Home</Link>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function OfflineBanner({ message }: { message: string }) {
-  return <div className="fixed inset-x-0 top-0 z-[120] bg-yellow-400 px-4 py-3 text-center text-[11px] font-black uppercase tracking-[0.15em] text-yellow-950 shadow-md">{message}</div>;
-}
-
-function shippingPolicyText(store: Store) {
-  const shipping = store.shipping;
-  if (!shipping || shipping.type === 'FLAT') return `Delivery is available across Jordan. Shipping is ${money(shipping?.flatCents ?? 0, store.currency)} and Cash on Delivery is supported.`;
-  if (shipping.type === 'FREE_OVER') return `Delivery is ${money(shipping.flatCents ?? 0, store.currency)} and becomes free over ${money(shipping.freeOverCents ?? 0, store.currency)}. Cash on Delivery is supported.`;
-  return 'Pickup is available. Cash on Delivery is supported when the order is handed over.';
-}
-
-function useDebouncedValue<T>(value: T, delay: number) {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = window.setTimeout(() => setDebounced(value), delay);
-    return () => window.clearTimeout(timer);
-  }, [value, delay]);
-  return debounced;
-}
-
-export function LazyStorefrontRoot() {
-  return (
-    <Suspense fallback={<StorefrontSkeleton />}>
-      <StorefrontRoot />
-    </Suspense>
-  );
-}
+                      'min-h-10 rounded-xl border px-4 text-sm font-black transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-30',
+                      selected ? 'border-[var(--c-text)] bg-[var(--c-text)] text-[var(--c-bg)] shadow-sm' : 'border-[var(--c-line

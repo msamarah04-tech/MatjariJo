@@ -22,7 +22,13 @@ export type StorefrontTemplate = {
   description: string;
 };
 
-export type ThemeOverrides = Partial<Pick<Theme, 'bg' | 'surface' | 'text' | 'primary' | 'accent' | 'soft' | 'line' | 'radius'>>;
+export type ThemeOverrides = Partial<Pick<Theme, 'bg' | 'surface' | 'text' | 'primary' | 'accent' | 'soft' | 'line' | 'radius'>> & {
+  buttonStyle?: 'solid' | 'outline' | 'pill';
+  headingFont?: string;
+  instagram?: string;
+  whatsapp?: string;
+  tiktok?: string;
+};
 
 export const THEMES: Theme[] = [
   {
@@ -251,6 +257,14 @@ export const STOREFRONT_TEMPLATES: StorefrontTemplate[] = [
 export const getStorefrontTemplate = (id?: string) =>
   STOREFRONT_TEMPLATES.find((template) => template.id === id) ?? STOREFRONT_TEMPLATES[0];
 
+export const HEADING_FONTS = [
+  { id: 'var(--font-fraunces)', name: 'Fraunces', label: 'Serif' },
+  { id: 'var(--font-outfit)', name: 'Outfit', label: 'Geometric' },
+  { id: 'var(--font-heading)', name: 'Heading', label: 'Display' },
+  { id: 'var(--font-display)', name: 'Display', label: 'Slab' },
+  { id: 'var(--font-sans)', name: 'Sans', label: 'Clean' },
+];
+
 const isHex = (value: unknown): value is string => typeof value === 'string' && /^#[0-9A-Fa-f]{6}$/.test(value);
 const isRadius = (value: unknown): value is string => typeof value === 'string' && /^(0|[1-9]\d?)px$/.test(value);
 
@@ -267,5 +281,6 @@ export function resolveStoreTheme(themeId?: string, overrides?: ThemeOverrides |
     soft: isHex(overrides.soft) ? overrides.soft : base.soft,
     line: isHex(overrides.line) ? overrides.line : base.line,
     radius: isRadius(overrides.radius) ? overrides.radius : base.radius,
+    hero: overrides.headingFont || base.hero,
   };
 }
