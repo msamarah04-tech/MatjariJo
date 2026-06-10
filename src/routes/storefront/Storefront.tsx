@@ -569,7 +569,7 @@ function StorefrontFrame({ store, products, discounts }: { store: Store; product
               className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--c-surface)] border border-[var(--c-line)]/40 hover:bg-[var(--c-soft)] transition-all active:scale-95"
               onClick={() => setDrawerOpen(true)}
             >
-              <ShoppingBag className="h-4.5 w-4.5" />
+              <ShoppingBag className="h-5 w-5" />
               {cartCount > 0 && (
                 <span className="absolute -end-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--c-text)] px-1 text-[10px] font-black text-[var(--c-bg)] shadow">
                   {cartCount}
@@ -1186,4 +1186,702 @@ function ProductOptionSelector({ product, selections, setSelections }: { product
                     onClick={() => setSelections((current) => ({ ...current, [option.name]: value.value }))}
                     className={cn(
                       'min-h-10 rounded-xl border px-4 text-sm font-black transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-30',
-                      selected ? 'border-[var(--c-text)] bg-[var(--c-text)] text-[var(--c-bg)] shadow-sm' : 'border-[var(--c-line
+                      selected ? 'border-[var(--c-text)] bg-[var(--c-text)] text-[var(--c-bg)] shadow-sm' : 'border-[var(--c-line)]/40 bg-[var(--c-surface)] hover:border-[var(--c-text)]/60',
+                      isColor && 'flex items-center gap-2',
+                    )}
+                  >
+                    {isColor && <span className="h-4 w-4 rounded-full ring-1 ring-[var(--c-line)]" style={{ backgroundColor: value.colorHex || value.value }} />}
+                    {value.displayValue || value.value}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function AboutPage({ store }: { store: Store }) {
+  const c = useCopy();
+  const theme = resolveStoreTheme(store.themeId || 'mono', store.themeOverrides);
+  useStorefrontMeta(store);
+  return (
+    <section className="mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8">
+      <p className="mb-4 text-[11px] font-black uppercase tracking-[0.2em] opacity-40">{c.aboutTitle}</p>
+      <h1 className="mb-10 text-5xl font-black tracking-tighter sm:text-6xl" style={{ fontFamily: theme.hero }}>{store.name}</h1>
+      <div className="grid gap-6 md:grid-cols-[1.2fr_0.8fr]">
+        <div className="whitespace-pre-line rounded-2xl bg-[var(--c-surface)] p-7 text-base font-medium leading-relaxed shadow-sm border border-[var(--c-line)]/25">
+          {store.about || store.tagline}
+        </div>
+        <div className="space-y-4">
+          <div className="rounded-2xl bg-[var(--c-surface)] p-6 shadow-sm border border-[var(--c-line)]/25">
+            <p className="mb-3 text-[11px] font-black uppercase tracking-[0.18em] opacity-45">{c.shippingReturns}</p>
+            <p className="text-sm font-medium leading-relaxed opacity-65">{shippingPolicyText(store)}</p>
+          </div>
+          {store.address && (
+            <div className="rounded-2xl bg-[var(--c-surface)] p-6 shadow-sm border border-[var(--c-line)]/25">
+              <p className="mb-3 text-[11px] font-black uppercase tracking-[0.18em] opacity-45">Location</p>
+              <p className="text-sm font-medium leading-relaxed opacity-65">{store.address}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CartPage({ store, products, cartItems, summary, setQuantity, openCheckout }: {
+  store: Store;
+  products: Product[];
+  cartItems: CartItem[];
+  summary: ReturnType<typeof computeOrderSummary>;
+  setQuantity: (productId: string, quantity: number, variantId?: string) => void;
+  openCheckout: () => void;
+}) {
+  const c = useCopy();
+  return (
+    <section className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
+      <h1 className="mb-8 text-4xl font-black tracking-tight sm:text-5xl">{c.cart}</h1>
+      {cartItems.length === 0 ? (
+        <EmptyState title={c.emptyCart} body="" action={
+          <Link to={`/s/${store.slug}`} className={cn(getCtaClass((store.themeOverrides as Record<string,string>)?.buttonStyle), 'w-auto px-8')}>{c.shop}</Link>
+        } />
+      ) : (
+        <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
+          <CartLines store={store} products={products} cartItems={cartItems} setQuantity={setQuantity} />
+          <div className="rounded-2xl bg-[var(--c-surface)] p-6 shadow-sm border border-[var(--c-line)]/25 h-fit">
+            <SummaryRows store={store} summary={summary} />
+            <button
+              type="button"
+              onClick={openCheckout}
+              className={cn(getCtaClass((store.themeOverrides as Record<string,string>)?.buttonStyle), 'mt-6 shadow-md')}
+            >
+              {c.checkout}
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function OrderConfirmation({ store }: { store: Store }) {
+  const { orderId } = useParams();
+  const c = useCopy();
+  const { date } = useI18n();
+  const orders = useStore((s) => s.orders);
+  const order = orders.find((item) => item.id === orderId) as (Order & { customerPhone?: string; shippingAddress?: string }) | undefined;
+  useStorefrontMeta(store);
+
+  if (!order) return <EmptyState title="Order not found" body="Refresh protection for guest order lookup is deferred until the public lookup endpoint exists." />;
+
+  const invoiceNumber = order.invoiceNumber || `DRAFT-${order.id.slice(0, 8).toUpperCase()}`;
+  return (
+    <section className="mx-auto max-w-4xl px-4 py-14 sm:px-6 lg:px-8">
+      <div className="mb-8 rounded-2xl bg-[var(--c-surface)] p-10 text-center shadow-sm border border-[var(--c-line)]/25">
+        <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+          <CheckCircle2 className="h-8 w-8 text-green-600" />
+        </div>
+        <h1 className="text-3xl font-black tracking-tighter sm:text-4xl">{c.confirmed}</h1>
+        <p className="mt-3 text-sm font-medium opacity-50">{c.reference}: <span className="font-mono font-bold opacity-100">{order.id}</span></p>
+      </div>
+
+      <div id="invoice" className="rounded-2xl bg-white p-8 text-neutral-950 shadow-xl border border-black/5 print:shadow-none print:border-none print:p-0">
+        <div className="mb-7 flex flex-col justify-between gap-5 border-b border-neutral-100 pb-7 sm:flex-row">
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-neutral-400">{c.invoice}</p>
+            <h2 className="mt-2 text-2xl font-black tracking-tight">{store.name}</h2>
+            <p className="mt-1.5 text-sm text-neutral-500">{store.address}</p>
+            {store.taxRegistrationNumber && <p className="mt-1 text-sm text-neutral-500">Tax No. {store.taxRegistrationNumber}</p>}
+          </div>
+          <div className="text-start sm:text-end">
+            <p className="font-mono text-sm font-bold text-neutral-800">{invoiceNumber}</p>
+            <p className="mt-1 text-sm text-neutral-500">{date(order.createdAt)}</p>
+            <p className="mt-3 inline-block rounded-md bg-neutral-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-neutral-600">{order.paymentMethod || 'COD'}</p>
+          </div>
+        </div>
+        <div className="mb-7 grid gap-7 sm:grid-cols-2">
+          <InvoiceBlock title={c.customer} lines={[order.customerName, order.customerPhone, order.customerEmail].filter(Boolean) as string[]} />
+          <InvoiceBlock title={c.delivery} lines={[order.shippingAddress || 'COD delivery address on file', order.note].filter(Boolean) as string[]} />
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-neutral-100 text-start text-[11px] font-black uppercase tracking-[0.14em] text-neutral-400">
+                <th className="py-4 text-start">Item</th>
+                <th className="py-4 text-end">Qty</th>
+                <th className="py-4 text-end">Unit</th>
+                <th className="py-4 text-end">Line</th>
+              </tr>
+            </thead>
+            <tbody>
+              {order.items.map((item, index) => (
+                <tr key={`${item.productName}-${index}`} className="border-b border-neutral-50 last:border-0">
+                  <td className="py-3.5 font-bold text-neutral-800">{item.productName}</td>
+                  <td className="py-3.5 text-end font-medium text-neutral-600">{item.quantity}</td>
+                  <td className="py-3.5 text-end font-medium text-neutral-600">{money(item.priceCents, order.currency || store.currency)}</td>
+                  <td className="py-3.5 text-end font-black text-neutral-900">{money(item.priceCents * item.quantity, order.currency || store.currency)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="ms-auto mt-7 max-w-sm space-y-2.5 text-sm rounded-2xl bg-neutral-50 p-5">
+          <InvoiceRow label={c.subtotal} value={money(order.subtotalCents, order.currency || store.currency)} />
+          {(order.discountCents ?? 0) > 0 && <InvoiceRow label={c.discount} value={`-${money(order.discountCents ?? 0, order.currency || store.currency)}`} />}
+          <InvoiceRow label={c.gst} value={money(order.taxCents ?? 0, order.currency || store.currency)} />
+          <InvoiceRow label={c.shipping} value={money(order.shippingCents ?? 0, order.currency || store.currency)} />
+          <div className="border-t border-neutral-200 pt-4 mt-2">
+            <InvoiceRow label={c.total} value={money(order.totalCents, order.currency || store.currency)} strong />
+          </div>
+        </div>
+      </div>
+      <div className="mt-7 flex flex-col gap-3 sm:flex-row print:hidden">
+        <button type="button" onClick={() => window.print()} className="inline-flex h-12 flex-1 items-center justify-center gap-2.5 rounded-xl bg-[var(--c-text)] text-[11px] font-black uppercase tracking-[0.14em] text-[var(--c-bg)] transition-transform hover:scale-[1.02] active:scale-[0.98] shadow-lg">
+          <Printer className="h-4 w-4" />{c.print}
+        </button>
+        <Link to={`/s/${store.slug}`} className="inline-flex h-12 flex-1 items-center justify-center rounded-xl bg-[var(--c-surface)] text-[11px] font-black uppercase tracking-[0.14em] border border-[var(--c-line)]/40 transition-colors hover:bg-[var(--c-soft)]">
+          {c.continueShopping}
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+function CartDrawer(props: {
+  open: boolean;
+  checkoutOpen: boolean;
+  submitting: boolean;
+  checkoutError: string;
+  store: Store;
+  products: Product[];
+  cartItems: CartItem[];
+  discounts: Discount[];
+  summary: ReturnType<typeof computeOrderSummary>;
+  promoInput: string;
+  promoMessage?: string;
+  form: UseFormReturn<CheckoutValues>;
+  setPromoInput: (value: string) => void;
+  applyPromo: () => void;
+  removePromo: () => void;
+  setQuantity: (productId: string, quantity: number, variantId?: string) => void;
+  close: () => void;
+  openCheckout: () => void;
+  backToCart: () => void;
+  submitCheckout: (values: CheckoutValues) => void;
+}) {
+  const c = useCopy();
+  const firstFocusable = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => { if (props.open) firstFocusable.current?.focus(); }, [props.open]);
+
+  return (
+    <>
+      <div
+        className={cn('fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm transition-opacity duration-300', props.open ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none')}
+        onMouseDown={(e) => { if (e.target === e.currentTarget) props.close(); }}
+      />
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-label={props.checkoutOpen ? c.checkout : c.cart}
+        className={cn(
+          'fixed top-0 end-0 z-[101] flex h-full w-full max-w-[30rem] flex-col bg-[var(--c-bg)] text-[var(--c-text)] shadow-2xl transition-transform duration-500',
+          props.open ? 'translate-x-0' : 'translate-x-full'
+        )}
+      >
+        <div className="flex h-16 shrink-0 items-center justify-between border-b border-[var(--c-line)]/30 bg-[var(--c-surface)]/80 backdrop-blur-xl px-5">
+          <h2 className="text-xl font-black tracking-tight">{props.checkoutOpen ? c.checkout : c.cart}</h2>
+          <button ref={firstFocusable} type="button" aria-label="Close" onClick={props.close} className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--c-soft)] hover:bg-[var(--c-line)]/30 transition-colors">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5">
+          {props.checkoutOpen
+            ? <CheckoutForm {...props} />
+            : <CartLines store={props.store} products={props.products} cartItems={props.cartItems} setQuantity={props.setQuantity} />
+          }
+        </div>
+        {props.cartItems.length > 0 && (
+          <div className="shrink-0 border-t border-[var(--c-line)]/30 bg-[var(--c-surface)] p-5 space-y-4">
+            <PromoBox {...props} />
+            <SummaryRows store={props.store} summary={props.summary} />
+            {props.checkoutError && (
+              <p className="rounded-xl bg-red-50 p-4 text-sm font-bold text-red-700 border border-red-200">{props.checkoutError}</p>
+            )}
+            <button
+              type={props.checkoutOpen ? 'submit' : 'button'}
+              form={props.checkoutOpen ? 'cod-checkout-form' : undefined}
+              disabled={props.submitting || props.summary.items.length === 0}
+              onClick={props.checkoutOpen ? undefined : props.openCheckout}
+              className={cn(getCtaClass((props.store.themeOverrides as Record<string,string>)?.buttonStyle), 'h-12 shadow-lg disabled:cursor-wait')}
+            >
+              {props.checkoutOpen ? (props.submitting ? 'Placing order…' : c.placeOrder) : c.checkout}
+            </button>
+          </div>
+        )}
+      </aside>
+    </>
+  );
+}
+
+function CartLines({ store, products, cartItems, setQuantity }: { store: Store; products: Product[]; cartItems: CartItem[]; setQuantity: (productId: string, quantity: number, variantId?: string) => void }) {
+  const c = useCopy();
+  if (cartItems.length === 0) return <EmptyState title={c.emptyCart} body="" />;
+  return (
+    <div className="space-y-3">
+      {cartItems.map((item) => {
+        const product = products.find((p) => p.id === item.productId);
+        if (!product) return null;
+        const variant = findCartVariant(product, item);
+        const unitPrice = lineUnitPrice(product, variant);
+        const max = lineMaxQuantity(product, variant);
+        return (
+          <div key={cartLineKey(item)} className="grid grid-cols-[5rem_1fr] gap-4 rounded-2xl bg-[var(--c-surface)] p-3.5 border border-[var(--c-line)]/25 shadow-sm">
+            {variant?.imageUrl
+              ? <img src={variant.imageUrl} alt={variant.title} className="aspect-square rounded-xl bg-[var(--c-bg)] object-cover" />
+              : <ProductThumb product={product} className="aspect-square rounded-xl bg-[var(--c-bg)] overflow-hidden" />
+            }
+            <div className="min-w-0 flex flex-col justify-between">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <Link to={`/s/${store.slug}/p/${product.id}`} className="block truncate text-sm font-black hover:opacity-70 transition-opacity">{product.name}</Link>
+                  {variant && <p className="mt-0.5 truncate text-[11px] font-bold uppercase tracking-[0.1em] opacity-40">{variant.title}</p>}
+                  <p className="mt-0.5 text-xs font-medium opacity-55">{money(unitPrice, store.currency)}</p>
+                </div>
+                <button type="button" aria-label={c.remove} className="rounded-full p-1.5 opacity-35 hover:opacity-100 hover:bg-[var(--c-soft)] transition-all shrink-0" onClick={() => setQuantity(product.id, 0, item.variantId)}>
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <div className="mt-3 flex items-center justify-between">
+                <QuantityStepper value={item.quantity} max={max} onChange={(v) => setQuantity(product.id, v, item.variantId)} compact />
+                <p className="text-sm font-black">{money(unitPrice * item.quantity, store.currency)}</p>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function CheckoutForm({ form, store, submitCheckout, backToCart }: { form: UseFormReturn<CheckoutValues>; store: Store; submitCheckout: (values: CheckoutValues) => void; backToCart: () => void }) {
+  const c = useCopy();
+  return (
+    <form id="cod-checkout-form" className="space-y-5" onSubmit={form.handleSubmit(submitCheckout)}>
+      <div className="rounded-xl bg-[var(--c-soft)] p-4 border border-[var(--c-line)]/20">
+        <p className="flex items-center gap-2.5 text-sm font-black"><ShieldCheck className="h-5 w-5 shrink-0" /> {c.cod}</p>
+        <p className="mt-1.5 text-xs font-medium leading-relaxed opacity-55">Stock, discount, GST, and shipping are verified server-side before the order is created.</p>
+      </div>
+      <Field form={form} name="customerName" label={c.fullName} />
+      <Field form={form} name="customerPhone" label={c.phone} type="tel" placeholder="0790000000" />
+      <Field form={form} name="customerEmail" label={c.emailOptional} type="email" />
+      <label className="block">
+        <span className="mb-1.5 block text-[11px] font-black uppercase tracking-[0.14em] opacity-45">{c.governorate}</span>
+        <select {...form.register('governorate')} className="h-11 w-full rounded-xl border border-[var(--c-line)]/40 bg-[var(--c-surface)] px-3.5 text-sm font-medium focus:border-[var(--c-text)]/50 focus:ring-1 focus:ring-[var(--c-text)]/30 outline-none">
+          {GOVERNORATES.map((g) => <option key={g} value={g}>{g}</option>)}
+        </select>
+        <FieldError form={form} name="governorate" />
+      </label>
+      <label className="block">
+        <span className="mb-1.5 block text-[11px] font-black uppercase tracking-[0.14em] opacity-45">{c.shipping}</span>
+        <select {...form.register('shippingOption')} className="h-11 w-full rounded-xl border border-[var(--c-line)]/40 bg-[var(--c-surface)] px-3.5 text-sm font-medium focus:border-[var(--c-text)]/50 focus:ring-1 focus:ring-[var(--c-text)]/30 outline-none">
+          <option value={store.shipping?.type === 'PICKUP' ? 'PICKUP' : 'DELIVERY'}>{store.shipping?.type === 'PICKUP' ? 'Pickup' : 'Delivery'}</option>
+        </select>
+      </label>
+      <Field form={form} name="address" label={c.address} />
+      <label className="block">
+        <span className="mb-1.5 block text-[11px] font-black uppercase tracking-[0.14em] opacity-45">{c.note}</span>
+        <textarea {...form.register('note')} rows={3} className="w-full rounded-xl border border-[var(--c-line)]/40 bg-[var(--c-surface)] px-3.5 py-2.5 text-sm font-medium focus:border-[var(--c-text)]/50 focus:ring-1 focus:ring-[var(--c-text)]/30 outline-none resize-none" />
+        <FieldError form={form} name="note" />
+      </label>
+      <button type="button" onClick={backToCart} className="inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.12em] opacity-45 hover:opacity-100 transition-opacity">
+        <ArrowLeft className="h-3.5 w-3.5" /> {c.cart}
+      </button>
+    </form>
+  );
+}
+
+function PromoBox(props: { checkoutOpen: boolean; promoInput: string; promoMessage?: string; setPromoInput: (v: string) => void; applyPromo: () => void; removePromo: () => void; summary: ReturnType<typeof computeOrderSummary> }) {
+  const c = useCopy();
+  if (!props.checkoutOpen) return null;
+  return (
+    <div>
+      <div className="flex rounded-xl bg-[var(--c-surface)] border border-[var(--c-line)]/35 focus-within:border-[var(--c-text)]/50 transition-all overflow-hidden">
+        <input
+          value={props.promoInput}
+          onChange={(e) => props.setPromoInput(e.target.value.toUpperCase())}
+          placeholder={c.promo}
+          className="h-10 min-w-0 flex-1 bg-transparent px-4 text-sm font-mono font-bold uppercase focus:outline-none"
+        />
+        {props.summary.discountCode
+          ? <button type="button" onClick={props.removePromo} className="px-4 text-xs font-black uppercase tracking-[0.1em] hover:bg-red-50 hover:text-red-600 transition-colors">{c.remove}</button>
+          : <button type="button" onClick={props.applyPromo} className="bg-[var(--c-text)] px-4 text-xs font-black uppercase tracking-[0.1em] text-[var(--c-bg)] transition-opacity hover:opacity-80">{c.apply}</button>
+        }
+      </div>
+      {props.promoMessage && <p className="mt-2 text-xs font-bold opacity-60 px-1">{props.promoMessage}</p>}
+    </div>
+  );
+}
+
+export function SummaryRows({ store, summary }: { store: Store; summary: ReturnType<typeof computeOrderSummary> }) {
+  const c = useCopy();
+  return (
+    <div className="space-y-2.5 text-sm">
+      <SummaryRow label={c.subtotal} value={money(summary.subtotalCents, store.currency)} />
+      {summary.discountCents > 0 && <SummaryRow label={`${c.discount}${summary.discountCode ? ` (${summary.discountCode})` : ''}`} value={`-${money(summary.discountCents, store.currency)}`} />}
+      <SummaryRow label={c.gst} value={money(summary.taxCents, store.currency)} />
+      <SummaryRow label={c.shipping} value={summary.shippingCents === 0 ? c.free : money(summary.shippingCents, store.currency)} />
+      <div className="border-t border-[var(--c-line)]/20 pt-3 mt-1">
+        <SummaryRow label={c.total} value={money(summary.totalCents, store.currency)} strong />
+      </div>
+    </div>
+  );
+}
+
+function ProductGrid({ products, store, addToCart, templateId = 'editorial' }: {
+  products: Product[];
+  store: Store;
+  addToCart: (productId: string, quantity?: number, variantId?: string) => void;
+  templateId?: 'editorial' | 'boutique' | 'market' | 'lookbook';
+}) {
+  return (
+    <div className={cn(
+      'grid gap-3 sm:gap-4',
+      templateId === 'market' ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5' :
+      templateId === 'boutique' ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' :
+      'grid-cols-2 md:grid-cols-3 lg:grid-cols-4',
+      templateId === 'lookbook' && '[&>*:first-child]:sm:col-span-2',
+    )}>
+      {products.map((product, index) => (
+        <ProductCard
+          key={product.id}
+          product={product}
+          store={store}
+          addToCart={addToCart}
+          templateId={templateId}
+          featured={templateId === 'lookbook' && index === 0}
+        />
+      ))}
+    </div>
+  );
+}
+
+function ProductCard({ product, store, addToCart, templateId, featured = false }: {
+  product: Product;
+  store: Store;
+  addToCart: (productId: string, quantity?: number, variantId?: string) => void;
+  templateId: 'editorial' | 'boutique' | 'market' | 'lookbook';
+  featured?: boolean;
+}) {
+  const c = useCopy();
+  const variable = isVariableProduct(product);
+  const soldOut = productStock(product) <= 0;
+  const priceRange = productPriceRange(product);
+  const swatches = colorValues(product);
+  const sale = isOnSale(product);
+  const btnStyle = (store.themeOverrides as Record<string, string> | null)?.buttonStyle;
+  const isCompact = templateId === 'market';
+
+  return (
+    <article className={cn(
+      'group flex flex-col overflow-hidden bg-[var(--c-surface)] border border-[var(--c-line)]/35 transition-all duration-300 hover:-translate-y-0.5',
+      'hover:shadow-lg hover:shadow-[var(--c-text)]/6 hover:border-[var(--c-line)]/60',
+      isCompact ? 'rounded-xl' : 'rounded-2xl',
+    )}>
+      {/* Image */}
+      <Link to={`/s/${store.slug}/p/${product.id}`} className="relative block overflow-hidden">
+        <div className={cn(
+          'overflow-hidden bg-[var(--c-bg)]',
+          featured ? 'aspect-[16/9]' :
+          templateId === 'market' ? 'aspect-square' :
+          templateId === 'boutique' ? 'aspect-[3/4]' :
+          'aspect-[4/5]',
+        )}>
+          {productPrimaryImage(product)
+            ? <img src={productPrimaryImage(product)!} alt={product.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
+            : <div className="h-full w-full flex items-center justify-center bg-[var(--c-soft)] transition-transform duration-500 group-hover:scale-[1.04]">
+                <span className="text-4xl opacity-40">{product.imageEmoji || '📦'}</span>
+              </div>
+          }
+        </div>
+        {/* Sold-out overlay */}
+        {soldOut && (
+          <div className="absolute inset-0 bg-[var(--c-bg)]/70 backdrop-blur-[1px] flex items-center justify-center">
+            <span className="rounded-full bg-[var(--c-text)] px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-[var(--c-bg)]">{c.soldOut}</span>
+          </div>
+        )}
+        {/* Sale badge */}
+        {sale && !soldOut && (
+          <span className="absolute start-3 top-3 rounded-full bg-red-600 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-white shadow-sm">
+            Sale
+          </span>
+        )}
+      </Link>
+
+      {/* Info */}
+      <div className={cn('flex flex-col flex-1', isCompact ? 'p-2.5' : 'p-3.5 sm:p-4')}>
+        <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.16em] opacity-35 truncate">{productCategory(product, store)}</p>
+        <Link
+          to={`/s/${store.slug}/p/${product.id}`}
+          className={cn('mt-0.5 font-black leading-snug hover:opacity-60 transition-opacity', isCompact ? 'text-xs line-clamp-2' : 'text-sm sm:text-[15px] line-clamp-2')}
+        >
+          {product.name}
+        </Link>
+        <div className={cn('mt-1 flex items-baseline gap-2 font-bold', isCompact ? 'text-xs' : 'text-sm')}>
+          {priceRange.min !== priceRange.max
+            ? <span>From {money(priceRange.min, store.currency)}</span>
+            : <>
+                {product.compareAtCents && product.compareAtCents > product.priceCents && (
+                  <span className="line-through opacity-35 font-medium">{money(product.compareAtCents, store.currency)}</span>
+                )}
+                <span>{money(priceRange.min, store.currency)}</span>
+              </>
+          }
+        </div>
+        {swatches.length > 0 && (
+          <div className="mt-2 flex gap-1">
+            {swatches.slice(0, 6).map((s) => (
+              <span key={s.id} title={s.value} className="h-3 w-3 rounded-full ring-1 ring-[var(--c-line)]/60" style={{ backgroundColor: s.colorHex }} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* CTA */}
+      <div className={cn(isCompact ? 'px-2.5 pb-2.5' : 'px-3.5 pb-3.5 sm:px-4 sm:pb-4')}>
+        {variable ? (
+          <Link
+            to={`/s/${store.slug}/p/${product.id}`}
+            className={cn(getCtaClass(btnStyle), isCompact ? 'h-9 text-[10px]' : '')}
+          >
+            Choose options
+          </Link>
+        ) : (
+          <button
+            type="button"
+            disabled={soldOut}
+            onClick={() => !soldOut && addToCart(product.id)}
+            className={cn(getCtaClass(btnStyle), isCompact ? 'h-9 text-[10px]' : '')}
+          >
+            {soldOut ? c.soldOut : c.addToCart}
+          </button>
+        )}
+      </div>
+    </article>
+  );
+}
+
+function ProductThumb({ product, className = '' }: { product: Product; className?: string }) {
+  const image = productPrimaryImage(product);
+  return (
+    <div className={cn('relative grid place-items-center overflow-hidden', className)}>
+      {image
+        ? <img src={image} alt={product.name} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+        : <span className="text-5xl opacity-25">{product.imageEmoji || '📦'}</span>
+      }
+    </div>
+  );
+}
+
+function ProductLogo({ store, large = false }: { store: Store; large?: boolean }) {
+  if (store.logoUrl) {
+    return <img src={store.logoUrl} alt={store.name} className={cn('object-cover rounded-xl border border-[var(--c-line)]/20', large ? 'h-32 w-32 rounded-2xl' : 'h-9 w-9')} />;
+  }
+  return (
+    <span className={cn('grid place-items-center rounded-xl bg-[var(--c-soft)] border border-[var(--c-line)]/30', large ? 'h-32 w-32 rounded-2xl text-6xl' : 'h-9 w-9 text-xl')}>
+      {store.logoEmoji || '🛍️'}
+    </span>
+  );
+}
+
+function QuantityStepper({ value, max, onChange, compact = false }: { value: number; max: number; onChange: (v: number) => void; compact?: boolean }) {
+  return (
+    <div className={cn('inline-flex items-center rounded-xl bg-[var(--c-surface)] border border-[var(--c-line)]/35', compact ? 'h-9' : 'h-12')}>
+      <button type="button" aria-label="Decrease" disabled={value <= 1} onClick={() => onChange(value - 1)} className="grid h-full w-9 place-items-center rounded-s-xl hover:bg-[var(--c-soft)] transition-colors disabled:opacity-25 active:scale-90">
+        <Minus className="h-3.5 w-3.5" />
+      </button>
+      <span className={cn('w-10 text-center font-black', compact ? 'text-sm' : 'text-base')}>{value}</span>
+      <button type="button" aria-label="Increase" disabled={value >= max} onClick={() => onChange(value + 1)} className="grid h-full w-9 place-items-center rounded-e-xl hover:bg-[var(--c-soft)] transition-colors disabled:opacity-25 active:scale-90">
+        <Plus className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+
+function Field({ form, name, label, type = 'text', placeholder }: { form: UseFormReturn<CheckoutValues>; name: FieldPath<CheckoutValues>; label: string; type?: string; placeholder?: string }) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-[11px] font-black uppercase tracking-[0.14em] opacity-45">{label}</span>
+      <input type={type} placeholder={placeholder} {...form.register(name)} className="h-11 w-full rounded-xl border border-[var(--c-line)]/40 bg-[var(--c-surface)] px-3.5 text-sm font-medium focus:border-[var(--c-text)]/50 focus:ring-1 focus:ring-[var(--c-text)]/30 outline-none placeholder:opacity-30" />
+      <FieldError form={form} name={name} />
+    </label>
+  );
+}
+
+function FieldError({ form, name }: { form: UseFormReturn<CheckoutValues>; name: FieldPath<CheckoutValues> }) {
+  const error = form.formState.errors[name]?.message;
+  return error ? <span className="mt-1.5 block text-[11px] font-bold text-red-500">{String(error)}</span> : null;
+}
+
+function SummaryRow({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className={cn('flex items-center justify-between gap-4', strong && 'text-base font-black tracking-tight')}>
+      <span className="font-medium opacity-55">{label}</span>
+      <span className={cn('font-black', !strong && 'opacity-75')}>{value}</span>
+    </div>
+  );
+}
+
+function InvoiceRow({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className={cn('flex justify-between gap-4', strong && 'text-base font-black text-neutral-900')}>
+      <span className="text-neutral-500">{label}</span>
+      <span className="font-bold text-neutral-800">{value}</span>
+    </div>
+  );
+}
+
+function InvoiceBlock({ title, lines }: { title: string; lines: string[] }) {
+  return (
+    <div>
+      <h3 className="mb-2.5 text-[11px] font-black uppercase tracking-[0.18em] text-neutral-400">{title}</h3>
+      <div className="space-y-1">
+        {lines.map((line) => <p key={line} className="text-sm font-medium text-neutral-700">{line}</p>)}
+      </div>
+    </div>
+  );
+}
+
+function ProductInfoList({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div className="rounded-2xl bg-[var(--c-surface)] p-5 shadow-sm border border-[var(--c-line)]/25">
+      <h3 className="mb-4 text-[11px] font-black uppercase tracking-[0.18em] opacity-45">{title}</h3>
+      <ul className="space-y-2">
+        {items.map((item, i) => (
+          <li key={i} className="flex items-start gap-3 text-sm font-medium">
+            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--c-text)] opacity-40" />
+            <span className="opacity-70">{item}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function ProductSpecs({ title, rows }: { title: string; rows: [string, string][] }) {
+  return (
+    <div className="rounded-2xl bg-[var(--c-surface)] p-5 shadow-sm border border-[var(--c-line)]/25">
+      <h3 className="mb-4 text-[11px] font-black uppercase tracking-[0.18em] opacity-45">{title}</h3>
+      <dl className="space-y-2.5">
+        {rows.map(([k, v]) => (
+          <div key={k} className="grid grid-cols-2 gap-3 text-sm">
+            <dt className="font-black opacity-40">{k}</dt>
+            <dd className="font-medium opacity-70 break-words">{v}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
+function ProductInfoText({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="rounded-2xl bg-[var(--c-surface)] p-5 shadow-sm border border-[var(--c-line)]/25">
+      <h3 className="mb-4 text-[11px] font-black uppercase tracking-[0.18em] opacity-45">{title}</h3>
+      <p className="whitespace-pre-line text-sm font-medium leading-relaxed opacity-65">{body}</p>
+    </div>
+  );
+}
+
+function FilterChip({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        'rounded-full px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] border transition-all active:scale-95',
+        active ? 'border-[var(--c-text)] bg-[var(--c-text)] text-[var(--c-bg)] shadow-sm' : 'border-[var(--c-line)]/40 bg-[var(--c-surface)] opacity-55 hover:opacity-100',
+      )}
+    >
+      {label}
+    </button>
+  );
+}
+
+function EmptyState({ title, body, action }: { title: string; body: string; action?: React.ReactNode }) {
+  return (
+    <div className="rounded-2xl bg-[var(--c-surface)] p-12 text-center border border-[var(--c-line)]/25 shadow-sm">
+      <AlertCircle className="mx-auto mb-5 h-10 w-10 opacity-15" />
+      <h3 className="text-2xl font-black tracking-tight">{title}</h3>
+      {body && <p className="mx-auto mt-2.5 max-w-md text-sm font-medium opacity-45">{body}</p>}
+      {action && <div className="mt-7 flex justify-center">{action}</div>}
+    </div>
+  );
+}
+
+function StorefrontSkeleton() {
+  return (
+    <div className="min-h-screen animate-pulse bg-neutral-50">
+      <div className="h-16 bg-white border-b border-black/5" />
+      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 space-y-8">
+        <div className="h-80 rounded-2xl bg-black/5" />
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-64 rounded-2xl bg-black/5" />)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Unavailable({ title, body, actionLabel, onAction }: { title: string; body: string; actionLabel?: string; onAction?: () => void }) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-neutral-50 p-6 text-neutral-950">
+      <div className="w-full max-w-md rounded-2xl bg-white p-10 text-center shadow-xl border border-black/5">
+        <AlertCircle className="mx-auto mb-5 h-10 w-10 text-neutral-300" />
+        <h1 className="text-3xl font-black tracking-tight">{title}</h1>
+        <p className="mt-3 text-sm font-medium leading-relaxed text-neutral-500">{body}</p>
+        <div className="mt-8 flex flex-col gap-3">
+          {onAction && (
+            <button type="button" onClick={onAction} className="h-12 rounded-xl bg-black text-sm font-black text-white transition-transform active:scale-95 shadow-lg">{actionLabel}</button>
+          )}
+          <Link to="/" className="inline-flex h-12 items-center justify-center rounded-xl bg-neutral-100 text-sm font-bold transition-colors hover:bg-neutral-200">Home</Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function OfflineBanner({ message }: { message: string }) {
+  return (
+    <div className="fixed inset-x-0 top-0 z-[120] bg-yellow-400 px-4 py-3 text-center text-[11px] font-black uppercase tracking-[0.14em] text-yellow-950 shadow-md">
+      {message}
+    </div>
+  );
+}
+
+function shippingPolicyText(store: Store) {
+  const s = store.shipping;
+  if (!s || s.type === 'FLAT') return `Delivery is available across Jordan. Shipping is ${money(s?.flatCents ?? 0, store.currency)} and Cash on Delivery is supported.`;
+  if (s.type === 'FREE_OVER') return `Delivery is ${money(s.flatCents ?? 0, store.currency)} and free over ${money(s.freeOverCents ?? 0, store.currency)}. Cash on Delivery is supported.`;
+  return 'Pickup is available. Cash on Delivery is supported when the order is handed over.';
+}
+
+function useDebouncedValue<T>(value: T, delay: number) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebounced(value), delay);
+    return () => window.clearTimeout(timer);
+  }, [value, delay]);
+  return debounced;
+}
+
+export function LazyStorefrontRoot() {
+  return (
+    <Suspense fallback={<StorefrontSkeleton />}>
+      <StorefrontRoot />
+    </Suspense>
+  );
+}

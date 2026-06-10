@@ -2,9 +2,9 @@ import React, { useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { ExternalLink, Image as ImageIcon, LayoutTemplate, Palette, RotateCcw } from 'lucide-react';
+import { ExternalLink, Image as ImageIcon, Instagram, LayoutTemplate, Palette, RotateCcw, Type } from 'lucide-react';
 import { useStore } from '@/lib/store';
-import { STOREFRONT_TEMPLATES, THEMES, resolveStoreTheme, type ThemeOverrides } from '@/lib/themes';
+import { HEADING_FONTS, STOREFRONT_TEMPLATES, THEMES, resolveStoreTheme, type ThemeOverrides } from '@/lib/themes';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
@@ -36,6 +36,11 @@ const schema = z.object({
   customSoft: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
   customLine: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
   customRadius: z.number().min(0).max(32),
+  buttonStyle: z.enum(['solid', 'outline', 'pill']),
+  headingFont: z.string().optional(),
+  instagram: z.string().optional(),
+  whatsapp: z.string().optional(),
+  tiktok: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -62,6 +67,11 @@ const overridesFromValues = (values: FormValues): ThemeOverrides => ({
   soft: values.customSoft,
   line: values.customLine,
   radius: `${Math.round(values.customRadius)}px`,
+  buttonStyle: values.buttonStyle,
+  headingFont: values.headingFont || undefined,
+  instagram: values.instagram || undefined,
+  whatsapp: values.whatsapp || undefined,
+  tiktok: values.tiktok || undefined,
 });
 
 const colorDefaultsFor = (themeId: string, overrides?: ThemeOverrides | null) => {
@@ -83,6 +93,7 @@ export default function Appearance() {
   const products = useStore((s) => s.products);
   const updateStore = useStore((s) => s.updateStore);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const existingOverrides = store.themeOverrides as Record<string, string> | null | undefined;
 
   const defaults: FormValues = {
     name: store.name,
@@ -97,6 +108,11 @@ export default function Appearance() {
     themeId: store.themeId,
     storefrontTemplate: store.storefrontTemplate || 'editorial',
     paletteMode: store.themeOverrides ? 'custom' : 'preset',
+    buttonStyle: (existingOverrides?.buttonStyle as 'solid' | 'outline' | 'pill') || 'solid',
+    headingFont: existingOverrides?.headingFont || '',
+    instagram: existingOverrides?.instagram || '',
+    whatsapp: existingOverrides?.whatsapp || '',
+    tiktok: existingOverrides?.tiktok || '',
     ...colorDefaultsFor(store.themeId, store.themeOverrides),
   };
 
@@ -110,7 +126,6 @@ export default function Appearance() {
   const paletteMode = watch('paletteMode');
   const storeProducts = products.filter((p) => p.storeId === storeId);
 
-  // Warn on tab close while there are unsaved changes.
   useEffect(() => {
     if (!isDirty) return;
     const handler = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
@@ -147,6 +162,11 @@ export default function Appearance() {
       customSoft,
       customLine,
       customRadius,
+      buttonStyle: _b,
+      headingFont: _h,
+      instagram: _i,
+      whatsapp: _w,
+      tiktok: _t,
       ...patch
     } = data;
     const shipping = {
@@ -154,9 +174,7 @@ export default function Appearance() {
       flatCents: shippingType === 'PICKUP' ? 0 : shippingFlatText ? Math.round(parseFloat(shippingFlatText) * 100) : 0,
       freeOverCents: shippingType === 'FREE_OVER' && shippingFreeOverText ? Math.round(parseFloat(shippingFreeOverText) * 100) : undefined,
     };
-    const themeOverrides = data.paletteMode === 'custom'
-      ? overridesFromValues(data)
-      : null;
+    const themeOverrides = overridesFromValues(data);
     updateStore(store.id, { ...patch, themeOverrides, shipping });
     reset(data);
     toast({ title: 'Storefront updated', type: 'success' });
@@ -178,11 +196,13 @@ export default function Appearance() {
     });
   };
 
+  const previewOverrides = overridesFromValues(values);
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="pb-24">
       <PageHeader
         title="Appearance"
-        subtitle="Brand, theme, and shipping for your storefront."
+        subtitle="Brand, theme, and design settings for your storefront."
         action={
           <Button type="button" variant="ghost" className="gap-2 border border-line" onClick={() => window.open(`/#/s/${store.slug}`, '_blank')}>
             <ExternalLink className="h-4 w-4" /> View live
@@ -192,6 +212,7 @@ export default function Appearance() {
 
       <div className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1fr)_420px]">
         <div className="space-y-6">
+          {/* Brand */}
           <Section title="Brand">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <FormField label="Store name" error={errors.name?.message}>
@@ -203,11 +224,7 @@ export default function Appearance() {
               <FormField label="Announcement bar" error={errors.announcement?.message}>
                 <Input {...register('announcement')} placeholder="e.g. Free shipping this weekend" />
               </FormField>
-              <FormField label="Theme" error={errors.themeId?.message}>
-                <input type="hidden" {...register('themeId')} />
-                <div className="flex h-10 items-center text-sm font-semibold text-muted">{THEMES.find((t) => t.id === values.themeId)?.name || 'Mono'}</div>
-              </FormField>
-              <FormField label="Template" error={errors.storefrontTemplate?.message}>
+              <FormField label="Template">
                 <input type="hidden" {...register('storefrontTemplate')} />
                 <div className="flex h-10 items-center text-sm font-semibold text-muted">{STOREFRONT_TEMPLATES.find((t) => t.id === values.storefrontTemplate)?.name || 'Editorial'}</div>
               </FormField>
@@ -247,6 +264,7 @@ export default function Appearance() {
             </div>
           </Section>
 
+          {/* Templates */}
           <Section title="Templates">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {STOREFRONT_TEMPLATES.map((template) => (
@@ -256,18 +274,19 @@ export default function Appearance() {
                   onClick={() => setValue('storefrontTemplate', template.id, { shouldDirty: true })}
                   className={cn('rounded-xl border-2 bg-paper p-4 text-left transition-all', values.storefrontTemplate === template.id ? 'border-ink shadow-sm' : 'border-line hover:border-ink/30')}
                 >
-                  <div className="mb-3 flex items-center gap-2 text-ink">
+                  <div className="mb-2 flex items-center gap-2 text-ink">
                     <LayoutTemplate className="h-4 w-4" />
                     <span className="font-bold">{template.name}</span>
                   </div>
                   <div className="text-sm font-semibold text-ink">{template.vibe}</div>
-                  <div className="mt-1 text-xs leading-5 text-muted">{template.description}</div>
+                  <div className="mt-0.5 text-xs leading-5 text-muted">{template.description}</div>
                   <TemplateDiagram id={template.id} />
                 </button>
               ))}
             </div>
           </Section>
 
+          {/* Theme presets */}
           <Section title="Theme presets">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {THEMES.map((theme) => (
@@ -290,13 +309,14 @@ export default function Appearance() {
             </div>
           </Section>
 
+          {/* Custom colours */}
           <Section title="Custom colours">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-paper p-3">
               <div className="flex items-center gap-2">
                 <Palette className="h-4 w-4 text-accent" />
                 <div>
                   <p className="text-sm font-bold text-ink">Palette mode</p>
-                  <p className="text-xs text-muted">{paletteMode === 'custom' ? 'Your storefront is using these custom colors.' : 'Using the selected preset colors.'}</p>
+                  <p className="text-xs text-muted">{paletteMode === 'custom' ? 'Using your custom colors.' : 'Using the selected preset.'}</p>
                 </div>
               </div>
               <div className="flex gap-2">
@@ -313,16 +333,16 @@ export default function Appearance() {
                     <input
                       type="color"
                       value={values[field.key]}
-                      onChange={(event) => {
-                        setValue(field.key, event.target.value, { shouldDirty: true, shouldValidate: true });
+                      onChange={(e) => {
+                        setValue(field.key, e.target.value, { shouldDirty: true, shouldValidate: true });
                         setValue('paletteMode', 'custom', { shouldDirty: true });
                       }}
                       className="h-9 w-10 cursor-pointer rounded border border-line bg-transparent"
                     />
                     <Input
                       {...register(field.key)}
-                      onChange={(event) => {
-                        setValue(field.key, event.target.value, { shouldDirty: true, shouldValidate: true });
+                      onChange={(e) => {
+                        setValue(field.key, e.target.value, { shouldDirty: true, shouldValidate: true });
                         setValue('paletteMode', 'custom', { shouldDirty: true });
                       }}
                       className="h-9 font-mono text-xs"
@@ -338,8 +358,8 @@ export default function Appearance() {
                     min="0"
                     max="32"
                     value={values.customRadius}
-                    onChange={(event) => {
-                      setValue('customRadius', Number(event.target.value), { shouldDirty: true, shouldValidate: true });
+                    onChange={(e) => {
+                      setValue('customRadius', Number(e.target.value), { shouldDirty: true });
                       setValue('paletteMode', 'custom', { shouldDirty: true });
                     }}
                     className="min-w-0 flex-1"
@@ -353,6 +373,88 @@ export default function Appearance() {
             </Button>
           </Section>
 
+          {/* Design details */}
+          <Section title="Design details">
+            <div className="space-y-6">
+              {/* Button style */}
+              <div>
+                <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-muted">Button style</p>
+                <div className="grid grid-cols-3 gap-3">
+                  {([
+                    { value: 'solid', label: 'Solid', preview: 'bg-ink text-paper rounded' },
+                    { value: 'outline', label: 'Outline', preview: 'border-2 border-ink text-ink rounded' },
+                    { value: 'pill', label: 'Pill', preview: 'bg-ink text-paper rounded-full' },
+                  ] as const).map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setValue('buttonStyle', opt.value, { shouldDirty: true })}
+                      className={cn(
+                        'rounded-xl border-2 p-4 text-left transition-all flex flex-col gap-3',
+                        values.buttonStyle === opt.value ? 'border-ink shadow-sm bg-paper' : 'border-line hover:border-ink/30 bg-paper',
+                      )}
+                    >
+                      <div className={cn('inline-flex h-8 items-center justify-center px-4 text-[11px] font-black uppercase tracking-wider', opt.preview)}>
+                        Shop
+                      </div>
+                      <span className="text-xs font-bold text-ink">{opt.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Heading font */}
+              <div>
+                <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-muted flex items-center gap-1.5">
+                  <Type className="h-3.5 w-3.5" /> Heading font
+                </p>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5">
+                  {HEADING_FONTS.map((font) => (
+                    <button
+                      key={font.id}
+                      type="button"
+                      onClick={() => setValue('headingFont', font.id, { shouldDirty: true })}
+                      className={cn(
+                        'rounded-xl border-2 p-3 text-left transition-all',
+                        values.headingFont === font.id ? 'border-ink shadow-sm bg-paper' : 'border-line hover:border-ink/30 bg-paper',
+                      )}
+                    >
+                      <p className="text-base font-black leading-tight tracking-tight" style={{ fontFamily: font.id }}>Aa</p>
+                      <p className="mt-1 text-[10px] font-bold text-muted">{font.label}</p>
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-2 text-[10px] text-muted">Applies to store name, taglines, and headings. Leave unset to use the theme default.</p>
+              </div>
+            </div>
+          </Section>
+
+          {/* Social links */}
+          <Section title="Social links">
+            <p className="mb-4 text-sm text-muted">Links appear as icons in your storefront footer.</p>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <FormField label="Instagram">
+                <div className="relative">
+                  <Instagram className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+                  <Input {...register('instagram')} placeholder="@yourstore" className="ps-9" />
+                </div>
+              </FormField>
+              <FormField label="WhatsApp">
+                <div className="relative">
+                  <span className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted">WA</span>
+                  <Input {...register('whatsapp')} placeholder="+962791234567" className="ps-10" />
+                </div>
+              </FormField>
+              <FormField label="TikTok">
+                <div className="relative">
+                  <span className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted">TT</span>
+                  <Input {...register('tiktok')} placeholder="@yourstore" className="ps-10" />
+                </div>
+              </FormField>
+            </div>
+          </Section>
+
+          {/* Shipping */}
           <Section title="Shipping">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <FormField label="Shipping type" error={errors.shippingType?.message}>
@@ -395,21 +497,26 @@ export default function Appearance() {
                   about: values.about,
                   themeId: values.themeId,
                   storefrontTemplate: values.storefrontTemplate,
-                  themeOverrides: values.paletteMode === 'custom' ? overridesFromValues(values) : undefined,
+                  themeOverrides: previewOverrides,
                 }}
-                products={storeProducts.length > 0 ? storeProducts.slice(0, 4) : [{ name: 'Sample Item', priceCents: 1500, imageEmoji: '✨' }]}
+                products={storeProducts.length > 0 ? storeProducts.slice(0, 6) : [
+                  { name: 'Summer Dress', priceCents: 3500, imageEmoji: '👗' },
+                  { name: 'Linen Tote', priceCents: 1800, imageEmoji: '👜' },
+                  { name: 'Silk Scarf', priceCents: 2200, imageEmoji: '🧣' },
+                  { name: 'Straw Hat', priceCents: 1500, imageEmoji: '🪖' },
+                ]}
               />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Sticky unsaved-changes bar */}
+      {/* Sticky unsaved bar */}
       {isDirty && (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 backdrop-blur lg:left-64">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-3 md:px-8">
             <span className="flex items-center gap-2 text-sm font-bold text-ink">
-              <span className="h-2 w-2 rounded-full bg-accent" /> You have unsaved changes
+              <span className="h-2 w-2 rounded-full bg-accent" /> Unsaved changes
             </span>
             <div className="flex gap-2">
               <Button type="button" variant="ghost" className="border border-line" onClick={() => reset(defaults)}>Discard</Button>
@@ -427,8 +534,8 @@ function TemplateDiagram({ id }: { id: FormValues['storefrontTemplate'] }) {
   if (id === 'market') {
     return (
       <div className="mt-4 grid grid-cols-4 gap-1 text-ink">
-        <span className={cn(common, 'col-span-4 h-4')} />
-        {Array.from({ length: 8 }).map((_, index) => <span key={index} className={cn(common, 'h-8')} />)}
+        <span className={cn(common, 'col-span-4 h-3')} />
+        {Array.from({ length: 8 }).map((_, i) => <span key={i} className={cn(common, 'h-8')} />)}
       </div>
     );
   }
@@ -438,15 +545,15 @@ function TemplateDiagram({ id }: { id: FormValues['storefrontTemplate'] }) {
         <span className={cn(common, 'col-span-2 row-span-2 h-16')} />
         <span className={cn(common, 'h-7')} />
         <span className={cn(common, 'h-8')} />
-        <span className={cn(common, 'col-span-3 h-5')} />
+        <span className={cn(common, 'col-span-3 h-4')} />
       </div>
     );
   }
   if (id === 'boutique') {
     return (
       <div className="mt-4 grid grid-cols-2 gap-1 text-ink">
-        <span className={cn(common, 'h-16')} />
-        <span className={cn(common, 'h-16')} />
+        <span className={cn(common, 'h-14')} />
+        <span className={cn(common, 'h-14')} />
         <span className={cn(common, 'h-8')} />
         <span className={cn(common, 'h-8')} />
       </div>
@@ -454,7 +561,7 @@ function TemplateDiagram({ id }: { id: FormValues['storefrontTemplate'] }) {
   }
   return (
     <div className="mt-4 grid grid-cols-3 gap-1 text-ink">
-      <span className={cn(common, 'col-span-3 h-12')} />
+      <span className={cn(common, 'col-span-3 h-10')} />
       <span className={cn(common, 'h-9')} />
       <span className={cn(common, 'h-9')} />
       <span className={cn(common, 'h-9')} />

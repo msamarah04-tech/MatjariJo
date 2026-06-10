@@ -1,0 +1,2 @@
+- [Storefront rebuild patterns](storefront-rebuild.md) — 4 template heroes, new card design, social footer, getCtaClass helper; all logic preserved in single file
+- [ThemeOverrides extension](theme-overrides.md) — buttonStyle/headingFont/instagram/whatsapp/tiktok stored in existing JSON blob; no DB schema change needed
