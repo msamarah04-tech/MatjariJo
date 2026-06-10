@@ -1,5 +1,6 @@
-import { RouterProvider, createHashRouter, Outlet, Navigate } from 'react-router-dom';
-import { lazy, Suspense, useEffect } from 'react';
+import { RouterProvider, createHashRouter, Outlet, Navigate, useParams } from 'react-router-dom';
+import { lazy, Suspense, useEffect, type ReactNode } from 'react';
+import { getTenantSlug } from '@/lib/tenant';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/api/queries';
 import { LanguageProvider } from '@/lib/i18n';
@@ -14,6 +15,8 @@ import Admin from '@/routes/admin/Admin';
 import NewStore from '@/routes/admin/NewStore';
 import HowItWorks from '@/routes/HowItWorks';
 import Brands from '@/routes/Brands';
+import Pricing from '@/routes/Pricing';
+import { Privacy, Terms } from '@/routes/Legal';
 
 const StorefrontRoot = lazy(() => import('@/routes/storefront/Storefront'));
 
@@ -29,7 +32,40 @@ function RootLayout() {
   );
 }
 
-const router = createHashRouter([
+const storefrontElement = (
+  <Suspense fallback={<div className="min-h-screen bg-neutral-100" />}>
+    <StorefrontRoot />
+  </Suspense>
+);
+
+// On a tenant host every path must stay inside that store; navigating to
+// another store's slug bounces back to the tenant's own storefront.
+function TenantGuard({ tenant, children }: { tenant: string; children: ReactNode }) {
+  const { slug } = useParams();
+  if (slug !== tenant) return <Navigate to={`/s/${tenant}`} replace />;
+  return <>{children}</>;
+}
+
+// Tenant hosts (borz.matjari.jo, borz.localhost) serve only that store's
+// storefront; the landing page, sign-in, admin, and platform dashboards live
+// on the main domain.
+const tenantRouter = (tenant: string) => createHashRouter([
+  {
+    element: <RootLayout />,
+    children: [
+      {
+        path: '/s/:slug/*',
+        element: <TenantGuard tenant={tenant}>{storefrontElement}</TenantGuard>,
+      },
+      {
+        path: '*',
+        element: <Navigate to={`/s/${tenant}`} replace />,
+      },
+    ],
+  },
+]);
+
+const mainRouter = () => createHashRouter([
   {
     element: <RootLayout />,
     children: [
@@ -62,6 +98,18 @@ const router = createHashRouter([
         element: <Brands />,
       },
       {
+        path: '/pricing',
+        element: <Pricing />,
+      },
+      {
+        path: '/privacy',
+        element: <Privacy />,
+      },
+      {
+        path: '/terms',
+        element: <Terms />,
+      },
+      {
         path: '/request-website',
         element: <NewStore />,
       },
@@ -86,15 +134,14 @@ const router = createHashRouter([
       {
         // Public storefronts are standalone and do not require auth.
         path: '/s/:slug/*',
-        element: (
-          <Suspense fallback={<div className="min-h-screen bg-neutral-100" />}>
-            <StorefrontRoot />
-          </Suspense>
-        ),
+        element: storefrontElement,
       },
     ]
   }
 ]);
+
+const tenantSlug = getTenantSlug();
+const router = tenantSlug ? tenantRouter(tenantSlug) : mainRouter();
 
 export default function App() {
   const initializeBackend = useStore((s) => s.initializeBackend);

@@ -9,6 +9,7 @@ import { decrementVariantStock, productIsVariable, productPubliclyActive } from 
 import { publicWriteRateLimiter } from '../security/rateLimit.js';
 import { analyticsEventSchema, publicOrderSchema, shopRequestSchema } from '../validators.js';
 import { asyncRoute, normalizeCode } from '../http.js';
+import { notifyOrderPlaced } from '../services/notifications.js';
 import {
   serializeAnalyticsEvent,
   serializeDiscount,
@@ -177,6 +178,8 @@ storefrontRouter.post('/public/stores/:slug/orders', publicWriteRateLimiter, asy
       await tx.analyticsEvent.create({ data: { storeId: store.id, type: 'order', orderId: created.id } });
       return created;
     });
+    // Fire-and-forget: customer confirmation + owner alert never block the order.
+    notifyOrderPlaced(store, order);
     res.status(201).json({ order: serializeOrder(order) });
   } catch (error) {
     // Concurrent request with the same idempotency key won the unique constraint —

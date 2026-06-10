@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,6 +10,8 @@ import { Field } from '@/components/ui/Field';
 import { Textarea } from '@/components/ui/Textarea';
 import { toast } from '@/components/ui/Toast';
 import { ArrowRight, CheckCircle2, ClipboardList, Store } from 'lucide-react';
+import { PLAN_DEFS, PLAN_ORDER, TRIAL_DAYS } from '@shared/plans';
+import { cn } from '@/lib/cn';
 
 const requestSchema = z.object({
   ownerName: z.string().min(2, 'Name is required'),
@@ -17,6 +19,7 @@ const requestSchema = z.object({
   storeName: z.string().min(2, 'Website name is required'),
   category: z.string().min(1, 'Category is required'),
   tagline: z.string().min(3, 'Tagline is required'),
+  plan: z.enum(['STARTER', 'GROWTH', 'SCALE']),
   notes: z.string().optional(),
   // The owner chooses their own admin sign-in (used after the request is approved).
   username: z.string().trim().toLowerCase()
@@ -38,6 +41,9 @@ type RequestValues = z.infer<typeof requestSchema>;
 export default function NewStore() {
   const submitShopRequest = useStore((s) => s.submitShopRequest);
   const [submitted, setSubmitted] = useState(false);
+  const [params] = useSearchParams();
+  const planParam = (params.get('plan') || '').toUpperCase();
+  const initialPlan = (PLAN_ORDER as string[]).includes(planParam) ? (planParam as RequestValues['plan']) : 'STARTER';
 
   const form = useForm<RequestValues>({
     resolver: zodResolver(requestSchema),
@@ -47,12 +53,14 @@ export default function NewStore() {
       storeName: '',
       category: '',
       tagline: '',
+      plan: initialPlan,
       notes: '',
       username: '',
       password: '',
       confirmPassword: '',
     },
   });
+  const selectedPlan = form.watch('plan');
 
   const onSubmit = async (data: RequestValues) => {
     try {
@@ -70,8 +78,8 @@ export default function NewStore() {
     <div className="min-h-screen bg-paper text-ink">
       <header className="border-b border-line bg-surface">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 md:px-8">
-          <Link to="/" className="font-logo text-3xl font-black tracking-tighter">
-            PLINTH<span className="text-accent">.</span>
+          <Link to="/" className="flex items-center">
+            <img src="/logo.png" alt="Matjari Jordan" className="h-14 w-auto -my-2" />
           </Link>
           <Link to="/sign-in" className="text-sm font-bold text-muted hover:text-ink">
             Shop owner sign in
@@ -149,6 +157,35 @@ export default function NewStore() {
               </div>
 
               <div className="rounded-xl border border-line bg-paper p-4">
+                <div className="mb-1 text-sm font-black text-ink">Choose your plan</div>
+                <p className="mb-4 text-xs font-semibold leading-5 text-muted">
+                  Every store starts with a free {TRIAL_DAYS}-day trial. Pay monthly by CliQ or bank transfer after that.
+                </p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  {PLAN_ORDER.map((plan) => (
+                    <button
+                      key={plan}
+                      type="button"
+                      onClick={() => form.setValue('plan', plan, { shouldDirty: true })}
+                      className={cn(
+                        'rounded-xl border-2 p-3 text-left transition-all',
+                        selectedPlan === plan ? 'border-accent bg-accent-soft' : 'border-line bg-surface hover:border-ink/30',
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-black text-ink">{plan}</span>
+                        {plan === 'GROWTH' && <span className="rounded-full bg-accent px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-white">Popular</span>}
+                      </div>
+                      <div className="mt-1 text-lg font-black text-ink">JOD {PLAN_DEFS[plan].priceMonthlyJod}<span className="text-xs font-bold text-muted">/mo</span></div>
+                      <div className="mt-0.5 text-xs font-semibold text-muted">
+                        {PLAN_DEFS[plan].maxProducts === null ? 'Unlimited products' : `Up to ${PLAN_DEFS[plan].maxProducts} products`}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-line bg-paper p-4">
                 <div className="mb-1 text-sm font-black text-ink">Choose your admin sign-in</div>
                 <p className="mb-4 text-xs font-semibold leading-5 text-muted">
                   You'll use these to manage the store after it's approved. Keep them safe — the password is stored hashed and can't be recovered (only reset).
@@ -170,6 +207,11 @@ export default function NewStore() {
               <Button type="submit" variant="accent" size="lg" className="w-full">
                 Send website request <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
+              <p className="text-center text-xs font-semibold text-muted">
+                By submitting you agree to the{' '}
+                <Link to="/terms" className="font-bold text-accent hover:underline">Terms of Service</Link> and{' '}
+                <Link to="/privacy" className="font-bold text-accent hover:underline">Privacy Policy</Link>.
+              </p>
             </form>
           )}
         </section>

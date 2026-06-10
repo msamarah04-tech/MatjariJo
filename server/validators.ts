@@ -228,10 +228,29 @@ export const themeOverridesSchema = z.object({
   soft: hexColorSchema.optional(),
   line: hexColorSchema.optional(),
   radius: radiusSchema.optional(),
+  buttonStyle: z.enum(['solid', 'outline', 'pill']).optional(),
+  headingFont: z.string().trim().max(120).optional(),
+  instagram: z.string().trim().max(200).optional(),
+  whatsapp: z.string().trim().max(200).optional(),
+  tiktok: z.string().trim().max(200).optional(),
 }).strict();
+
+// Subdomains that can never be claimed as a store address (kept in sync with
+// the frontend list in src/lib/tenant.ts).
+export const RESERVED_STORE_SLUGS = new Set(['www', 'api', 'app', 'admin', 'platform', 'staging']);
+
+// One DNS label: the slug doubles as the store's subdomain (<slug>.matjari.jo).
+export const storeSlugSchema = z.string().trim().toLowerCase()
+  .min(2, 'Use at least 2 characters.')
+  .max(63, 'Keep it under 64 characters.')
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Use lowercase letters, numbers, and single hyphens.')
+  .refine((value) => !RESERVED_STORE_SLUGS.has(value), 'This address is reserved.');
+
+export const storePlanSchema = z.object({ plan: shopRequestPlanEnum }).strict();
 
 export const adminStorePatchSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
+  slug: storeSlugSchema.optional(),
   tagline: z.string().trim().max(180).optional(),
   category: z.string().trim().min(1).max(80).optional(),
   logoUrl: z.string().trim().max(1200000).optional().nullable(),

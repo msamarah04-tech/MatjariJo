@@ -10,7 +10,7 @@ channel = "stable-25_05"
 
 [userenv.development]
 NODE_ENV = "development"
-JWT_SECRET = "dev-plinth-jwt-secret-change-in-production-32chars"
+JWT_SECRET = "dev-matjari-jwt-secret-change-in-production-32chars"
 JWT_EXPIRES_IN = "30m"
 JWT_REFRESH_EXPIRES_IN = "30d"
 COOKIE_SECRET = "dev-cookie-secret-16chars"
@@ -18,11 +18,11 @@ PORT = "4000"
 FRONTEND_ORIGIN = "http://localhost:5000"
 REQUEST_BODY_LIMIT = "50mb"
 ALLOW_OWNER_REGISTRATION = "false"
-INITIAL_PLATFORM_EMAIL = "owner@plinth.local"
+INITIAL_PLATFORM_EMAIL = "owner@matjari.local"
 INITIAL_PLATFORM_USERNAME = "platform-admin"
 INITIAL_PLATFORM_PASSWORD = "ChangeMe123!"
 INITIAL_PLATFORM_NAME = "Platform Owner"
-PLINTH_DB_URL = "file:./dev.db"
+MATJARI_DB_URL = "file:./dev.db"
 
 [workflows]
 runButton = "Project"

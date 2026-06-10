@@ -15,9 +15,22 @@ const envSchema = z.object({
   COOKIE_SECRET: z.string().min(16).optional(),
   PORT: z.coerce.number().int().positive().default(4000),
   FRONTEND_ORIGIN: z.string().default('http://localhost:3000'),
+  // Multi-tenant storefronts: when set (e.g. "matjari.jo"), every <slug>.matjari.jo
+  // subdomain is accepted as a trusted browser origin alongside FRONTEND_ORIGIN.
+  PUBLIC_BASE_DOMAIN: z.string().trim().toLowerCase().optional(),
+  // Outbound email: Resend (API key) takes precedence, then SMTP. With neither
+  // configured, sends are logged and skipped (dev-safe no-op).
+  MAIL_FROM: z.string().optional(),
+  RESEND_API_KEY: z.string().optional(),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().optional(),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  // Server-side error tracking; disabled when unset.
+  SENTRY_DSN: z.string().optional(),
   REQUEST_BODY_LIMIT: z.string().default('50mb'),
   ALLOW_OWNER_REGISTRATION: z.enum(['true', 'false']).default('false'),
-  INITIAL_PLATFORM_EMAIL: z.string().email().default('owner@plinth.local'),
+  INITIAL_PLATFORM_EMAIL: z.string().email().default('owner@matjari.local'),
   INITIAL_PLATFORM_USERNAME: z.string().min(3).default('platform-admin'),
   INITIAL_PLATFORM_PASSWORD: z.string().min(8).default(DEFAULT_PLATFORM_PASSWORD),
   INITIAL_PLATFORM_NAME: z.string().default('Platform Owner'),

@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import { ZodError } from 'zod';
 import { logger } from './logger.js';
+import { captureError } from './monitoring.js';
 
 export class ApiError extends Error {
   status: number;
@@ -54,5 +55,6 @@ export function errorHandler(error: unknown, req: Request, res: Response, _next:
   // 500 can be traced, but never leak internals to the client.
   const log = (req as Request & { log?: typeof logger }).log ?? logger;
   log.error({ err: error }, 'Unhandled error');
+  captureError(error, { method: req.method, path: req.path, requestId: res.getHeader('X-Request-Id') });
   return res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } });
 }

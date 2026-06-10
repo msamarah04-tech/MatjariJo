@@ -40,13 +40,13 @@ export async function uniqueUsername(baseUsername: string) {
 
 export function adminEmailForShop(ownerEmail: string, slug: string) {
   const [local, domain] = ownerEmail.split('@');
-  if (!local || !domain) return `${slug}-admin@plinth.local`;
+  if (!local || !domain) return `${slug}-admin@matjari.local`;
   return `${local}+${slug}-admin@${domain}`;
 }
 
 export async function uniqueEmail(baseEmail: string): Promise<string> {
   const [local, domain] = baseEmail.split('@');
-  if (!local || !domain) return uniqueEmail(`${slugify(baseEmail)}@plinth.local`);
+  if (!local || !domain) return uniqueEmail(`${slugify(baseEmail)}@matjari.local`);
   let email = baseEmail.toLowerCase();
   let i = 2;
   while (await prisma.user.findUnique({ where: { email } })) {

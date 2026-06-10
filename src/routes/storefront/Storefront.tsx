@@ -4,9 +4,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { useForm, type FieldPath, type UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   AlertCircle,
   ArrowLeft,
+  ArrowRight,
   CheckCircle2,
   ChevronDown,
   Instagram,
@@ -48,9 +50,11 @@ import {
 } from '@/lib/productOptions';
 import { isJordanMobile, normalizeJordanMobile } from '@shared/phone';
 import { categoryDetailRows } from '@/lib/productCategory';
+import { mainSiteUrl } from '@/lib/tenant';
 
 type CartItem = { productId: string; variantId?: string; quantity: number };
 type SortMode = 'newest' | 'price-asc' | 'price-desc' | 'name';
+type TemplateId = 'editorial' | 'boutique' | 'market' | 'lookbook';
 
 const EMPTY_CART: CartItem[] = [];
 const PAGE_SIZE = 12;
@@ -105,11 +109,14 @@ const text = {
     featured: 'Featured',
     allProducts: 'All products',
     addToCart: 'Add to cart',
+    quickAdd: 'Quick add',
     soldOut: 'Sold out',
+    onlyLeft: 'Only {n} left',
     related: 'You may also like',
     aboutTitle: 'About this store',
     shippingReturns: 'Shipping and returns',
     emptyCart: 'Your cart is empty',
+    emptyCartHint: 'Browse the shop and add something you love.',
     subtotal: 'Subtotal',
     discount: 'Discount',
     gst: 'GST',
@@ -138,9 +145,19 @@ const text = {
     continueShopping: 'Continue shopping',
     offline: 'You appear to be offline. Existing content stays available; retry when connection returns.',
     cartUpdated: 'Cart updated with current stock.',
-    powered: 'Powered by Plinth',
+    powered: 'Powered by Matjari',
     shopNow: 'Shop now',
-    viewAll: 'View all →',
+    viewAll: 'View all',
+    products: 'products',
+    jordanDelivery: 'Jordan delivery',
+    freeShipUnlocked: 'Free delivery unlocked',
+    freeShipRemaining: 'Add {amount} more for free delivery',
+    chooseOptions: 'Choose options',
+    quantity: 'Quantity',
+    backToShop: 'Back to shop',
+    location: 'Location',
+    sale: 'Sale',
+    newArrival: 'New',
   },
   ar: {
     unavailableTitle: 'المتجر غير متاح',
@@ -165,11 +182,14 @@ const text = {
     featured: 'مختارة',
     allProducts: 'كل المنتجات',
     addToCart: 'أضف إلى السلة',
+    quickAdd: 'إضافة سريعة',
     soldOut: 'نفدت الكمية',
+    onlyLeft: 'تبقى {n} فقط',
     related: 'قد يعجبك أيضاً',
     aboutTitle: 'عن هذا المتجر',
     shippingReturns: 'الشحن والإرجاع',
     emptyCart: 'سلتك فارغة',
+    emptyCartHint: 'تصفح المتجر وأضف ما يعجبك.',
     subtotal: 'المجموع الفرعي',
     discount: 'الخصم',
     gst: 'ضريبة المبيعات',
@@ -198,9 +218,19 @@ const text = {
     continueShopping: 'متابعة التسوق',
     offline: 'يبدو أنك غير متصل. سيبقى المحتوى الحالي متاحا وأعد المحاولة عند عودة الاتصال.',
     cartUpdated: 'تم تحديث السلة حسب المخزون الحالي.',
-    powered: 'مشغل بواسطة Plinth',
+    powered: 'مشغل بواسطة متجري الأردن',
     shopNow: 'تسوق الآن',
-    viewAll: 'عرض الكل ←',
+    viewAll: 'عرض الكل',
+    products: 'منتجات',
+    jordanDelivery: 'توصيل داخل الأردن',
+    freeShipUnlocked: 'حصلت على توصيل مجاني',
+    freeShipRemaining: 'أضف {amount} للحصول على توصيل مجاني',
+    chooseOptions: 'اختر الخيارات',
+    quantity: 'الكمية',
+    backToShop: 'العودة للمتجر',
+    location: 'الموقع',
+    sale: 'تخفيض',
+    newArrival: 'جديد',
   },
 } as const;
 
@@ -221,8 +251,13 @@ function isOnSale(product: Product) {
   return Boolean(product.compareAtCents && product.compareAtCents > product.priceCents);
 }
 
+function salePercent(product: Product) {
+  if (!isOnSale(product)) return 0;
+  return Math.round((1 - product.priceCents / product.compareAtCents!) * 100);
+}
+
 function getCtaClass(style?: string): string {
-  const base = 'inline-flex h-11 w-full items-center justify-center text-[11px] font-black uppercase tracking-[0.12em] transition-all duration-200 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed';
+  const base = 'inline-flex h-11 w-full items-center justify-center gap-2 text-[11px] font-black uppercase tracking-[0.12em] transition-all duration-200 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed';
   if (style === 'outline') {
     return `${base} rounded-[var(--c-radius)] border-2 border-[var(--c-text)] text-[var(--c-text)] hover:bg-[var(--c-text)] hover:text-[var(--c-bg)]`;
   }
@@ -230,6 +265,15 @@ function getCtaClass(style?: string): string {
     return `${base} rounded-full bg-[var(--c-primary)] text-white hover:opacity-85 shadow-sm`;
   }
   return `${base} rounded-[var(--c-radius)] bg-[var(--c-text)] text-[var(--c-bg)] hover:opacity-80`;
+}
+
+function buttonStyleOf(store: Store) {
+  return (store.themeOverrides as Record<string, string> | null | undefined)?.buttonStyle;
+}
+
+/** Scroll to the product grid without touching the hash (hash IS the router here). */
+function scrollToProducts() {
+  document.getElementById('all-products')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function useOnlineStatus() {
@@ -247,10 +291,21 @@ function useOnlineStatus() {
   return online;
 }
 
+function useScrolled(threshold = 12) {
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > threshold);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [threshold]);
+  return scrolled;
+}
+
 function useStorefrontMeta(store?: Store, product?: Product) {
   useEffect(() => {
     if (!store) return;
-    const title = product?.details?.seoTitle || (product ? `${product.name} · ${store.name}` : `${store.name} · Plinth`);
+    const title = product?.details?.seoTitle || (product ? `${product.name} · ${store.name}` : `${store.name} · Matjari`);
     const description = product?.details?.seoDescription || product?.details?.shortDescription || product?.description || store.tagline || store.about || store.name;
     document.title = title;
 
@@ -276,6 +331,23 @@ function useStorefrontMeta(store?: Store, product?: Product) {
     }
     canonical.href = `${window.location.origin}${window.location.pathname}${window.location.hash}`;
   }, [store, product]);
+}
+
+/** Fade-up on first scroll into view; renders statically when reduced motion is preferred. */
+function Reveal({ children, className, delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
+  const reduce = useReducedMotion();
+  if (reduce) return <div className={className}>{children}</div>;
+  return (
+    <motion.div
+      className={className}
+      initial={{ opacity: 0, y: 24 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-40px' }}
+      transition={{ duration: 0.5, delay, ease: [0.22, 1, 0.36, 1] }}
+    >
+      {children}
+    </motion.div>
+  );
 }
 
 class StorefrontErrorBoundary extends Component<{ children: React.ReactNode }, { failed: boolean }> {
@@ -338,6 +410,8 @@ function StorefrontFrame({ store, products, discounts }: { store: Store; product
   const { dir } = useI18n();
   const theme = resolveStoreTheme(store.themeId || 'mono', store.themeOverrides);
   const navigate = useNavigate();
+  const reduce = useReducedMotion();
+  const scrolled = useScrolled();
   const carts = useStore((s) => s.carts);
   const updateCart = useStore((s) => s.updateCart);
   const placeOrder = useStore((s) => s.placeOrder);
@@ -530,87 +604,123 @@ function StorefrontFrame({ store, products, discounts }: { store: Store; product
   const hasSocial = overrides?.instagram || overrides?.whatsapp || overrides?.tiktok;
 
   return (
-    <div className="min-h-screen bg-[var(--c-bg)] text-[var(--c-text)] selection:bg-[var(--c-text)] selection:text-[var(--c-bg)]" dir={dir} style={themeVars}>
+    <div className="min-h-screen bg-[var(--c-bg)] text-[var(--c-text)] antialiased selection:bg-[var(--c-text)] selection:text-[var(--c-bg)]" dir={dir} style={themeVars}>
       <div aria-live="polite" className="sr-only">{liveMessage}</div>
 
       {/* Announcement bar */}
-      {store.announcement && announcement && (
-        <div className="relative z-50 flex min-h-10 items-center justify-center bg-[var(--c-primary)] px-10 py-2.5 text-center text-[11px] font-bold uppercase tracking-[0.18em] text-white">
-          <span>{store.announcement}</span>
-          <button type="button" aria-label="Dismiss" className="absolute end-3 rounded-full p-1.5 opacity-70 hover:opacity-100 transition-opacity" onClick={() => setAnnouncement(false)}>
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      )}
+      <AnimatePresence initial={false}>
+        {store.announcement && announcement && (
+          <motion.div
+            initial={false}
+            exit={reduce ? undefined : { height: 0, opacity: 0 }}
+            className="relative z-50 overflow-hidden bg-[var(--c-primary)] text-white"
+          >
+            <div className="flex min-h-9 items-center justify-center px-10 py-2 text-center text-[11px] font-bold uppercase tracking-[0.18em]">
+              <span>{store.announcement}</span>
+              <button type="button" aria-label="Dismiss" className="absolute end-3 rounded-full p-1.5 opacity-70 hover:opacity-100 transition-opacity" onClick={() => setAnnouncement(false)}>
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-[var(--c-bg)]/90 backdrop-blur-xl border-b border-[var(--c-line)]/40 transition-all duration-300">
-        <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8">
-          {/* Logo + Name */}
+      {/* Header — condenses on scroll */}
+      <header className={cn(
+        'sticky top-0 z-40 border-b transition-all duration-300',
+        scrolled
+          ? 'bg-[var(--c-bg)]/85 backdrop-blur-2xl border-[var(--c-line)]/50 shadow-[0_1px_24px_-12px_rgba(0,0,0,0.25)]'
+          : 'bg-[var(--c-bg)]/95 backdrop-blur-xl border-transparent',
+      )}>
+        <div className={cn('mx-auto flex max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8 transition-all duration-300', scrolled ? 'h-14' : 'h-16 sm:h-[4.5rem]')}>
           <Link to={`/s/${store.slug}`} className="flex min-w-0 items-center gap-3 group shrink-0">
             <ProductLogo store={store} />
-            <span className="hidden sm:block truncate text-base font-black tracking-tight group-hover:opacity-70 transition-opacity" style={{ fontFamily: theme.hero }}>
+            <span className="truncate text-base font-black tracking-tight group-hover:opacity-70 transition-opacity sm:text-lg" style={{ fontFamily: theme.hero }}>
               {store.name}
             </span>
           </Link>
 
-          {/* Center nav */}
-          <nav className="hidden md:flex flex-1 items-center justify-center gap-8 text-[11px] font-bold uppercase tracking-[0.14em]">
-            <Link to={`/s/${store.slug}`} className="opacity-50 hover:opacity-100 transition-opacity">{c.shop}</Link>
-            <Link to={`/s/${store.slug}/about`} className="opacity-50 hover:opacity-100 transition-opacity">{c.about}</Link>
+          <nav className="hidden md:flex flex-1 items-center justify-center gap-9 text-[11px] font-bold uppercase tracking-[0.16em]">
+            <Link to={`/s/${store.slug}`} className="relative py-1 opacity-55 hover:opacity-100 transition-opacity after:absolute after:inset-x-0 after:-bottom-0.5 after:h-0.5 after:origin-center after:scale-x-0 after:bg-current after:transition-transform hover:after:scale-x-100">{c.shop}</Link>
+            <Link to={`/s/${store.slug}/about`} className="relative py-1 opacity-55 hover:opacity-100 transition-opacity after:absolute after:inset-x-0 after:-bottom-0.5 after:h-0.5 after:origin-center after:scale-x-0 after:bg-current after:transition-transform hover:after:scale-x-100">{c.about}</Link>
           </nav>
 
-          {/* Right side */}
           <div className="flex items-center gap-2 ms-auto">
             <LanguageToggle className="border-[var(--c-line)]/50 bg-[var(--c-surface)] text-[var(--c-text)] hover:bg-[var(--c-soft)] rounded-lg transition-colors text-xs h-8 px-2" />
             <button
               type="button"
               aria-label={`${c.cart}: ${cartCount}`}
-              className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--c-surface)] border border-[var(--c-line)]/40 hover:bg-[var(--c-soft)] transition-all active:scale-95"
+              className="relative flex h-10 w-10 items-center justify-center rounded-full bg-[var(--c-surface)] border border-[var(--c-line)]/40 hover:bg-[var(--c-soft)] transition-all active:scale-95"
               onClick={() => setDrawerOpen(true)}
             >
-              <ShoppingBag className="h-5 w-5" />
-              {cartCount > 0 && (
-                <span className="absolute -end-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--c-text)] px-1 text-[10px] font-black text-[var(--c-bg)] shadow">
-                  {cartCount}
-                </span>
-              )}
+              <ShoppingBag className="h-[18px] w-[18px]" />
+              <AnimatePresence>
+                {cartCount > 0 && (
+                  <motion.span
+                    key={cartCount}
+                    initial={reduce ? false : { scale: 0.4, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 22 }}
+                    className="absolute -end-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--c-primary)] px-1 text-[10px] font-black text-white shadow"
+                  >
+                    {cartCount}
+                  </motion.span>
+                )}
+              </AnimatePresence>
             </button>
-            {/* Mobile menu toggle */}
             <button
               type="button"
               aria-label="Menu"
-              className="md:hidden flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--c-surface)] border border-[var(--c-line)]/40 hover:bg-[var(--c-soft)] transition-all"
+              className="md:hidden flex h-10 w-10 items-center justify-center rounded-full bg-[var(--c-surface)] border border-[var(--c-line)]/40 hover:bg-[var(--c-soft)] transition-all"
               onClick={() => setMobileMenuOpen(true)}
             >
-              <Menu className="h-4 w-4" />
+              <Menu className="h-[18px] w-[18px]" />
             </button>
           </div>
         </div>
       </header>
 
       {/* Mobile nav drawer */}
-      {mobileMenuOpen && (
-        <>
-          <div className="fixed inset-0 z-[90] bg-black/40 backdrop-blur-sm md:hidden" onClick={() => setMobileMenuOpen(false)} />
-          <div className="fixed inset-y-0 end-0 z-[91] w-72 bg-[var(--c-bg)] shadow-2xl flex flex-col md:hidden" role="dialog" aria-modal="true">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--c-line)]/30">
-              <span className="font-black tracking-tight" style={{ fontFamily: theme.hero }}>{store.name}</span>
-              <button type="button" onClick={() => setMobileMenuOpen(false)} className="rounded-full p-2 hover:bg-[var(--c-soft)] transition-colors">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <nav className="flex flex-col p-4 gap-1 text-sm font-bold">
-              <Link to={`/s/${store.slug}`} onClick={() => setMobileMenuOpen(false)} className="px-4 py-3 rounded-xl hover:bg-[var(--c-soft)] transition-colors">{c.shop}</Link>
-              <Link to={`/s/${store.slug}/about`} onClick={() => setMobileMenuOpen(false)} className="px-4 py-3 rounded-xl hover:bg-[var(--c-soft)] transition-colors">{c.about}</Link>
-              <button type="button" onClick={() => { setMobileMenuOpen(false); setDrawerOpen(true); }} className="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-[var(--c-soft)] transition-colors text-start">
-                <span>{c.cart}</span>
-                {cartCount > 0 && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--c-text)] px-1 text-[10px] font-black text-[var(--c-bg)]">{cartCount}</span>}
-              </button>
-            </nav>
-          </div>
-        </>
-      )}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[90] bg-black/40 backdrop-blur-sm md:hidden"
+              onClick={() => setMobileMenuOpen(false)}
+            />
+            <motion.div
+              initial={reduce ? false : { x: dir === 'rtl' ? '-100%' : '100%' }}
+              animate={{ x: 0 }}
+              exit={reduce ? undefined : { x: dir === 'rtl' ? '-100%' : '100%' }}
+              transition={{ type: 'spring', stiffness: 380, damping: 38 }}
+              className="fixed inset-y-0 end-0 z-[91] flex w-[19rem] flex-col bg-[var(--c-bg)] shadow-2xl md:hidden"
+              role="dialog"
+              aria-modal="true"
+            >
+              <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--c-line)]/30">
+                <span className="font-black tracking-tight" style={{ fontFamily: theme.hero }}>{store.name}</span>
+                <button type="button" onClick={() => setMobileMenuOpen(false)} className="rounded-full p-2 hover:bg-[var(--c-soft)] transition-colors">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <nav className="flex flex-col p-4 gap-1 text-sm font-bold">
+                <Link to={`/s/${store.slug}`} onClick={() => setMobileMenuOpen(false)} className="px-4 py-3.5 rounded-xl hover:bg-[var(--c-soft)] transition-colors">{c.shop}</Link>
+                <Link to={`/s/${store.slug}/about`} onClick={() => setMobileMenuOpen(false)} className="px-4 py-3.5 rounded-xl hover:bg-[var(--c-soft)] transition-colors">{c.about}</Link>
+                <button type="button" onClick={() => { setMobileMenuOpen(false); setDrawerOpen(true); }} className="flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-[var(--c-soft)] transition-colors text-start">
+                  <span>{c.cart}</span>
+                  {cartCount > 0 && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--c-primary)] px-1 text-[10px] font-black text-white">{cartCount}</span>}
+                </button>
+              </nav>
+              <div className="mt-auto border-t border-[var(--c-line)]/25 p-5 text-[10px] font-bold uppercase tracking-[0.18em] opacity-35">
+                {store.name} · {c.powered}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       <main>
         <Routes>
@@ -623,39 +733,58 @@ function StorefrontFrame({ store, products, discounts }: { store: Store; product
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-[var(--c-line)]/30 bg-[var(--c-surface)] mt-8">
-        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+      <footer className="border-t border-[var(--c-line)]/30 bg-[var(--c-surface)] mt-16">
+        <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+          <div className="grid gap-10 md:grid-cols-[1.2fr_1fr_1fr]">
             <div>
-              <p className="text-lg font-black tracking-tight" style={{ fontFamily: theme.hero }}>{store.name}</p>
-              {store.tagline && <p className="mt-1 text-sm font-medium opacity-50">{store.tagline}</p>}
-            </div>
-            {hasSocial && (
               <div className="flex items-center gap-3">
-                {overrides?.instagram && (
-                  <a href={overrides.instagram.startsWith('http') ? overrides.instagram : `https://instagram.com/${overrides.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--c-soft)] hover:bg-[var(--c-line)]/40 transition-colors opacity-60 hover:opacity-100">
-                    <Instagram className="h-4 w-4" />
-                  </a>
-                )}
-                {overrides?.whatsapp && (
-                  <a href={`https://wa.me/${overrides.whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--c-soft)] hover:bg-[var(--c-line)]/40 transition-colors opacity-60 hover:opacity-100" aria-label="WhatsApp">
-                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
-                  </a>
-                )}
-                {overrides?.tiktok && (
-                  <a href={overrides.tiktok.startsWith('http') ? overrides.tiktok : `https://tiktok.com/@${overrides.tiktok.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--c-soft)] hover:bg-[var(--c-line)]/40 transition-colors opacity-60 hover:opacity-100" aria-label="TikTok">
-                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.3 6.3 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.16 8.16 0 004.77 1.52V6.76a4.85 4.85 0 01-1-.07z"/></svg>
-                  </a>
-                )}
+                <ProductLogo store={store} />
+                <p className="text-xl font-black tracking-tight" style={{ fontFamily: theme.hero }}>{store.name}</p>
               </div>
-            )}
+              {store.tagline && <p className="mt-3 max-w-xs text-sm font-medium leading-relaxed opacity-50">{store.tagline}</p>}
+            </div>
+            <div>
+              <p className="mb-4 text-[10px] font-black uppercase tracking-[0.2em] opacity-35">{c.shop}</p>
+              <nav className="flex flex-col gap-2.5 text-sm font-bold">
+                <Link to={`/s/${store.slug}`} className="w-fit opacity-60 hover:opacity-100 transition-opacity">{c.allProducts}</Link>
+                <Link to={`/s/${store.slug}/about`} className="w-fit opacity-60 hover:opacity-100 transition-opacity">{c.about}</Link>
+                <Link to={`/s/${store.slug}/cart`} className="w-fit opacity-60 hover:opacity-100 transition-opacity">{c.cart}</Link>
+              </nav>
+            </div>
+            <div>
+              <p className="mb-4 text-[10px] font-black uppercase tracking-[0.2em] opacity-35">{c.delivery}</p>
+              <div className="flex flex-col gap-2.5 text-sm font-bold opacity-60">
+                <span className="inline-flex items-center gap-2"><Truck className="h-4 w-4" /> {c.jordanDelivery}</span>
+                <span className="inline-flex items-center gap-2"><ShieldCheck className="h-4 w-4" /> {c.cod}</span>
+              </div>
+              {hasSocial && (
+                <div className="mt-5 flex items-center gap-2.5">
+                  {overrides?.instagram && (
+                    <a href={overrides.instagram.startsWith('http') ? overrides.instagram : `https://instagram.com/${overrides.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--c-soft)] hover:bg-[var(--c-line)]/40 transition-all hover:-translate-y-0.5 opacity-60 hover:opacity-100">
+                      <Instagram className="h-4 w-4" />
+                    </a>
+                  )}
+                  {overrides?.whatsapp && (
+                    <a href={`https://wa.me/${overrides.whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp" className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--c-soft)] hover:bg-[var(--c-line)]/40 transition-all hover:-translate-y-0.5 opacity-60 hover:opacity-100">
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
+                    </a>
+                  )}
+                  {overrides?.tiktok && (
+                    <a href={overrides.tiktok.startsWith('http') ? overrides.tiktok : `https://tiktok.com/@${overrides.tiktok.replace('@', '')}`} target="_blank" rel="noopener noreferrer" aria-label="TikTok" className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--c-soft)] hover:bg-[var(--c-line)]/40 transition-all hover:-translate-y-0.5 opacity-60 hover:opacity-100">
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.3 6.3 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.16 8.16 0 004.77 1.52V6.76a4.85 4.85 0 01-1-.07z"/></svg>
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-          <div className="mt-8 border-t border-[var(--c-line)]/20 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] font-bold uppercase tracking-[0.18em] opacity-35">
-            <nav className="flex gap-6">
-              <Link to={`/s/${store.slug}`} className="hover:opacity-100 transition-opacity">{c.shop}</Link>
-              <Link to={`/s/${store.slug}/about`} className="hover:opacity-100 transition-opacity">{c.about}</Link>
-            </nav>
-            <span>{store.name} · {c.powered}</span>
+          <div className="mt-10 border-t border-[var(--c-line)]/20 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-[10px] font-bold uppercase tracking-[0.18em] opacity-35">
+            <span>© {store.name}</span>
+            <span className="flex items-center gap-4">
+              <a href={mainSiteUrl('/privacy')} className="hover:opacity-100 transition-opacity">Privacy</a>
+              <a href={mainSiteUrl('/terms')} className="hover:opacity-100 transition-opacity">Terms</a>
+              <span>{c.powered}</span>
+            </span>
           </div>
         </div>
       </footer>
@@ -720,196 +849,73 @@ function HomePage({ store, products, addToCart }: { store: Store; products: Prod
   useEffect(() => setPage(1), [collection, debouncedQuery, inStockOnly, onSaleOnly, sort]);
 
   const featuredProduct = featured[0] || products[0];
+  const templateId = template.id as TemplateId;
 
   return (
     <>
-      {/* ── EDITORIAL ────────────────────────────────────────────────── */}
-      {template.id === 'editorial' && (
-        <section className="relative overflow-hidden bg-[var(--c-surface)] border-b border-[var(--c-line)]/20">
-          <div className="mx-auto grid min-h-[78vh] max-w-7xl items-center gap-8 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:gap-16 lg:px-8 lg:py-20">
-            <div className="z-10 flex flex-col justify-center">
-              <span className="mb-6 w-fit rounded-full bg-[var(--c-soft)] px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.2em] border border-[var(--c-line)]/40">
-                {store.category}
-              </span>
-              <h1 className="text-5xl font-black leading-[1.02] tracking-tighter sm:text-6xl lg:text-7xl xl:text-8xl" style={{ fontFamily: theme.hero }}>
-                {store.tagline || store.name}
-              </h1>
-              <div className="mt-8 flex flex-wrap gap-3 text-[11px] font-bold uppercase tracking-[0.14em] opacity-55">
-                <span className="inline-flex items-center gap-2 bg-[var(--c-bg)] border border-[var(--c-line)]/40 px-4 py-2 rounded-full"><Truck className="h-3.5 w-3.5" /> Jordan delivery</span>
-                <span className="inline-flex items-center gap-2 bg-[var(--c-bg)] border border-[var(--c-line)]/40 px-4 py-2 rounded-full"><ShieldCheck className="h-3.5 w-3.5" /> {c.cod}</span>
-              </div>
-              <div className="mt-10 flex gap-3">
-                <a href="#all-products" className={cn(getCtaClass((store.themeOverrides as Record<string,string>)?.buttonStyle), 'w-auto px-8 no-underline')}>
-                  {c.shopNow}
-                </a>
-                {store.about && (
-                  <Link to={`/s/${store.slug}/about`} className="inline-flex h-11 items-center gap-2 px-6 text-[11px] font-black uppercase tracking-[0.12em] opacity-50 hover:opacity-100 transition-opacity">
-                    {c.about}
-                  </Link>
-                )}
-              </div>
-            </div>
-            <div className="relative">
-              <div className="aspect-[4/5] overflow-hidden rounded-2xl bg-[var(--c-soft)] shadow-2xl shadow-[var(--c-text)]/8 border border-[var(--c-line)]/20">
-                {featuredProduct ? (
-                  <Link to={`/s/${store.slug}/p/${featuredProduct.id}`}>
-                    <ProductThumb product={featuredProduct} className="h-full w-full" />
-                  </Link>
-                ) : (
-                  <div className="h-full w-full flex items-center justify-center">
-                    <ProductLogo store={store} large />
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </section>
+      {templateId === 'editorial' && <EditorialHero store={store} theme={theme} featuredProduct={featuredProduct} collections={collections} />}
+      {templateId === 'boutique' && <BoutiqueHero store={store} theme={theme} featuredProduct={featuredProduct} />}
+      {templateId === 'market' && (
+        <MarketHero store={store} theme={theme} query={query} setQuery={setQuery} collections={collections} collection={collection} setCollection={setCollection} count={filtered.length} />
       )}
+      {templateId === 'lookbook' && <LookbookHero store={store} theme={theme} featuredProduct={featuredProduct} />}
 
-      {/* ── BOUTIQUE ─────────────────────────────────────────────────── */}
-      {template.id === 'boutique' && (
-        <section className="overflow-hidden border-b border-[var(--c-line)]/20">
-          <div className="mx-auto grid max-w-7xl lg:grid-cols-2">
-            <div className="flex flex-col justify-center px-6 py-16 sm:px-10 lg:px-14 lg:py-24">
-              <span className="mb-5 w-fit rounded-sm bg-[var(--c-soft)] px-3 py-1 text-[11px] font-black uppercase tracking-[0.2em]">{store.category}</span>
-              <h1 className="text-5xl font-black leading-[1.03] tracking-tighter sm:text-6xl lg:text-7xl" style={{ fontFamily: theme.hero }}>
-                {store.tagline || store.name}
-              </h1>
-              <p className="mt-5 max-w-sm text-base font-medium leading-relaxed opacity-55">
-                {store.name} — curated collection, delivered across Jordan.
-              </p>
-              <div className="mt-8 flex flex-wrap gap-3">
-                <a href="#all-products" className={cn(getCtaClass((store.themeOverrides as Record<string,string>)?.buttonStyle), 'w-auto px-8 no-underline')}>
-                  {c.shopNow}
-                </a>
-              </div>
-              <div className="mt-8 flex flex-wrap gap-4 text-[11px] font-bold uppercase tracking-[0.14em] opacity-50">
-                <span className="inline-flex items-center gap-2"><Truck className="h-3.5 w-3.5" /> Jordan delivery</span>
-                <span className="inline-flex items-center gap-2"><ShieldCheck className="h-3.5 w-3.5" /> {c.cod}</span>
-              </div>
-            </div>
-            <div className={cn('relative min-h-[55vw] overflow-hidden bg-[var(--c-soft)] lg:min-h-[600px]', !featuredProduct && 'flex items-center justify-center')}>
-              {featuredProduct ? (
-                <Link to={`/s/${store.slug}/p/${featuredProduct.id}`} className="absolute inset-0">
-                  <ProductThumb product={featuredProduct} className="h-full w-full object-cover" />
-                </Link>
-              ) : (
-                <ProductLogo store={store} large />
-              )}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ── MARKET ───────────────────────────────────────────────────── */}
-      {template.id === 'market' && (
-        <section className="border-b border-[var(--c-line)]/20 bg-[var(--c-surface)]">
-          <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      {/* Featured products */}
+      {featured.length > 0 && templateId !== 'market' && (
+        <Reveal>
+          <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8">
+            <div className="mb-8 flex items-end justify-between gap-4">
               <div>
-                <h1 className="text-3xl font-black tracking-tight sm:text-4xl" style={{ fontFamily: theme.hero }}>{store.name}</h1>
-                <p className="mt-1 text-sm font-medium opacity-50">{store.tagline}</p>
+                <p className="mb-1.5 text-[10px] font-black uppercase tracking-[0.22em] text-[var(--c-primary)]">{store.name}</p>
+                <h2 className="text-2xl font-black tracking-tight sm:text-3xl" style={{ fontFamily: theme.hero }}>{c.featured}</h2>
               </div>
-              <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] opacity-50">
-                <span className="inline-flex items-center gap-1.5"><Truck className="h-3 w-3" /> Jordan delivery</span>
-                <span className="opacity-30">·</span>
-                <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-3 w-3" /> {c.cod}</span>
-              </div>
+              <button type="button" onClick={scrollToProducts} className="group inline-flex shrink-0 items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em] opacity-50 hover:opacity-100 transition-opacity">
+                {c.viewAll} <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 rtl:rotate-180 rtl:group-hover:-translate-x-0.5" />
+              </button>
             </div>
-            {collections.length > 1 && (
-              <div className="mt-5 flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-                {collections.slice(0, 10).map((col) => (
-                  <button
-                    key={col}
-                    type="button"
-                    onClick={() => setCollection(col)}
-                    className={cn(
-                      'shrink-0 rounded-full px-4 py-1.5 text-xs font-bold transition-all',
-                      collection === col
-                        ? 'bg-[var(--c-text)] text-[var(--c-bg)] shadow-sm'
-                        : 'bg-[var(--c-bg)] border border-[var(--c-line)]/40 hover:border-[var(--c-text)]/40'
-                    )}
-                  >
-                    {col}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </section>
-      )}
-
-      {/* ── LOOKBOOK ─────────────────────────────────────────────────── */}
-      {template.id === 'lookbook' && (
-        <section className="relative overflow-hidden border-b border-[var(--c-line)]/20 min-h-[65vh] flex items-end">
-          <div className="absolute inset-0 bg-[var(--c-soft)]">
-            {featuredProduct && productPrimaryImage(featuredProduct) && (
-              <img
-                src={productPrimaryImage(featuredProduct)!}
-                alt={featuredProduct.name}
-                className="h-full w-full object-cover opacity-70"
-              />
-            )}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-          </div>
-          <div className="relative z-10 mx-auto w-full max-w-7xl px-6 pb-14 sm:px-8 lg:pb-20 lg:px-12">
-            <span className="mb-4 inline-block rounded-full bg-white/20 backdrop-blur-md px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.2em] text-white border border-white/20">
-              {store.category}
-            </span>
-            <h1 className="max-w-3xl text-5xl font-black leading-[1.02] tracking-tighter text-white sm:text-6xl lg:text-7xl" style={{ fontFamily: theme.hero }}>
-              {store.tagline || store.name}
-            </h1>
-            <div className="mt-8 flex gap-3">
-              <a href="#all-products" className="inline-flex h-11 w-auto items-center justify-center rounded-full bg-white px-8 text-[11px] font-black uppercase tracking-[0.12em] text-black transition-all hover:opacity-90 active:scale-[0.97] no-underline">
-                {c.shopNow}
-              </a>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Featured products (editorial + boutique + lookbook show this) */}
-      {featured.length > 0 && template.id !== 'market' && (
-        <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between gap-4 mb-8">
-            <h2 className="text-2xl font-black tracking-tight sm:text-3xl">{c.featured}</h2>
-            <a href="#all-products" className="text-[11px] font-bold uppercase tracking-[0.14em] opacity-50 hover:opacity-100 transition-opacity">{c.viewAll}</a>
-          </div>
-          <ProductGrid products={featured} store={store} addToCart={addToCart} templateId={template.id} />
-        </section>
+            <ProductGrid products={featured} store={store} addToCart={addToCart} templateId={templateId} />
+          </section>
+        </Reveal>
       )}
 
       {/* All products */}
-      <section id="all-products" className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
-        {template.id !== 'market' && <h2 className="mb-8 text-2xl font-black tracking-tight sm:text-3xl">{c.allProducts}</h2>}
+      <section id="all-products" className="mx-auto max-w-7xl scroll-mt-20 px-4 py-14 sm:px-6 sm:py-16 lg:px-8">
+        {templateId !== 'market' && (
+          <div className="mb-8 flex items-end justify-between gap-4">
+            <h2 className="text-2xl font-black tracking-tight sm:text-3xl" style={{ fontFamily: theme.hero }}>{c.allProducts}</h2>
+            <p className="shrink-0 text-xs font-bold opacity-40">{filtered.length} {c.products}</p>
+          </div>
+        )}
 
-        {/* Filter bar */}
+        {/* Filter toolbar */}
         <div className="mb-8 rounded-2xl bg-[var(--c-surface)] p-3 shadow-sm border border-[var(--c-line)]/30">
           <div className="flex flex-col gap-3 sm:flex-row">
-            <label className="relative flex-1">
-              <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 opacity-35" />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={c.search}
-                className="h-10 w-full rounded-xl border border-[var(--c-line)]/40 bg-[var(--c-bg)] ps-9 pe-4 text-sm font-medium transition-all focus:border-[var(--c-text)]/50 focus:ring-1 focus:ring-[var(--c-text)]/30 outline-none"
-              />
-            </label>
-            <label className="relative">
+            {templateId !== 'market' && (
+              <label className="relative flex-1">
+                <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 opacity-35" />
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder={c.search}
+                  className="h-10 w-full rounded-xl border border-[var(--c-line)]/40 bg-[var(--c-bg)] ps-9 pe-4 text-sm font-medium transition-all focus:border-[var(--c-text)]/50 focus:ring-1 focus:ring-[var(--c-text)]/30 outline-none"
+                />
+              </label>
+            )}
+            <label className={cn('relative', templateId === 'market' && 'flex-1')}>
               <select
                 value={collection}
                 onChange={(e) => setCollection(e.target.value)}
-                className="h-10 appearance-none rounded-xl border border-[var(--c-line)]/40 bg-[var(--c-bg)] ps-3 pe-9 text-sm font-medium transition-all focus:border-[var(--c-text)]/50 focus:ring-1 focus:ring-[var(--c-text)]/30 outline-none min-w-[10rem]"
+                className="h-10 w-full appearance-none rounded-xl border border-[var(--c-line)]/40 bg-[var(--c-bg)] ps-3 pe-9 text-sm font-medium transition-all focus:border-[var(--c-text)]/50 focus:ring-1 focus:ring-[var(--c-text)]/30 outline-none sm:min-w-[10rem]"
               >
                 {collections.map((item) => <option key={item} value={item}>{item}</option>)}
               </select>
               <ChevronDown className="pointer-events-none absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 opacity-35" />
             </label>
-            <label className="relative">
+            <label className={cn('relative', templateId === 'market' && 'flex-1')}>
               <select
                 value={sort}
                 onChange={(e) => setSort(e.target.value as SortMode)}
-                className="h-10 appearance-none rounded-xl border border-[var(--c-line)]/40 bg-[var(--c-bg)] ps-3 pe-9 text-sm font-medium transition-all focus:border-[var(--c-text)]/50 focus:ring-1 focus:ring-[var(--c-text)]/30 outline-none min-w-[10rem]"
+                className="h-10 w-full appearance-none rounded-xl border border-[var(--c-line)]/40 bg-[var(--c-bg)] ps-3 pe-9 text-sm font-medium transition-all focus:border-[var(--c-text)]/50 focus:ring-1 focus:ring-[var(--c-text)]/30 outline-none sm:min-w-[10rem]"
               >
                 <option value="newest">{c.newest}</option>
                 <option value="price-asc">{c.priceLow}</option>
@@ -919,9 +925,10 @@ function HomePage({ store, products, addToCart }: { store: Store; products: Prod
               <SlidersHorizontal className="pointer-events-none absolute end-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 opacity-35" />
             </label>
           </div>
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             <FilterChip active={inStockOnly} onClick={() => setInStockOnly((v) => !v)} label={c.inStock} />
             <FilterChip active={onSaleOnly} onClick={() => setOnSaleOnly((v) => !v)} label={c.onSale} />
+            {templateId === 'market' && <span className="ms-auto text-xs font-bold opacity-40">{filtered.length} {c.products}</span>}
           </div>
         </div>
 
@@ -931,15 +938,15 @@ function HomePage({ store, products, addToCart }: { store: Store; products: Prod
           <EmptyState title={c.noResults} body={c.noResultsHint} />
         ) : (
           <>
-            <ProductGrid products={visible} store={store} addToCart={addToCart} templateId={template.id} />
+            <ProductGrid products={visible} store={store} addToCart={addToCart} templateId={templateId} />
             {visible.length < filtered.length && (
               <div className="mt-12 text-center">
                 <button
                   type="button"
-                  className="rounded-xl bg-[var(--c-surface)] border border-[var(--c-line)]/40 px-8 py-3.5 text-xs font-black uppercase tracking-[0.15em] hover:bg-[var(--c-soft)] transition-all active:scale-95"
+                  className="rounded-full bg-[var(--c-surface)] border border-[var(--c-line)]/40 px-8 py-3.5 text-xs font-black uppercase tracking-[0.15em] hover:bg-[var(--c-soft)] transition-all active:scale-95"
                   onClick={() => setPage((v) => v + 1)}
                 >
-                  Load more
+                  Load more · {filtered.length - visible.length}
                 </button>
               </div>
             )}
@@ -950,6 +957,249 @@ function HomePage({ store, products, addToCart }: { store: Store; products: Prod
   );
 }
 
+/* ── Template heros ─────────────────────────────────────────────────── */
+
+type Theme = ReturnType<typeof resolveStoreTheme>;
+
+function HeroTrustChips({ className }: { className?: string }) {
+  const c = useCopy();
+  return (
+    <div className={cn('flex flex-wrap gap-3 text-[11px] font-bold uppercase tracking-[0.14em]', className)}>
+      <span className="inline-flex items-center gap-2 rounded-full border border-[var(--c-line)]/40 bg-[var(--c-bg)] px-4 py-2"><Truck className="h-3.5 w-3.5" /> {c.jordanDelivery}</span>
+      <span className="inline-flex items-center gap-2 rounded-full border border-[var(--c-line)]/40 bg-[var(--c-bg)] px-4 py-2"><ShieldCheck className="h-3.5 w-3.5" /> {c.cod}</span>
+    </div>
+  );
+}
+
+function HeroFeaturedCard({ store, product }: { store: Store; product?: Product }) {
+  if (!product) {
+    return (
+      <div className="flex aspect-[4/5] items-center justify-center overflow-hidden rounded-3xl bg-[var(--c-soft)] border border-[var(--c-line)]/20">
+        <ProductLogo store={store} large />
+      </div>
+    );
+  }
+  return (
+    <Link to={`/s/${store.slug}/p/${product.id}`} className="group relative block overflow-hidden rounded-3xl border border-[var(--c-line)]/20 bg-[var(--c-soft)] shadow-2xl shadow-[var(--c-text)]/10">
+      <div className="aspect-[4/5] overflow-hidden">
+        <ProductThumb product={product} className="h-full w-full transition-transform duration-700 group-hover:scale-[1.04]" />
+      </div>
+      <div className="absolute inset-x-4 bottom-4 flex items-center justify-between gap-3 rounded-2xl bg-[var(--c-bg)]/85 px-4 py-3 backdrop-blur-xl border border-[var(--c-line)]/30 shadow-lg">
+        <span className="min-w-0 truncate text-sm font-black">{product.name}</span>
+        <span className="shrink-0 rounded-full bg-[var(--c-text)] px-3 py-1 text-xs font-black text-[var(--c-bg)]">
+          {money(productPriceRange(product).min, store.currency)}
+        </span>
+      </div>
+    </Link>
+  );
+}
+
+function EditorialHero({ store, theme, featuredProduct, collections }: { store: Store; theme: Theme; featuredProduct?: Product; collections: string[] }) {
+  const c = useCopy();
+  const categories = collections.filter((item) => item !== 'All');
+  return (
+    <section className="relative overflow-hidden bg-[var(--c-surface)] border-b border-[var(--c-line)]/20">
+      <div aria-hidden className="pointer-events-none absolute -top-32 -end-32 h-96 w-96 rounded-full bg-[var(--c-primary)] opacity-[0.07] blur-3xl" />
+      <div aria-hidden className="pointer-events-none absolute -bottom-40 -start-24 h-80 w-80 rounded-full bg-[var(--c-accent)] opacity-[0.07] blur-3xl" />
+      <div className="relative mx-auto grid max-w-7xl items-center gap-10 px-4 py-14 sm:px-6 sm:py-20 lg:min-h-[72vh] lg:grid-cols-[1.1fr_0.9fr] lg:gap-16 lg:px-8">
+        <Reveal className="z-10 flex flex-col justify-center">
+          <span className="mb-6 inline-flex w-fit items-center gap-2 rounded-full bg-[var(--c-bg)] px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.2em] border border-[var(--c-line)]/40">
+            <span className="h-1.5 w-1.5 rounded-full bg-[var(--c-primary)]" />
+            {store.category}
+          </span>
+          <h1 className="text-[2.75rem] font-black leading-[1.02] tracking-tighter sm:text-6xl lg:text-7xl xl:text-[5.25rem]" style={{ fontFamily: theme.hero }}>
+            {store.tagline || store.name}
+          </h1>
+          <div className="mt-10 flex flex-wrap items-center gap-3">
+            <button type="button" onClick={scrollToProducts} className={cn(getCtaClass(buttonStyleOf(store)), 'w-auto px-8 h-12')}>
+              {c.shopNow} <ArrowRight className="h-4 w-4 rtl:rotate-180" />
+            </button>
+            {store.about && (
+              <Link to={`/s/${store.slug}/about`} className="inline-flex h-12 items-center gap-2 px-6 text-[11px] font-black uppercase tracking-[0.12em] opacity-50 hover:opacity-100 transition-opacity">
+                {c.about}
+              </Link>
+            )}
+          </div>
+          <HeroTrustChips className="mt-9 opacity-60" />
+        </Reveal>
+        <Reveal delay={0.12} className="relative lg:justify-self-end lg:w-full lg:max-w-md">
+          <HeroFeaturedCard store={store} product={featuredProduct} />
+        </Reveal>
+      </div>
+      {categories.length > 1 && (
+        <div className="relative border-t border-[var(--c-line)]/20 bg-[var(--c-bg)]/60">
+          <div className="mx-auto flex max-w-7xl gap-8 overflow-x-auto px-4 py-3.5 sm:px-6 lg:px-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {categories.slice(0, 12).map((item) => (
+              <span key={item} className="flex shrink-0 items-center gap-8 text-[11px] font-black uppercase tracking-[0.2em] opacity-35">
+                {item}
+                <span aria-hidden className="text-[var(--c-primary)] opacity-80">✦</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function BoutiqueHero({ store, theme, featuredProduct }: { store: Store; theme: Theme; featuredProduct?: Product }) {
+  const c = useCopy();
+  return (
+    <section className="overflow-hidden border-b border-[var(--c-line)]/20">
+      <div className="mx-auto grid max-w-[110rem] lg:grid-cols-2">
+        <Reveal className="order-2 flex flex-col items-center justify-center px-6 py-16 text-center sm:px-12 lg:order-1 lg:px-16 lg:py-28">
+          <div className="mb-6 flex items-center gap-4 text-[11px] font-black uppercase tracking-[0.3em] opacity-45">
+            <span aria-hidden className="h-px w-10 bg-current opacity-40" />
+            {store.category}
+            <span aria-hidden className="h-px w-10 bg-current opacity-40" />
+          </div>
+          <h1 className="max-w-xl text-4xl font-black leading-[1.05] tracking-tighter sm:text-6xl lg:text-[4.25rem]" style={{ fontFamily: theme.hero }}>
+            {store.tagline || store.name}
+          </h1>
+          <p className="mt-6 max-w-sm text-base font-medium leading-relaxed opacity-55">
+            {store.about ? store.about.split('\n')[0].slice(0, 140) : `${store.name} — curated collection, delivered across Jordan.`}
+          </p>
+          <button type="button" onClick={scrollToProducts} className={cn(getCtaClass(buttonStyleOf(store)), 'mt-9 w-auto px-10 h-12')}>
+            {c.shopNow}
+          </button>
+          <div className="mt-9 flex flex-wrap justify-center gap-5 text-[11px] font-bold uppercase tracking-[0.14em] opacity-50">
+            <span className="inline-flex items-center gap-2"><Truck className="h-3.5 w-3.5" /> {c.jordanDelivery}</span>
+            <span className="inline-flex items-center gap-2"><ShieldCheck className="h-3.5 w-3.5" /> {c.cod}</span>
+          </div>
+        </Reveal>
+        <div className={cn('relative order-1 min-h-[52vw] overflow-hidden bg-[var(--c-soft)] lg:order-2 lg:min-h-[640px]', !featuredProduct && 'flex items-center justify-center')}>
+          {featuredProduct ? (
+            <Link to={`/s/${store.slug}/p/${featuredProduct.id}`} className="group absolute inset-0">
+              <ProductThumb product={featuredProduct} className="h-full w-full transition-transform duration-700 group-hover:scale-[1.03]" />
+              <span className="absolute bottom-5 start-5 rounded-full bg-[var(--c-bg)]/85 px-4 py-2 text-xs font-black backdrop-blur-xl border border-[var(--c-line)]/30 shadow-lg">
+                {featuredProduct.name} · {money(productPriceRange(featuredProduct).min, store.currency)}
+              </span>
+            </Link>
+          ) : (
+            <ProductLogo store={store} large />
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function MarketHero({ store, theme, query, setQuery, collections, collection, setCollection, count }: {
+  store: Store;
+  theme: Theme;
+  query: string;
+  setQuery: (value: string) => void;
+  collections: string[];
+  collection: string;
+  setCollection: (value: string) => void;
+  count: number;
+}) {
+  const c = useCopy();
+  return (
+    <section className="border-b border-[var(--c-line)]/20 bg-[var(--c-surface)]">
+      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
+        <div className="flex flex-col gap-1.5 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="text-3xl font-black tracking-tight sm:text-4xl" style={{ fontFamily: theme.hero }}>{store.name}</h1>
+            {store.tagline && <p className="mt-1.5 text-sm font-medium opacity-50">{store.tagline}</p>}
+          </div>
+          <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] opacity-50">
+            <span className="inline-flex items-center gap-1.5"><Truck className="h-3 w-3" /> {c.jordanDelivery}</span>
+            <span className="opacity-30">·</span>
+            <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-3 w-3" /> {c.cod}</span>
+          </div>
+        </div>
+
+        {/* Search-first: the hero owns the catalog search */}
+        <label className="relative mt-6 block">
+          <Search className="pointer-events-none absolute start-4 top-1/2 h-5 w-5 -translate-y-1/2 opacity-35" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={`${c.search} · ${count} ${c.products}`}
+            className="h-13 w-full rounded-2xl border border-[var(--c-line)]/40 bg-[var(--c-bg)] ps-12 pe-4 py-3.5 text-base font-medium shadow-sm transition-all focus:border-[var(--c-text)]/50 focus:ring-2 focus:ring-[var(--c-text)]/15 outline-none"
+          />
+        </label>
+
+        {collections.length > 1 && (
+          <div className="mt-4 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {collections.slice(0, 12).map((col) => (
+              <button
+                key={col}
+                type="button"
+                onClick={() => setCollection(col)}
+                className={cn(
+                  'shrink-0 rounded-full px-4 py-2 text-xs font-bold transition-all active:scale-95',
+                  collection === col
+                    ? 'bg-[var(--c-text)] text-[var(--c-bg)] shadow-sm'
+                    : 'bg-[var(--c-bg)] border border-[var(--c-line)]/40 hover:border-[var(--c-text)]/40',
+                )}
+              >
+                {col}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function LookbookHero({ store, theme, featuredProduct }: { store: Store; theme: Theme; featuredProduct?: Product }) {
+  const c = useCopy();
+  const reduce = useReducedMotion();
+  const heroImage = featuredProduct ? productPrimaryImage(featuredProduct) : undefined;
+  return (
+    <section className="relative flex min-h-[72vh] items-end overflow-hidden border-b border-[var(--c-line)]/20 sm:min-h-[78vh]">
+      <div className="absolute inset-0 bg-[var(--c-soft)]">
+        {heroImage && (
+          <motion.img
+            src={heroImage}
+            alt={featuredProduct!.name}
+            initial={reduce ? false : { scale: 1.08 }}
+            animate={{ scale: 1 }}
+            transition={{ duration: 1.6, ease: [0.22, 1, 0.36, 1] }}
+            className="h-full w-full object-cover"
+          />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-black/5" />
+      </div>
+      <div className="relative z-10 mx-auto w-full max-w-7xl px-5 pb-16 sm:px-8 lg:px-12 lg:pb-24">
+        <Reveal>
+          <span className="mb-5 inline-block rounded-full bg-white/15 px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.22em] text-white border border-white/25 backdrop-blur-md">
+            {store.category}
+          </span>
+          <h1 className="max-w-3xl text-[2.75rem] font-black leading-[1.02] tracking-tighter text-white sm:text-6xl lg:text-7xl" style={{ fontFamily: theme.hero }}>
+            {store.tagline || store.name}
+          </h1>
+          <div className="mt-9 flex flex-wrap items-center gap-4">
+            <button type="button" onClick={scrollToProducts} className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white px-9 text-[11px] font-black uppercase tracking-[0.12em] text-black transition-all hover:opacity-90 active:scale-[0.97]">
+              {c.shopNow} <ArrowRight className="h-4 w-4 rtl:rotate-180" />
+            </button>
+            {featuredProduct && (
+              <Link to={`/s/${store.slug}/p/${featuredProduct.id}`} className="text-[11px] font-black uppercase tracking-[0.14em] text-white/70 underline-offset-4 hover:text-white hover:underline transition-colors">
+                {featuredProduct.name}
+              </Link>
+            )}
+          </div>
+        </Reveal>
+      </div>
+      {!reduce && (
+        <motion.div
+          aria-hidden
+          animate={{ y: [0, 8, 0] }}
+          transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+          className="absolute bottom-5 left-1/2 z-10 -translate-x-1/2 text-white/60"
+        >
+          <ChevronDown className="h-6 w-6" />
+        </motion.div>
+      )}
+    </section>
+  );
+}
+
+/* ── Product detail ─────────────────────────────────────────────────── */
+
 function ProductDetail({ store, products, addToCart }: { store: Store; products: Product[]; addToCart: (productId: string, quantity?: number, variantId?: string) => void }) {
   const { productId } = useParams();
   const c = useCopy();
@@ -959,6 +1209,8 @@ function ProductDetail({ store, products, addToCart }: { store: Store; products:
   const recordEvent = useStore((s) => s.recordEvent);
   const [quantity, setQuantity] = useState(1);
   const [selections, setSelections] = useState<Record<string, string>>({});
+  const buyBoxRef = useRef<HTMLDivElement | null>(null);
+  const [buyBoxVisible, setBuyBoxVisible] = useState(true);
   const product = products.find((item) => item.id === productId);
   useStorefrontMeta(store, product);
 
@@ -970,7 +1222,20 @@ function ProductDetail({ store, products, addToCart }: { store: Store; products:
     window.scrollTo(0, 0);
   }, [product, recordEvent, store.id]);
 
-  if (!product) return <EmptyState title="Product not found" body="" action={<Link className={cn(getCtaClass((store.themeOverrides as Record<string,string>)?.buttonStyle), 'w-auto px-6')} to={`/s/${store.slug}`}>Back to shop</Link>} />;
+  // Drives the mobile sticky buy bar: shown while the in-page buy box is off screen.
+  useEffect(() => {
+    const node = buyBoxRef.current;
+    if (!node || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(([entry]) => setBuyBoxVisible(entry.isIntersecting), { threshold: 0.1 });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [product]);
+
+  if (!product) return (
+    <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+      <EmptyState title="Product not found" body="" action={<Link className={cn(getCtaClass(buttonStyleOf(store)), 'w-auto px-6')} to={`/s/${store.slug}`}>{c.backToShop}</Link>} />
+    </div>
+  );
 
   const collection = productCollection(product, store);
   const details = product.details || {};
@@ -982,6 +1247,8 @@ function ProductDetail({ store, products, addToCart }: { store: Store; products:
   const displayCompareAt = chosenVariant?.compareAtCents ?? product.compareAtCents;
   const displayImage = productPrimaryImage(product, chosenVariant);
   const related = products.filter((item) => item.id !== product.id && productCollection(item, store) === collection).slice(0, 4);
+  const purchasable = displayStock > 0 && (!variable || Boolean(chosenVariant));
+  const ctaLabel = displayStock <= 0 ? c.soldOut : variable && !chosenVariant ? c.chooseOptions : c.addToCart;
   const specRows = [
     details.sku ? ['SKU', details.sku] : undefined,
     details.barcode ? ['Barcode', details.barcode] : undefined,
@@ -1017,38 +1284,40 @@ function ProductDetail({ store, products, addToCart }: { store: Store; products:
   const detailRows = categoryRows.length > 0 ? categoryRows : specRows;
 
   return (
-    <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+    <section className="mx-auto max-w-7xl px-4 pb-24 pt-8 sm:px-6 sm:pt-12 lg:px-8 lg:pb-16">
       {/* Breadcrumb */}
-      <div className="mb-8 flex items-center gap-2.5 text-[11px] font-bold uppercase tracking-[0.14em] opacity-40">
+      <div className="mb-7 flex items-center gap-2.5 text-[11px] font-bold uppercase tracking-[0.14em] opacity-40">
         <Link to={`/s/${store.slug}`} className="hover:opacity-100 transition-opacity">{c.shop}</Link>
-        <span>/</span>
-        <span>{collection}</span>
+        <span aria-hidden>/</span>
+        <span className="truncate">{collection}</span>
       </div>
 
       <div className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
         <ProductImageGallery product={product} activeImage={displayImage} />
-        <div className="flex flex-col justify-start lg:pt-4">
-          <p className="mb-3 text-[11px] font-black uppercase tracking-[0.18em] opacity-40">{productCategory(product, store)}</p>
-          <h1 className="text-4xl font-black leading-tight tracking-tighter sm:text-5xl md:text-6xl" style={{ fontFamily: theme.hero }}>{product.name}</h1>
-          {details.subtitle && <p className="mt-4 text-lg font-bold opacity-55">{details.subtitle}</p>}
+        <div className="flex flex-col justify-start lg:pt-2">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[var(--c-primary)]">{productCategory(product, store)}</p>
+            {isOnSale(product) && (
+              <span className="rounded-full bg-red-600 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest text-white">-{salePercent(product)}%</span>
+            )}
+          </div>
+          <h1 className="mt-3 text-3xl font-black leading-[1.08] tracking-tighter sm:text-5xl" style={{ fontFamily: theme.hero }}>{product.name}</h1>
+          {details.subtitle && <p className="mt-3 text-lg font-bold opacity-55">{details.subtitle}</p>}
 
-          <div className="my-7 flex flex-wrap items-baseline gap-3 text-3xl font-black tracking-tight">
+          <div className="my-6 flex flex-wrap items-baseline gap-3">
+            <span className="text-3xl font-black tracking-tight">{money(displayPrice, store.currency)}</span>
             {displayCompareAt && displayCompareAt > displayPrice && (
               <span className="text-lg font-bold line-through opacity-35">{money(displayCompareAt, store.currency)}</span>
-            )}
-            <span>{money(displayPrice, store.currency)}</span>
-            {isOnSale(product) && (
-              <span className="text-sm font-black text-red-600 bg-red-50 px-2.5 py-1 rounded-full">Sale</span>
             )}
           </div>
 
           {details.shortDescription && <p className="mb-4 text-lg font-bold leading-relaxed">{details.shortDescription}</p>}
-          <p className="mb-6 whitespace-pre-line text-base font-medium leading-relaxed opacity-55">{product.description}</p>
+          {product.description && <p className="mb-6 whitespace-pre-line text-base font-medium leading-relaxed opacity-55">{product.description}</p>}
 
           {(product.tags || []).length > 0 && (
-            <div className="mb-8 flex flex-wrap gap-2">
+            <div className="mb-7 flex flex-wrap gap-2">
               {product.tags!.map((tag) => (
-                <span key={tag} className="rounded-lg bg-[var(--c-soft)] px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] border border-[var(--c-line)]/30">{tag}</span>
+                <span key={tag} className="rounded-full bg-[var(--c-soft)] px-3.5 py-1 text-[11px] font-black uppercase tracking-[0.12em] border border-[var(--c-line)]/30">{tag}</span>
               ))}
             </div>
           )}
@@ -1057,14 +1326,15 @@ function ProductDetail({ store, products, addToCart }: { store: Store; products:
             <ProductOptionSelector product={product} selections={selections} setSelections={setSelections} />
           )}
 
-          <div className="rounded-2xl bg-[var(--c-surface)] p-5 shadow-sm border border-[var(--c-line)]/25 mb-6">
+          {/* Buy box */}
+          <div ref={buyBoxRef} className="mb-6 rounded-2xl bg-[var(--c-surface)] p-5 shadow-sm border border-[var(--c-line)]/25">
             <div className="mb-4 flex items-center justify-between">
-              <span className="text-[11px] font-black uppercase tracking-[0.15em] opacity-45">Quantity</span>
+              <span className="text-[11px] font-black uppercase tracking-[0.15em] opacity-45">{c.quantity}</span>
               {displayStock <= 5 && displayStock > 0 && (
-                <span className="text-[11px] font-bold text-orange-600 bg-orange-50 px-2.5 py-1 rounded-full">Only {displayStock} left</span>
+                <span className="rounded-full bg-orange-50 px-2.5 py-1 text-[11px] font-bold text-orange-600">{c.onlyLeft.replace('{n}', String(displayStock))}</span>
               )}
               {displayStock <= 0 && (
-                <span className="text-[11px] font-bold text-red-600 bg-red-50 px-2.5 py-1 rounded-full">Out of stock</span>
+                <span className="rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-bold text-red-600">{c.soldOut}</span>
               )}
             </div>
             {variable && (
@@ -1076,11 +1346,11 @@ function ProductDetail({ store, products, addToCart }: { store: Store; products:
               <QuantityStepper value={quantity} max={Math.max(displayStock, 1)} onChange={setQuantity} />
               <button
                 type="button"
-                disabled={displayStock <= 0 || (variable && !chosenVariant)}
-                className={cn(getCtaClass((store.themeOverrides as Record<string,string>)?.buttonStyle), 'flex-1 h-12 shadow-md disabled:opacity-40')}
+                disabled={!purchasable}
+                className={cn(getCtaClass(buttonStyleOf(store)), 'flex-1 h-12 shadow-md')}
                 onClick={() => addToCart(product.id, quantity, chosenVariant?.id)}
               >
-                {displayStock <= 0 ? c.soldOut : variable && !chosenVariant ? 'Choose options' : c.addToCart}
+                {ctaLabel}
               </button>
             </div>
           </div>
@@ -1088,7 +1358,7 @@ function ProductDetail({ store, products, addToCart }: { store: Store; products:
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="flex items-center gap-3 rounded-xl bg-[var(--c-surface)] p-4 text-sm font-bold border border-[var(--c-line)]/25">
               <Truck className="h-5 w-5 opacity-60 shrink-0" />
-              <span>Jordan delivery</span>
+              <span>{c.jordanDelivery}</span>
             </div>
             <div className="flex items-center gap-3 rounded-xl bg-[var(--c-surface)] p-4 text-sm font-bold border border-[var(--c-line)]/25">
               <ShieldCheck className="h-5 w-5 opacity-60 shrink-0" />
@@ -1098,32 +1368,77 @@ function ProductDetail({ store, products, addToCart }: { store: Store; products:
         </div>
       </div>
 
+      {/* Sticky mobile buy bar */}
+      <AnimatePresence>
+        {!buyBoxVisible && displayStock > 0 && (
+          <motion.div
+            initial={{ y: 80 }}
+            animate={{ y: 0 }}
+            exit={{ y: 80 }}
+            transition={{ type: 'spring', stiffness: 380, damping: 36 }}
+            className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--c-line)]/30 bg-[var(--c-bg)]/90 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-2xl lg:hidden"
+          >
+            <div className="mx-auto flex max-w-2xl items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-black">{product.name}</p>
+                <p className="text-sm font-bold opacity-60">{money(displayPrice, store.currency)}</p>
+              </div>
+              <button
+                type="button"
+                disabled={!purchasable}
+                className={cn(getCtaClass(buttonStyleOf(store)), 'w-auto shrink-0 px-6 h-11')}
+                onClick={() => {
+                  if (variable && !chosenVariant) {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    return;
+                  }
+                  addToCart(product.id, quantity, chosenVariant?.id);
+                }}
+              >
+                {ctaLabel}
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Product details grid */}
       {(detailRows.length > 0 || (details.highlights || []).length > 0 || (details.specifications || []).length > 0) && (
-        <section className="mt-14 grid gap-4 lg:grid-cols-3">
-          {(details.highlights || []).length > 0 && <ProductInfoList title="Highlights" items={details.highlights!} />}
-          {detailRows.length > 0 && <ProductSpecs title="Product details" rows={detailRows} />}
-          {(details.specifications || []).length > 0 && <ProductInfoList title="Specifications" items={details.specifications!} />}
-          {(details.detailsRows || []).map((row) => <ProductInfoText key={row.id} title={row.name} body={row.value} />)}
-          {details.sizeGuide && <ProductInfoText title="Size guide" body={details.sizeGuide} />}
-          {details.ingredients && <ProductInfoText title="Ingredients" body={details.ingredients} />}
-          {(details.allergens || []).length > 0 && <ProductInfoList title="Allergens" items={details.allergens!} />}
-          {details.storageInstructions && <ProductInfoText title="Storage" body={details.storageInstructions} />}
-          {details.nutrition && <ProductInfoText title="Nutrition" body={details.nutrition} />}
-          {details.compatibility && <ProductInfoText title="Compatibility" body={details.compatibility} />}
-          {(details.includedItems || []).length > 0 && <ProductInfoList title="Included" items={details.includedItems!} />}
-          {details.careInstructions && <ProductInfoText title="Care instructions" body={details.careInstructions} />}
-          {details.shippingNote && <ProductInfoText title="Shipping note" body={details.shippingNote} />}
-          {details.warranty && <ProductInfoText title="Warranty" body={details.warranty} />}
-          {details.returnPolicy && <ProductInfoText title="Returns" body={details.returnPolicy} />}
-        </section>
+        <Reveal>
+          <section className="mt-14 grid gap-4 lg:grid-cols-3">
+            {(details.highlights || []).length > 0 && <ProductInfoList title="Highlights" items={details.highlights!} />}
+            {detailRows.length > 0 && <ProductSpecs title="Product details" rows={detailRows} />}
+            {(details.specifications || []).length > 0 && <ProductInfoList title="Specifications" items={details.specifications!} />}
+            {(details.detailsRows || []).map((row) => <ProductInfoText key={row.id} title={row.name} body={row.value} />)}
+            {details.sizeGuide && <ProductInfoText title="Size guide" body={details.sizeGuide} />}
+            {details.ingredients && <ProductInfoText title="Ingredients" body={details.ingredients} />}
+            {(details.allergens || []).length > 0 && <ProductInfoList title="Allergens" items={details.allergens!} />}
+            {details.storageInstructions && <ProductInfoText title="Storage" body={details.storageInstructions} />}
+            {details.nutrition && <ProductInfoText title="Nutrition" body={details.nutrition} />}
+            {details.compatibility && <ProductInfoText title="Compatibility" body={details.compatibility} />}
+            {(details.includedItems || []).length > 0 && <ProductInfoList title="Included" items={details.includedItems!} />}
+            {details.careInstructions && <ProductInfoText title="Care instructions" body={details.careInstructions} />}
+            {details.shippingNote && <ProductInfoText title="Shipping note" body={details.shippingNote} />}
+            {details.warranty && <ProductInfoText title="Warranty" body={details.warranty} />}
+            {details.returnPolicy && <ProductInfoText title="Returns" body={details.returnPolicy} />}
+          </section>
+        </Reveal>
       )}
 
       {related.length > 0 && (
-        <section className="mt-20 border-t border-[var(--c-line)]/20 pt-14">
-          <h2 className="mb-8 text-2xl font-black tracking-tight sm:text-3xl">{c.related}</h2>
-          <ProductGrid products={related} store={store} addToCart={addToCart} templateId={template.id} />
-        </section>
+        <Reveal>
+          <section className="mt-16 border-t border-[var(--c-line)]/20 pt-12 sm:mt-20 sm:pt-14">
+            <h2 className="mb-8 text-2xl font-black tracking-tight sm:text-3xl" style={{ fontFamily: theme.hero }}>{c.related}</h2>
+            {/* Horizontal snap on mobile, grid on desktop */}
+            <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:snap-none sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 lg:grid-cols-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {related.map((item) => (
+                <div key={item.id} className="w-[70vw] max-w-[16rem] shrink-0 snap-start sm:w-auto sm:max-w-none">
+                  <ProductCard product={item} store={store} addToCart={addToCart} templateId={template.id as TemplateId} />
+                </div>
+              ))}
+            </div>
+          </section>
+        </Reveal>
       )}
     </section>
   );
@@ -1137,8 +1452,8 @@ function ProductImageGallery({ product, activeImage }: { product: Product; activ
   useEffect(() => { setSelected(activeImage); }, [activeImage]);
 
   return (
-    <div className="lg:sticky lg:top-24 space-y-3">
-      <div className="aspect-square w-full overflow-hidden rounded-2xl border border-[var(--c-line)]/20 bg-[var(--c-surface)] shadow-xl shadow-black/5">
+    <div className="lg:sticky lg:top-24 space-y-3 self-start">
+      <div className="aspect-square w-full overflow-hidden rounded-3xl border border-[var(--c-line)]/20 bg-[var(--c-surface)] shadow-xl shadow-black/5">
         {main
           ? <img src={main} alt={product.name} className="h-full w-full object-cover" />
           : <div className="h-full w-full flex items-center justify-center text-7xl opacity-25">{product.imageEmoji || '📦'}</div>
@@ -1185,7 +1500,7 @@ function ProductOptionSelector({ product, selections, setSelections }: { product
                     disabled={!available}
                     onClick={() => setSelections((current) => ({ ...current, [option.name]: value.value }))}
                     className={cn(
-                      'min-h-10 rounded-xl border px-4 text-sm font-black transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-30',
+                      'min-h-10 rounded-full border px-4 text-sm font-black transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-30',
                       selected ? 'border-[var(--c-text)] bg-[var(--c-text)] text-[var(--c-bg)] shadow-sm' : 'border-[var(--c-line)]/40 bg-[var(--c-surface)] hover:border-[var(--c-text)]/60',
                       isColor && 'flex items-center gap-2',
                     )}
@@ -1208,26 +1523,28 @@ function AboutPage({ store }: { store: Store }) {
   const theme = resolveStoreTheme(store.themeId || 'mono', store.themeOverrides);
   useStorefrontMeta(store);
   return (
-    <section className="mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8">
-      <p className="mb-4 text-[11px] font-black uppercase tracking-[0.2em] opacity-40">{c.aboutTitle}</p>
-      <h1 className="mb-10 text-5xl font-black tracking-tighter sm:text-6xl" style={{ fontFamily: theme.hero }}>{store.name}</h1>
-      <div className="grid gap-6 md:grid-cols-[1.2fr_0.8fr]">
-        <div className="whitespace-pre-line rounded-2xl bg-[var(--c-surface)] p-7 text-base font-medium leading-relaxed shadow-sm border border-[var(--c-line)]/25">
-          {store.about || store.tagline}
-        </div>
-        <div className="space-y-4">
-          <div className="rounded-2xl bg-[var(--c-surface)] p-6 shadow-sm border border-[var(--c-line)]/25">
-            <p className="mb-3 text-[11px] font-black uppercase tracking-[0.18em] opacity-45">{c.shippingReturns}</p>
-            <p className="text-sm font-medium leading-relaxed opacity-65">{shippingPolicyText(store)}</p>
+    <section className="mx-auto max-w-4xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8">
+      <Reveal>
+        <p className="mb-4 text-[11px] font-black uppercase tracking-[0.2em] text-[var(--c-primary)]">{c.aboutTitle}</p>
+        <h1 className="mb-10 text-4xl font-black tracking-tighter sm:text-6xl" style={{ fontFamily: theme.hero }}>{store.name}</h1>
+        <div className="grid gap-6 md:grid-cols-[1.2fr_0.8fr]">
+          <div className="whitespace-pre-line rounded-3xl bg-[var(--c-surface)] p-7 text-base font-medium leading-relaxed shadow-sm border border-[var(--c-line)]/25 sm:p-8">
+            {store.about || store.tagline}
           </div>
-          {store.address && (
-            <div className="rounded-2xl bg-[var(--c-surface)] p-6 shadow-sm border border-[var(--c-line)]/25">
-              <p className="mb-3 text-[11px] font-black uppercase tracking-[0.18em] opacity-45">Location</p>
-              <p className="text-sm font-medium leading-relaxed opacity-65">{store.address}</p>
+          <div className="space-y-4">
+            <div className="rounded-3xl bg-[var(--c-surface)] p-6 shadow-sm border border-[var(--c-line)]/25">
+              <p className="mb-3 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.18em] opacity-45"><Truck className="h-4 w-4" /> {c.shippingReturns}</p>
+              <p className="text-sm font-medium leading-relaxed opacity-65">{shippingPolicyText(store)}</p>
             </div>
-          )}
+            {store.address && (
+              <div className="rounded-3xl bg-[var(--c-surface)] p-6 shadow-sm border border-[var(--c-line)]/25">
+                <p className="mb-3 text-[11px] font-black uppercase tracking-[0.18em] opacity-45">{c.location}</p>
+                <p className="text-sm font-medium leading-relaxed opacity-65">{store.address}</p>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      </Reveal>
     </section>
   );
 }
@@ -1245,18 +1562,19 @@ function CartPage({ store, products, cartItems, summary, setQuantity, openChecko
     <section className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
       <h1 className="mb-8 text-4xl font-black tracking-tight sm:text-5xl">{c.cart}</h1>
       {cartItems.length === 0 ? (
-        <EmptyState title={c.emptyCart} body="" action={
-          <Link to={`/s/${store.slug}`} className={cn(getCtaClass((store.themeOverrides as Record<string,string>)?.buttonStyle), 'w-auto px-8')}>{c.shop}</Link>
+        <EmptyState title={c.emptyCart} body={c.emptyCartHint} action={
+          <Link to={`/s/${store.slug}`} className={cn(getCtaClass(buttonStyleOf(store)), 'w-auto px-8')}>{c.shop}</Link>
         } />
       ) : (
         <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
           <CartLines store={store} products={products} cartItems={cartItems} setQuantity={setQuantity} />
-          <div className="rounded-2xl bg-[var(--c-surface)] p-6 shadow-sm border border-[var(--c-line)]/25 h-fit">
+          <div className="rounded-2xl bg-[var(--c-surface)] p-6 shadow-sm border border-[var(--c-line)]/25 h-fit lg:sticky lg:top-24">
+            <FreeShippingProgress store={store} summary={summary} />
             <SummaryRows store={store} summary={summary} />
             <button
               type="button"
               onClick={openCheckout}
-              className={cn(getCtaClass((store.themeOverrides as Record<string,string>)?.buttonStyle), 'mt-6 shadow-md')}
+              className={cn(getCtaClass(buttonStyleOf(store)), 'mt-6 shadow-md')}
             >
               {c.checkout}
             </button>
@@ -1275,20 +1593,29 @@ function OrderConfirmation({ store }: { store: Store }) {
   const order = orders.find((item) => item.id === orderId) as (Order & { customerPhone?: string; shippingAddress?: string }) | undefined;
   useStorefrontMeta(store);
 
-  if (!order) return <EmptyState title="Order not found" body="Refresh protection for guest order lookup is deferred until the public lookup endpoint exists." />;
+  if (!order) return (
+    <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8">
+      <EmptyState title="Order not found" body="Refresh protection for guest order lookup is deferred until the public lookup endpoint exists." />
+    </div>
+  );
 
   const invoiceNumber = order.invoiceNumber || `DRAFT-${order.id.slice(0, 8).toUpperCase()}`;
   return (
     <section className="mx-auto max-w-4xl px-4 py-14 sm:px-6 lg:px-8">
-      <div className="mb-8 rounded-2xl bg-[var(--c-surface)] p-10 text-center shadow-sm border border-[var(--c-line)]/25">
-        <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+      <div className="mb-8 rounded-3xl bg-[var(--c-surface)] p-10 text-center shadow-sm border border-[var(--c-line)]/25">
+        <motion.div
+          initial={{ scale: 0.5, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 18 }}
+          className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-green-100"
+        >
           <CheckCircle2 className="h-8 w-8 text-green-600" />
-        </div>
+        </motion.div>
         <h1 className="text-3xl font-black tracking-tighter sm:text-4xl">{c.confirmed}</h1>
         <p className="mt-3 text-sm font-medium opacity-50">{c.reference}: <span className="font-mono font-bold opacity-100">{order.id}</span></p>
       </div>
 
-      <div id="invoice" className="rounded-2xl bg-white p-8 text-neutral-950 shadow-xl border border-black/5 print:shadow-none print:border-none print:p-0">
+      <div id="invoice" className="rounded-3xl bg-white p-6 text-neutral-950 shadow-xl border border-black/5 sm:p-8 print:shadow-none print:border-none print:p-0">
         <div className="mb-7 flex flex-col justify-between gap-5 border-b border-neutral-100 pb-7 sm:flex-row">
           <div>
             <p className="text-[11px] font-black uppercase tracking-[0.2em] text-neutral-400">{c.invoice}</p>
@@ -1350,6 +1677,31 @@ function OrderConfirmation({ store }: { store: Store }) {
   );
 }
 
+/* ── Cart drawer ────────────────────────────────────────────────────── */
+
+function FreeShippingProgress({ store, summary }: { store: Store; summary: ReturnType<typeof computeOrderSummary> }) {
+  const c = useCopy();
+  const threshold = store.shipping?.type === 'FREE_OVER' ? store.shipping.freeOverCents : undefined;
+  if (!threshold || summary.subtotalCents <= 0) return null;
+  const unlocked = summary.subtotalCents >= threshold || summary.freeShipping;
+  const progress = Math.min(1, summary.subtotalCents / threshold);
+  return (
+    <div className="mb-4">
+      <p className={cn('mb-2 text-xs font-bold', unlocked ? 'text-green-600' : 'opacity-60')}>
+        {unlocked ? `✓ ${c.freeShipUnlocked}` : c.freeShipRemaining.replace('{amount}', money(threshold - summary.subtotalCents, store.currency))}
+      </p>
+      <div className="h-1.5 overflow-hidden rounded-full bg-[var(--c-soft)]">
+        <motion.div
+          className={cn('h-full rounded-full', unlocked ? 'bg-green-500' : 'bg-[var(--c-primary)]')}
+          initial={false}
+          animate={{ width: `${progress * 100}%` }}
+          transition={{ type: 'spring', stiffness: 120, damping: 22 }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function CartDrawer(props: {
   open: boolean;
   checkoutOpen: boolean;
@@ -1373,62 +1725,93 @@ function CartDrawer(props: {
   submitCheckout: (values: CheckoutValues) => void;
 }) {
   const c = useCopy();
+  const { dir } = useI18n();
+  const reduce = useReducedMotion();
   const firstFocusable = useRef<HTMLButtonElement | null>(null);
   useEffect(() => { if (props.open) firstFocusable.current?.focus(); }, [props.open]);
 
   return (
-    <>
-      <div
-        className={cn('fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm transition-opacity duration-300', props.open ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none')}
-        onMouseDown={(e) => { if (e.target === e.currentTarget) props.close(); }}
-      />
-      <aside
-        role="dialog"
-        aria-modal="true"
-        aria-label={props.checkoutOpen ? c.checkout : c.cart}
-        className={cn(
-          'fixed top-0 end-0 z-[101] flex h-full w-full max-w-[30rem] flex-col bg-[var(--c-bg)] text-[var(--c-text)] shadow-2xl transition-transform duration-500',
-          props.open ? 'translate-x-0' : 'translate-x-full'
-        )}
-      >
-        <div className="flex h-16 shrink-0 items-center justify-between border-b border-[var(--c-line)]/30 bg-[var(--c-surface)]/80 backdrop-blur-xl px-5">
-          <h2 className="text-xl font-black tracking-tight">{props.checkoutOpen ? c.checkout : c.cart}</h2>
-          <button ref={firstFocusable} type="button" aria-label="Close" onClick={props.close} className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--c-soft)] hover:bg-[var(--c-line)]/30 transition-colors">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto p-5">
-          {props.checkoutOpen
-            ? <CheckoutForm {...props} />
-            : <CartLines store={props.store} products={props.products} cartItems={props.cartItems} setQuantity={props.setQuantity} />
-          }
-        </div>
-        {props.cartItems.length > 0 && (
-          <div className="shrink-0 border-t border-[var(--c-line)]/30 bg-[var(--c-surface)] p-5 space-y-4">
-            <PromoBox {...props} />
-            <SummaryRows store={props.store} summary={props.summary} />
-            {props.checkoutError && (
-              <p className="rounded-xl bg-red-50 p-4 text-sm font-bold text-red-700 border border-red-200">{props.checkoutError}</p>
+    <AnimatePresence>
+      {props.open && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm"
+            onMouseDown={(e) => { if (e.target === e.currentTarget) props.close(); }}
+          />
+          <motion.aside
+            initial={reduce ? false : { x: dir === 'rtl' ? '-100%' : '100%' }}
+            animate={{ x: 0 }}
+            exit={reduce ? undefined : { x: dir === 'rtl' ? '-100%' : '100%' }}
+            transition={{ type: 'spring', stiffness: 360, damping: 40 }}
+            role="dialog"
+            aria-modal="true"
+            aria-label={props.checkoutOpen ? c.checkout : c.cart}
+            className="fixed top-0 end-0 z-[101] flex h-full w-full max-w-[30rem] flex-col bg-[var(--c-bg)] text-[var(--c-text)] shadow-2xl"
+          >
+            <div className="flex h-16 shrink-0 items-center justify-between border-b border-[var(--c-line)]/30 bg-[var(--c-surface)]/80 backdrop-blur-xl px-5">
+              <h2 className="flex items-center gap-2.5 text-xl font-black tracking-tight">
+                {props.checkoutOpen ? c.checkout : c.cart}
+                {!props.checkoutOpen && props.cartItems.length > 0 && (
+                  <span className="rounded-full bg-[var(--c-soft)] px-2.5 py-0.5 text-xs font-black opacity-70">
+                    {props.cartItems.reduce((sum, item) => sum + item.quantity, 0)}
+                  </span>
+                )}
+              </h2>
+              <button ref={firstFocusable} type="button" aria-label="Close" onClick={props.close} className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--c-soft)] hover:bg-[var(--c-line)]/30 transition-colors">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-5">
+              {props.checkoutOpen
+                ? <CheckoutForm {...props} />
+                : props.cartItems.length === 0
+                  ? (
+                    <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
+                      <span className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--c-soft)]"><ShoppingBag className="h-7 w-7 opacity-40" /></span>
+                      <div>
+                        <p className="text-lg font-black">{c.emptyCart}</p>
+                        <p className="mt-1 text-sm font-medium opacity-50">{c.emptyCartHint}</p>
+                      </div>
+                      <button type="button" onClick={props.close} className={cn(getCtaClass(buttonStyleOf(props.store)), 'w-auto px-8')}>
+                        {c.continueShopping}
+                      </button>
+                    </div>
+                  )
+                  : <CartLines store={props.store} products={props.products} cartItems={props.cartItems} setQuantity={props.setQuantity} />
+              }
+            </div>
+            {props.cartItems.length > 0 && (
+              <div className="shrink-0 border-t border-[var(--c-line)]/30 bg-[var(--c-surface)] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] space-y-4">
+                <FreeShippingProgress store={props.store} summary={props.summary} />
+                <PromoBox {...props} />
+                <SummaryRows store={props.store} summary={props.summary} />
+                {props.checkoutError && (
+                  <p className="rounded-xl bg-red-50 p-4 text-sm font-bold text-red-700 border border-red-200">{props.checkoutError}</p>
+                )}
+                <button
+                  type={props.checkoutOpen ? 'submit' : 'button'}
+                  form={props.checkoutOpen ? 'cod-checkout-form' : undefined}
+                  disabled={props.submitting || props.summary.items.length === 0}
+                  onClick={props.checkoutOpen ? undefined : props.openCheckout}
+                  className={cn(getCtaClass(buttonStyleOf(props.store)), 'h-12 shadow-lg disabled:cursor-wait')}
+                >
+                  {props.checkoutOpen ? (props.submitting ? 'Placing order…' : c.placeOrder) : c.checkout}
+                </button>
+              </div>
             )}
-            <button
-              type={props.checkoutOpen ? 'submit' : 'button'}
-              form={props.checkoutOpen ? 'cod-checkout-form' : undefined}
-              disabled={props.submitting || props.summary.items.length === 0}
-              onClick={props.checkoutOpen ? undefined : props.openCheckout}
-              className={cn(getCtaClass((props.store.themeOverrides as Record<string,string>)?.buttonStyle), 'h-12 shadow-lg disabled:cursor-wait')}
-            >
-              {props.checkoutOpen ? (props.submitting ? 'Placing order…' : c.placeOrder) : c.checkout}
-            </button>
-          </div>
-        )}
-      </aside>
-    </>
+          </motion.aside>
+        </>
+      )}
+    </AnimatePresence>
   );
 }
 
 function CartLines({ store, products, cartItems, setQuantity }: { store: Store; products: Product[]; cartItems: CartItem[]; setQuantity: (productId: string, quantity: number, variantId?: string) => void }) {
   const c = useCopy();
-  if (cartItems.length === 0) return <EmptyState title={c.emptyCart} body="" />;
+  if (cartItems.length === 0) return <EmptyState title={c.emptyCart} body={c.emptyCartHint} />;
   return (
     <div className="space-y-3">
       {cartItems.map((item) => {
@@ -1497,7 +1880,7 @@ function CheckoutForm({ form, store, submitCheckout, backToCart }: { form: UseFo
         <FieldError form={form} name="note" />
       </label>
       <button type="button" onClick={backToCart} className="inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.12em] opacity-45 hover:opacity-100 transition-opacity">
-        <ArrowLeft className="h-3.5 w-3.5" /> {c.cart}
+        <ArrowLeft className="h-3.5 w-3.5 rtl:rotate-180" /> {c.cart}
       </button>
     </form>
   );
@@ -1540,19 +1923,21 @@ export function SummaryRows({ store, summary }: { store: Store; summary: ReturnT
   );
 }
 
+/* ── Product grid + cards ───────────────────────────────────────────── */
+
 function ProductGrid({ products, store, addToCart, templateId = 'editorial' }: {
   products: Product[];
   store: Store;
   addToCart: (productId: string, quantity?: number, variantId?: string) => void;
-  templateId?: 'editorial' | 'boutique' | 'market' | 'lookbook';
+  templateId?: TemplateId;
 }) {
   return (
     <div className={cn(
-      'grid gap-3 sm:gap-4',
-      templateId === 'market' ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5' :
-      templateId === 'boutique' ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' :
-      'grid-cols-2 md:grid-cols-3 lg:grid-cols-4',
-      templateId === 'lookbook' && '[&>*:first-child]:sm:col-span-2',
+      'grid',
+      templateId === 'market' ? 'grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 md:grid-cols-4 lg:grid-cols-5' :
+      templateId === 'boutique' ? 'grid-cols-2 gap-3 gap-y-8 sm:gap-5 lg:grid-cols-3 lg:gap-6' :
+      templateId === 'lookbook' ? 'grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 [&>*:first-child]:col-span-2 [&>*:first-child]:sm:col-span-2' :
+      'grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4',
     )}>
       {products.map((product, index) => (
         <ProductCard
@@ -1572,7 +1957,7 @@ function ProductCard({ product, store, addToCart, templateId, featured = false }
   product: Product;
   store: Store;
   addToCart: (productId: string, quantity?: number, variantId?: string) => void;
-  templateId: 'editorial' | 'boutique' | 'market' | 'lookbook';
+  templateId: TemplateId;
   featured?: boolean;
 }) {
   const c = useCopy();
@@ -1581,27 +1966,41 @@ function ProductCard({ product, store, addToCart, templateId, featured = false }
   const priceRange = productPriceRange(product);
   const swatches = colorValues(product);
   const sale = isOnSale(product);
-  const btnStyle = (store.themeOverrides as Record<string, string> | null)?.buttonStyle;
+  const btnStyle = buttonStyleOf(store);
   const isCompact = templateId === 'market';
+  const isBoutique = templateId === 'boutique';
+  const images = productImages(product);
+  const hoverImage = images[1]?.url;
 
   return (
     <article className={cn(
-      'group flex flex-col overflow-hidden bg-[var(--c-surface)] border border-[var(--c-line)]/35 transition-all duration-300 hover:-translate-y-0.5',
-      'hover:shadow-lg hover:shadow-[var(--c-text)]/6 hover:border-[var(--c-line)]/60',
-      isCompact ? 'rounded-xl' : 'rounded-2xl',
+      'group flex flex-col overflow-hidden transition-all duration-300',
+      isBoutique
+        ? 'bg-transparent'
+        : cn(
+            'bg-[var(--c-surface)] border border-[var(--c-line)]/30 hover:-translate-y-1 hover:shadow-xl hover:shadow-[var(--c-text)]/8 hover:border-[var(--c-line)]/60',
+            isCompact ? 'rounded-xl' : 'rounded-2xl',
+          ),
     )}>
       {/* Image */}
-      <Link to={`/s/${store.slug}/p/${product.id}`} className="relative block overflow-hidden">
+      <Link to={`/s/${store.slug}/p/${product.id}`} className={cn('relative block overflow-hidden', isBoutique && 'rounded-2xl border border-[var(--c-line)]/20')}>
         <div className={cn(
-          'overflow-hidden bg-[var(--c-bg)]',
+          'relative overflow-hidden bg-[var(--c-soft)]',
           featured ? 'aspect-[16/9]' :
           templateId === 'market' ? 'aspect-square' :
-          templateId === 'boutique' ? 'aspect-[3/4]' :
+          isBoutique ? 'aspect-[3/4]' :
           'aspect-[4/5]',
         )}>
           {productPrimaryImage(product)
-            ? <img src={productPrimaryImage(product)!} alt={product.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
-            : <div className="h-full w-full flex items-center justify-center bg-[var(--c-soft)] transition-transform duration-500 group-hover:scale-[1.04]">
+            ? (
+              <>
+                <img src={productPrimaryImage(product)!} alt={product.name} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.05]" />
+                {hoverImage && (
+                  <img src={hoverImage} alt="" aria-hidden loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+                )}
+              </>
+            )
+            : <div className="h-full w-full flex items-center justify-center transition-transform duration-700 group-hover:scale-[1.05]">
                 <span className="text-4xl opacity-40">{product.imageEmoji || '📦'}</span>
               </div>
           }
@@ -1612,16 +2011,27 @@ function ProductCard({ product, store, addToCart, templateId, featured = false }
             <span className="rounded-full bg-[var(--c-text)] px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-[var(--c-bg)]">{c.soldOut}</span>
           </div>
         )}
-        {/* Sale badge */}
+        {/* Badges */}
         {sale && !soldOut && (
           <span className="absolute start-3 top-3 rounded-full bg-red-600 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-white shadow-sm">
-            Sale
+            -{salePercent(product)}%
           </span>
+        )}
+        {/* Desktop hover quick-add (simple products only — variants need the detail page) */}
+        {!soldOut && !variable && (
+          <button
+            type="button"
+            aria-label={`${c.quickAdd}: ${product.name}`}
+            onClick={(event) => { event.preventDefault(); addToCart(product.id); }}
+            className="absolute bottom-3 end-3 hidden h-10 w-10 items-center justify-center rounded-full bg-[var(--c-text)] text-[var(--c-bg)] shadow-lg transition-all duration-300 sm:flex sm:translate-y-2 sm:opacity-0 sm:group-hover:translate-y-0 sm:group-hover:opacity-100 focus-visible:translate-y-0 focus-visible:opacity-100 hover:scale-105 active:scale-95"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
         )}
       </Link>
 
       {/* Info */}
-      <div className={cn('flex flex-col flex-1', isCompact ? 'p-2.5' : 'p-3.5 sm:p-4')}>
+      <div className={cn('flex flex-col flex-1', isCompact ? 'p-2.5' : isBoutique ? 'px-1 pt-3 pb-1' : 'p-3.5 sm:p-4')}>
         <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.16em] opacity-35 truncate">{productCategory(product, store)}</p>
         <Link
           to={`/s/${store.slug}/p/${product.id}`}
@@ -1633,10 +2043,10 @@ function ProductCard({ product, store, addToCart, templateId, featured = false }
           {priceRange.min !== priceRange.max
             ? <span>From {money(priceRange.min, store.currency)}</span>
             : <>
+                <span>{money(priceRange.min, store.currency)}</span>
                 {product.compareAtCents && product.compareAtCents > product.priceCents && (
                   <span className="line-through opacity-35 font-medium">{money(product.compareAtCents, store.currency)}</span>
                 )}
-                <span>{money(priceRange.min, store.currency)}</span>
               </>
           }
         </div>
@@ -1645,18 +2055,19 @@ function ProductCard({ product, store, addToCart, templateId, featured = false }
             {swatches.slice(0, 6).map((s) => (
               <span key={s.id} title={s.value} className="h-3 w-3 rounded-full ring-1 ring-[var(--c-line)]/60" style={{ backgroundColor: s.colorHex }} />
             ))}
+            {swatches.length > 6 && <span className="text-[10px] font-bold opacity-40">+{swatches.length - 6}</span>}
           </div>
         )}
       </div>
 
       {/* CTA */}
-      <div className={cn(isCompact ? 'px-2.5 pb-2.5' : 'px-3.5 pb-3.5 sm:px-4 sm:pb-4')}>
+      <div className={cn(isCompact ? 'px-2.5 pb-2.5' : isBoutique ? 'px-1 pb-1 pt-2' : 'px-3.5 pb-3.5 sm:px-4 sm:pb-4')}>
         {variable ? (
           <Link
             to={`/s/${store.slug}/p/${product.id}`}
             className={cn(getCtaClass(btnStyle), isCompact ? 'h-9 text-[10px]' : '')}
           >
-            Choose options
+            {c.chooseOptions}
           </Link>
         ) : (
           <button
@@ -1698,12 +2109,12 @@ function ProductLogo({ store, large = false }: { store: Store; large?: boolean }
 
 function QuantityStepper({ value, max, onChange, compact = false }: { value: number; max: number; onChange: (v: number) => void; compact?: boolean }) {
   return (
-    <div className={cn('inline-flex items-center rounded-xl bg-[var(--c-surface)] border border-[var(--c-line)]/35', compact ? 'h-9' : 'h-12')}>
-      <button type="button" aria-label="Decrease" disabled={value <= 1} onClick={() => onChange(value - 1)} className="grid h-full w-9 place-items-center rounded-s-xl hover:bg-[var(--c-soft)] transition-colors disabled:opacity-25 active:scale-90">
+    <div className={cn('inline-flex items-center rounded-full bg-[var(--c-surface)] border border-[var(--c-line)]/35', compact ? 'h-9' : 'h-12')}>
+      <button type="button" aria-label="Decrease" disabled={value <= 1} onClick={() => onChange(value - 1)} className="grid h-full w-10 place-items-center rounded-s-full hover:bg-[var(--c-soft)] transition-colors disabled:opacity-25 active:scale-90">
         <Minus className="h-3.5 w-3.5" />
       </button>
-      <span className={cn('w-10 text-center font-black', compact ? 'text-sm' : 'text-base')}>{value}</span>
-      <button type="button" aria-label="Increase" disabled={value >= max} onClick={() => onChange(value + 1)} className="grid h-full w-9 place-items-center rounded-e-xl hover:bg-[var(--c-soft)] transition-colors disabled:opacity-25 active:scale-90">
+      <span className={cn('w-9 text-center font-black tabular-nums', compact ? 'text-sm' : 'text-base')}>{value}</span>
+      <button type="button" aria-label="Increase" disabled={value >= max} onClick={() => onChange(value + 1)} className="grid h-full w-10 place-items-center rounded-e-full hover:bg-[var(--c-soft)] transition-colors disabled:opacity-25 active:scale-90">
         <Plus className="h-3.5 w-3.5" />
       </button>
     </div>
@@ -1761,7 +2172,7 @@ function ProductInfoList({ title, items }: { title: string; items: string[] }) {
       <ul className="space-y-2">
         {items.map((item, i) => (
           <li key={i} className="flex items-start gap-3 text-sm font-medium">
-            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--c-text)] opacity-40" />
+            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--c-primary)] opacity-70" />
             <span className="opacity-70">{item}</span>
           </li>
         ))}
@@ -1813,8 +2224,10 @@ function FilterChip({ active, onClick, label }: { active: boolean; onClick: () =
 
 function EmptyState({ title, body, action }: { title: string; body: string; action?: React.ReactNode }) {
   return (
-    <div className="rounded-2xl bg-[var(--c-surface)] p-12 text-center border border-[var(--c-line)]/25 shadow-sm">
-      <AlertCircle className="mx-auto mb-5 h-10 w-10 opacity-15" />
+    <div className="rounded-3xl bg-[var(--c-surface)] p-12 text-center border border-[var(--c-line)]/25 shadow-sm">
+      <span className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--c-soft)]">
+        <Search className="h-6 w-6 opacity-30" />
+      </span>
       <h3 className="text-2xl font-black tracking-tight">{title}</h3>
       {body && <p className="mx-auto mt-2.5 max-w-md text-sm font-medium opacity-45">{body}</p>}
       {action && <div className="mt-7 flex justify-center">{action}</div>}
@@ -1827,9 +2240,23 @@ function StorefrontSkeleton() {
     <div className="min-h-screen animate-pulse bg-neutral-50">
       <div className="h-16 bg-white border-b border-black/5" />
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 space-y-8">
-        <div className="h-80 rounded-2xl bg-black/5" />
+        <div className="grid gap-8 lg:grid-cols-2">
+          <div className="space-y-4 py-10">
+            <div className="h-6 w-32 rounded-full bg-black/5" />
+            <div className="h-16 w-4/5 rounded-2xl bg-black/5" />
+            <div className="h-16 w-3/5 rounded-2xl bg-black/5" />
+            <div className="h-12 w-44 rounded-full bg-black/10" />
+          </div>
+          <div className="aspect-[4/5] max-h-[28rem] rounded-3xl bg-black/5" />
+        </div>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-64 rounded-2xl bg-black/5" />)}
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="space-y-2">
+              <div className="aspect-[4/5] rounded-2xl bg-black/5" />
+              <div className="h-4 w-3/4 rounded bg-black/5" />
+              <div className="h-4 w-1/3 rounded bg-black/5" />
+            </div>
+          ))}
         </div>
       </div>
     </div>

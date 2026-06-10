@@ -20,10 +20,11 @@
 
 @layer base {
   :root {
+    /* Matjari Jordan brand: deep teal primary on warm cream, charcoal ink. */
     --paper: #F7F4ED;
-    --ink: #171513;
-    --accent: #E04E27;
-    --accent-soft: #FBEAE3;
+    --ink: #14201E;
+    --accent: #0F766E;
+    --accent-soft: #D7EEEB;
     --surface: #FFFFFF;
     --line: #E7E0D3;
     --muted: #857C6E;

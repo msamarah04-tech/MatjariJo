@@ -1,7 +1,8 @@
-# Plinth — Operations Runbook
+# Matjari Jordan (متجري الأردن) — Operations Runbook
 
 Self-hosted, self-contained (platform owner + the shop owners they onboard). SQLite +
-Prisma backend, React/Vite SPA frontend. No third-party integrations.
+Prisma backend, React/Vite SPA frontend. Optional integrations: Resend/SMTP for
+outbound email and Sentry for server-side error tracking (both no-op when unset).
 
 ## Environment & boot safety
 
@@ -24,6 +25,27 @@ npm run dev:all            # frontend (:3000) + API (:4000)
 # production: build the SPA (npm run build) and run the API with NODE_ENV=production
 ```
 
+## Multi-tenant storefront domains
+
+Each store can be served from its own subdomain (`borz.matjari.jo`). The slug in the
+subdomain is the store's `slug`, and the main domain keeps the landing page, sign-in,
+admin, and platform dashboards. To enable in production:
+
+1. Set `PUBLIC_BASE_DOMAIN="matjari.jo"` (server CORS) and
+   `VITE_PUBLIC_BASE_DOMAIN="matjari.jo"` (frontend build) in `.env`, then rebuild the SPA.
+2. Add wildcard DNS: `*.matjari.jo` → the same host that serves the SPA + API.
+3. Use a wildcard TLS certificate (`*.matjari.jo`), e.g. Let's Encrypt DNS-01.
+4. The web server / reverse proxy must serve the same SPA bundle and `/api` for every
+   `*.matjari.jo` host (no per-host vhost needed).
+
+Reserved subdomains that never resolve to a store: `www`, `api`, `app`, `admin`,
+`platform`, `staging` (see `src/lib/tenant.ts`).
+
+In development nothing needs configuring: `http://<slug>.localhost:<port>` serves that
+store's storefront (browsers resolve `*.localhost` to loopback). Tenant detection and
+URL building live in `src/lib/tenant.ts`; "View live" buttons and the Brands page
+automatically link to subdomain URLs when the base domain is configured.
+
 ## Health checks
 
 - `GET /api/health` — liveness (process up). Returns `{ ok, status: "live" }`.
@@ -45,7 +67,7 @@ this is what the conditional-UPDATE checkout (no oversell / no discount over-spe
 server**, safe under WAL (no need to copy `-wal`/`-shm` by hand).
 
 ```bash
-npm run db:backup                       # -> ./backups/plinth-<timestamp>.db
+npm run db:backup                       # -> ./backups/matjari-<timestamp>.db
 BACKUP_DIR=/mnt/backups npm run db:backup
 ```
 
@@ -57,7 +79,7 @@ Litestream-style streaming copy of the DB file is a drop-in alternative.
 1. Stop the API.
 2. Replace the live DB file with the chosen backup, and remove stale WAL sidecars:
    ```bash
-   cp backups/plinth-<timestamp>.db prisma/dev.db
+   cp backups/matjari-<timestamp>.db prisma/dev.db
    rm -f prisma/dev.db-wal prisma/dev.db-shm
    ```
 3. Start the API and confirm `GET /api/ready` returns 200.
@@ -98,5 +120,7 @@ and PR, gating merges. E2E is a separate, browser-heavy job.
 ## Deferred integrations (clean adapter seams exist; not built)
 
 PostgreSQL migration · card payment gateways (`PaymentProvider`) · JoFotara e-invoicing
-(`InvoiceClearance`) · email/SMS · external error tracking · SSE order push · SEO/SSR.
-COD + internal tax invoices + manual credential relay are the current implementations.
+(`InvoiceClearance`) · SMS · SSE order push · SEO/SSR.
+COD + internal tax invoices are the current implementations. Email (Resend/SMTP via
+`server/services/mail.ts`) and error tracking (Sentry via `server/monitoring.ts`) are
+built and activate when their env vars are set.

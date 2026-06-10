@@ -11,18 +11,17 @@ export function PublicNav() {
     { label: t('navFeatures'), to: '/' },
     { label: t('navHowItWorks'), to: '/how-it-works' },
     { label: t('navBrands'), to: '/brands' },
+    { label: t('navPricing'), to: '/pricing' },
   ];
 
   return (
     <nav className="fixed top-0 start-0 end-0 z-50">
-      <div className="h-[3px] bg-gradient-to-r from-orange-400 via-orange-500 to-amber-400" />
+      <div className="h-[3px] bg-gradient-to-r from-teal-500 via-teal-700 to-amber-400" />
       <div className="flex h-16 items-center justify-between bg-white px-6 md:px-12 border-b border-stone-200 shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
 
-        <Link to="/" className="flex items-center gap-2.5 shrink-0">
-          <span className="font-heading text-xl font-black tracking-tighter text-stone-900">
-            PLINTH<span className="text-orange-500">.</span>
-          </span>
-          <span className="rounded-full bg-orange-50 border border-orange-200 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-orange-600 hidden sm:inline">
+        <Link to="/" className="flex items-center gap-2 shrink-0">
+          <img src="/logo.png" alt="Matjari Jordan" className="h-14 w-auto -my-2" />
+          <span className="rounded-full bg-teal-50 border border-teal-200 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-teal-800 hidden sm:inline">
             Jordan
           </span>
         </Link>
@@ -38,7 +37,7 @@ export function PublicNav() {
                 to={link.to}
                 className={`rounded-full px-4 py-2 text-xs font-bold uppercase tracking-widest transition-all ${
                   isActive
-                    ? 'bg-orange-50 text-orange-600'
+                    ? 'bg-teal-50 text-teal-800'
                     : 'text-stone-400 hover:bg-stone-100 hover:text-stone-900'
                 }`}
               >

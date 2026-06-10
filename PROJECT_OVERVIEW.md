@@ -1,13 +1,13 @@
-# Plinth — E-Commerce SaaS Project Overview
+# Matjari — E-Commerce SaaS Project Overview
 
 Last updated: 2026-06-09
 
 > Companion docs: [ARCHITECTURE.md](ARCHITECTURE.md) (deeper design), [OPERATIONS.md](OPERATIONS.md)
 > (runbook), [ADMIN_FRONTEND_TEMPLATE.md](ADMIN_FRONTEND_TEMPLATE.md) (admin UI conventions).
 
-## What Plinth Is
+## What Matjari Is
 
-**Plinth is a self-hosted, self-contained, multi-store e-commerce SaaS built for the Jordanian
+**Matjari is a self-hosted, self-contained, multi-store e-commerce SaaS built for the Jordanian
 market.** One **platform owner** runs the whole tenant: they review incoming "request a website"
 applications, approve the ones they want, and oversee every store from a single control center.
 Each approved **shop owner** gets exactly one storefront they manage end to end — products,
@@ -357,7 +357,7 @@ Seeded from `.env`; signs in with username **or** email.
 
 | Role | Username | Email | Password |
 | --- | --- | --- | --- |
-| Platform owner | `platform-admin` | `owner@plinth.local` | `ChangeMe123!` |
+| Platform owner | `platform-admin` | `owner@matjari.local` | `ChangeMe123!` |
 
 ### Shop owners (self-service)
 
@@ -420,7 +420,7 @@ COOKIE_SECRET="replace-with-a-random-cookie-secret"   # required in production
 PORT=4000
 FRONTEND_ORIGIN="http://localhost:3000"
 ALLOW_OWNER_REGISTRATION="false"
-INITIAL_PLATFORM_EMAIL="owner@plinth.local"
+INITIAL_PLATFORM_EMAIL="owner@matjari.local"
 INITIAL_PLATFORM_USERNAME="platform-admin"
 INITIAL_PLATFORM_PASSWORD="ChangeMe123!"
 INITIAL_PLATFORM_NAME="Platform Owner"

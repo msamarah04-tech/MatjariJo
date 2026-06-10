@@ -34,8 +34,25 @@ app.use(helmet({
 }));
 
 const allowedOrigins = env.FRONTEND_ORIGIN.split(',').map((origin) => origin.trim()).filter(Boolean);
+// Tenant storefronts are served from per-store subdomains (borz.matjari.jo),
+// so any direct subdomain of PUBLIC_BASE_DOMAIN is also a trusted origin.
+const baseDomain = (env.PUBLIC_BASE_DOMAIN ?? '').replace(/^\.+|\.+$/g, '');
+const isAllowedOrigin = (origin: string) => {
+  if (allowedOrigins.includes(origin)) return true;
+  if (!baseDomain) return false;
+  try {
+    const url = new URL(origin);
+    if (isProduction && url.protocol !== 'https:') return false;
+    const host = url.hostname.toLowerCase();
+    return host === baseDomain || host.endsWith(`.${baseDomain}`);
+  } catch {
+    return false;
+  }
+};
 app.use(cors({
-  origin: allowedOrigins,
+  // No-origin requests (same-origin pages, curl, server-to-server) pass through
+  // untouched, matching the previous array-based behavior.
+  origin: (origin, callback) => callback(null, !origin || isAllowedOrigin(origin)),
   credentials: true,
 }));
 

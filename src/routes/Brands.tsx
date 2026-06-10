@@ -6,6 +6,7 @@ import { useI18n } from '@/lib/i18n';
 import { PublicNav } from '@/components/layout/PublicNav';
 import { getPublicStores } from '@/api/storefront.api';
 import type { Store as StoreType } from '@/lib/types';
+import { storefrontUrl } from '@/lib/tenant';
 
 function FadeIn({ children, delay = 0, className = '' }: { children: React.ReactNode; delay?: number; className?: string }) {
   const ref = useRef(null);
@@ -35,7 +36,7 @@ function StoreCard({ store, index }: { store: StoreType; index: number }) {
     electronics: 'bg-sky-50 text-sky-700 border-sky-100',
     home: 'bg-emerald-50 text-emerald-700 border-emerald-100',
     sports: 'bg-lime-50 text-lime-700 border-lime-100',
-    art: 'bg-orange-50 text-orange-700 border-orange-100',
+    art: 'bg-teal-50 text-teal-900 border-teal-100',
   };
 
   const cat = (store.category ?? '').toLowerCase();
@@ -49,9 +50,9 @@ function StoreCard({ store, index }: { store: StoreType; index: number }) {
       animate={inView ? { opacity: 1, y: 0 } : {}}
       transition={{ duration: 0.45, delay: (index % 6) * 0.06, ease: [0.22, 1, 0.36, 1] }}
     >
-      <Link
-        to={`/s/${store.slug}`}
-        className="group flex flex-col rounded-2xl border border-stone-200 bg-white hover:border-orange-200 hover:shadow-lg hover:shadow-orange-50 transition-all duration-300 overflow-hidden"
+      <a
+        href={storefrontUrl(store.slug)}
+        className="group flex flex-col rounded-2xl border border-stone-200 bg-white hover:border-teal-200 hover:shadow-lg hover:shadow-teal-50 transition-all duration-300 overflow-hidden"
       >
         {/* top banner */}
         <div className="relative h-28 bg-gradient-to-br from-stone-100 to-stone-200 flex items-center justify-center overflow-hidden">
@@ -67,7 +68,7 @@ function StoreCard({ store, index }: { store: StoreType; index: number }) {
             </span>
           )}
           {store.isFeatured && (
-            <span className="absolute top-3 end-3 rounded-full bg-orange-500 text-white text-[9px] font-black uppercase tracking-widest px-2 py-0.5 shadow">
+            <span className="absolute top-3 end-3 rounded-full bg-teal-700 text-white text-[9px] font-black uppercase tracking-widest px-2 py-0.5 shadow">
               ★ Featured
             </span>
           )}
@@ -76,10 +77,10 @@ function StoreCard({ store, index }: { store: StoreType; index: number }) {
         {/* body */}
         <div className="p-5 flex flex-col gap-2.5 flex-1">
           <div className="flex items-start justify-between gap-2">
-            <h3 className="font-black text-stone-900 text-sm leading-snug group-hover:text-orange-600 transition-colors">
+            <h3 className="font-black text-stone-900 text-sm leading-snug group-hover:text-teal-800 transition-colors">
               {store.name}
             </h3>
-            <ArrowUpRight className="h-4 w-4 shrink-0 text-stone-300 group-hover:text-orange-500 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 transition-all mt-0.5" />
+            <ArrowUpRight className="h-4 w-4 shrink-0 text-stone-300 group-hover:text-teal-700 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 transition-all mt-0.5" />
           </div>
           {store.tagline && (
             <p className="text-xs text-stone-400 leading-relaxed line-clamp-2">{store.tagline}</p>
@@ -92,7 +93,7 @@ function StoreCard({ store, index }: { store: StoreType; index: number }) {
             )}
           </div>
         </div>
-      </Link>
+      </a>
     </motion.div>
   );
 }
@@ -146,28 +147,28 @@ export default function Brands() {
   const ordered = [...featured, ...rest];
 
   return (
-    <div className="min-h-screen bg-stone-50 text-stone-900 overflow-x-hidden selection:bg-orange-200 selection:text-orange-900">
+    <div className="min-h-screen bg-stone-50 text-stone-900 overflow-x-hidden selection:bg-teal-200 selection:text-teal-950">
       <PublicNav />
 
       {/* ── HERO ── */}
       <section className="mt-[67px] bg-gradient-to-b from-stone-100 to-stone-50 border-b border-stone-200 py-16 md:py-24 text-center">
         <div className="max-w-3xl mx-auto px-6">
           <FadeIn>
-            <span className="inline-flex items-center gap-2 rounded-full bg-orange-50 border border-orange-200 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-orange-600 mb-5">
-              <span className="h-1.5 w-1.5 rounded-full bg-orange-500 animate-pulse" />
-              {lang === 'ar' ? 'متاجر حقيقية — بُنيت على Plinth' : 'Real stores — built on Plinth'}
+            <span className="inline-flex items-center gap-2 rounded-full bg-teal-50 border border-teal-200 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-teal-800 mb-5">
+              <span className="h-1.5 w-1.5 rounded-full bg-teal-700 animate-pulse" />
+              {lang === 'ar' ? 'متاجر حقيقية — بُنيت على متجري' : 'Real stores — built on Matjari'}
             </span>
           </FadeIn>
           <FadeIn delay={0.06}>
             <h1 className="text-4xl md:text-6xl font-black tracking-tighter text-stone-900 leading-tight mb-4">
-              {lang === 'ar' ? 'المتاجر على Plinth' : 'Brands on Plinth'}
+              {lang === 'ar' ? 'المتاجر على متجري' : 'Brands on Matjari'}
             </h1>
           </FadeIn>
           <FadeIn delay={0.12}>
             <p className="text-lg text-stone-400 leading-relaxed max-w-xl mx-auto mb-8">
               {lang === 'ar'
-                ? 'تصفّح المتاجر الأردنية التي أطلقت متاجرها الإلكترونية على منصة Plinth.'
-                : 'Discover Jordanian entrepreneurs who launched their online stores on Plinth.'}
+                ? 'تصفّح المتاجر الأردنية التي أطلقت متاجرها الإلكترونية على منصة متجري.'
+                : 'Discover Jordanian entrepreneurs who launched their online stores on Matjari.'}
             </p>
           </FadeIn>
           <FadeIn delay={0.16}>
@@ -193,7 +194,7 @@ export default function Brands() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={lang === 'ar' ? 'ابحث عن متجر...' : 'Search stores...'}
-              className="w-full rounded-xl border border-stone-200 bg-stone-50 ps-9 pe-4 py-2.5 text-sm placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-300 transition-all"
+              className="w-full rounded-xl border border-stone-200 bg-stone-50 ps-9 pe-4 py-2.5 text-sm placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-teal-300 focus:border-teal-300 transition-all"
             />
           </div>
 
@@ -206,7 +207,7 @@ export default function Brands() {
                 onClick={() => setActiveCategory(cat)}
                 className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold capitalize transition-all ${
                   activeCategory === cat
-                    ? 'bg-orange-500 text-white shadow-sm shadow-orange-200'
+                    ? 'bg-teal-700 text-white shadow-sm shadow-teal-200'
                     : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
                 }`}
               >
@@ -254,12 +255,12 @@ export default function Brands() {
               <p className="text-stone-400 text-sm">
                 {search || activeCategory !== 'all'
                   ? (lang === 'ar' ? 'حاول بحثًا مختلفًا أو اختر فئة أخرى.' : 'Try a different search or category.')
-                  : (lang === 'ar' ? 'كن أول من يطلق متجره على Plinth.' : 'Be the first to launch your store on Plinth.')}
+                  : (lang === 'ar' ? 'كن أول من يطلق متجره على متجري.' : 'Be the first to launch your store on Matjari.')}
               </p>
               {(search || activeCategory !== 'all') && (
                 <button
                   onClick={() => { setSearch(''); setActiveCategory('all'); }}
-                  className="mt-4 text-xs font-bold text-orange-500 hover:underline"
+                  className="mt-4 text-xs font-bold text-teal-700 hover:underline"
                 >
                   {lang === 'ar' ? 'مسح الفلاتر' : 'Clear filters'}
                 </button>
@@ -323,7 +324,7 @@ export default function Brands() {
               </p>
               <Link
                 to="/request-website"
-                className="inline-flex items-center gap-2 rounded-full bg-orange-500 text-white px-7 py-3.5 text-sm font-bold hover:bg-orange-400 transition-all hover:scale-105 shadow-lg shadow-orange-500/30"
+                className="inline-flex items-center gap-2 rounded-full bg-teal-700 text-white px-7 py-3.5 text-sm font-bold hover:bg-teal-500 transition-all hover:scale-105 shadow-lg shadow-teal-700/30"
               >
                 {lang === 'ar' ? 'اطلب متجرك الآن' : 'Request your store'} <ArrowRight className="h-4 w-4" />
               </Link>
@@ -336,9 +337,9 @@ export default function Brands() {
       <footer className="bg-stone-900 border-t border-stone-800 py-8 text-center text-xs text-stone-500">
         <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
           <span className="font-heading font-black tracking-tighter text-white text-sm">
-            PLINTH<span className="text-orange-500">.</span>
+            Matjari<span className="text-amber-400">.</span>
           </span>
-          <span>© {new Date().getFullYear()} Plinth. {lang === 'ar' ? 'جميع الحقوق محفوظة.' : 'All rights reserved.'}</span>
+          <span>© {new Date().getFullYear()} Matjari. {lang === 'ar' ? 'جميع الحقوق محفوظة.' : 'All rights reserved.'}</span>
           <div className="flex gap-4">
             <Link to="/" className="hover:text-stone-300 transition-colors">{lang === 'ar' ? 'الرئيسية' : 'Home'}</Link>
             <Link to="/how-it-works" className="hover:text-stone-300 transition-colors">{lang === 'ar' ? 'كيف يعمل' : 'How it works'}</Link>

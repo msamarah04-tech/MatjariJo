@@ -49,9 +49,7 @@ export function AppTopBar() {
       <div className="flex items-center justify-between px-8 h-20">
         <div className="flex items-center gap-8">
           <div className="flex items-center gap-2">
-            <div className="font-logo font-black text-3xl tracking-tighter text-ink">
-              PLINTH<span className="text-accent">.</span>
-            </div>
+            <img src="/logo.png" alt="Matjari Jordan" className="h-16 w-auto -my-3" />
             <span className="bg-line text-muted text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-sm ml-2 hidden sm:inline-block">Workspace</span>
           </div>
           

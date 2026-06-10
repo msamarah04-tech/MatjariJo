@@ -1,4 +1,4 @@
-import { AuditLog, OwnerStatus, PlatformSettings, Product, ProductFlag, ShopRequest, Store, SupportTicket, TicketStatus, User } from '@/lib/types';
+import { AuditLog, OwnerStatus, PlatformSettings, Product, ProductFlag, ShopRequest, Store, StorePlan, SupportTicket, TicketStatus, User } from '@/lib/types';
 import { apiFetch } from './client';
 
 export const getOverview = () => apiFetch('/platform/overview');
@@ -16,6 +16,8 @@ export const deleteStore = (storeId: string) => apiFetch<void>(`/platform/stores
 export const featureStore = (storeId: string) => apiFetch<{ store: Store }>(`/platform/stores/${storeId}/feature`, { method: 'POST' });
 export const unfeatureStore = (storeId: string) => apiFetch<{ store: Store }>(`/platform/stores/${storeId}/unfeature`, { method: 'POST' });
 export const setStoreCommission = (storeId: string, commissionOverrideBps?: number | null) => apiFetch<{ store: Store }>(`/platform/stores/${storeId}/commission`, { method: 'PATCH', body: JSON.stringify({ commissionOverrideBps: commissionOverrideBps ?? null }) });
+export const setStorePlan = (storeId: string, plan: StorePlan) => apiFetch<{ store: Store }>(`/platform/stores/${storeId}/plan`, { method: 'PATCH', body: JSON.stringify({ plan }) });
+export const recordStorePlanPayment = (storeId: string) => apiFetch<{ store: Store }>(`/platform/stores/${storeId}/plan/record-payment`, { method: 'POST' });
 export const setOwnerStatus = (storeId: string, ownerStatus: OwnerStatus) => apiFetch<{ owner: User }>(`/platform/stores/${storeId}/owner-status`, { method: 'PATCH', body: JSON.stringify({ ownerStatus }) });
 
 export const listPlatformOrders = () => apiFetch('/platform/orders');

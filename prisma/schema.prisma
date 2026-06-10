@@ -56,6 +56,11 @@ model Store {
   internalNote          String   @default("")
   isFeatured            Boolean  @default(false)
   commissionOverrideBps Int?
+  // Subscription billing (manual): plan tier, stored status (TRIAL | ACTIVE — PAST_DUE
+  // is derived on read from planPaidUntil), and the paid-until / trial-end date.
+  plan                  String    @default("STARTER")
+  planStatus            String    @default("TRIAL")
+  planPaidUntil         DateTime?
   shippingType          String   @default("FLAT")
   shippingFlatCents     Int?
   freeOverCents         Int?
@@ -310,8 +315,8 @@ model AuditLog {
 
 model PlatformSettings {
   id                      String    @id @default("platform")
-  platformName            String    @default("Plinth")
-  commissionRateBps       Int       @default(800)
+  platformName            String    @default("Matjari Jordan")
+  commissionRateBps       Int       @default(0)
   defaultCurrency         String    @default("JOD")
   categories              String    @default("[\"Apparel\",\"Home\",\"Beauty\",\"Food\",\"Electronics\"]")
   globalAnnouncement      String    @default("")

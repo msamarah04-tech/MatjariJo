@@ -90,7 +90,7 @@ function RequestFormMock() {
           </div>
         </div>
       ))}
-      <div className="rounded-lg bg-orange-500 text-white text-center text-xs font-bold uppercase tracking-widest py-3 mt-2 shadow-sm shadow-orange-200">
+      <div className="rounded-lg bg-teal-700 text-white text-center text-xs font-bold uppercase tracking-widest py-3 mt-2 shadow-sm shadow-teal-200">
         Submit Request →
       </div>
     </div>
@@ -115,7 +115,7 @@ function ThemeMock() {
       <div className="text-xs font-semibold text-stone-500 uppercase tracking-wider">Choose Theme</div>
       <div className="grid grid-cols-2 gap-3">
         {themes.map((t) => (
-          <div key={t.name} className={`rounded-xl border-2 p-3 cursor-pointer transition-all ${t.ring ? 'border-orange-400 shadow-md shadow-orange-100' : 'border-stone-200 hover:border-stone-300'}`}>
+          <div key={t.name} className={`rounded-xl border-2 p-3 cursor-pointer transition-all ${t.ring ? 'border-teal-500 shadow-md shadow-teal-100' : 'border-stone-200 hover:border-stone-300'}`}>
             <div className={`h-12 rounded-lg mb-2 ${t.bg}`} />
             <div className="text-xs font-semibold text-stone-700 text-center">{t.name}</div>
           </div>
@@ -147,10 +147,10 @@ function ProductsMock() {
             <div className="font-semibold text-stone-800 text-xs truncate">{p.name}</div>
             <div className="text-xs text-stone-400">{p.stock} in stock</div>
           </div>
-          <div className="text-sm font-bold text-orange-500">{p.price}</div>
+          <div className="text-sm font-bold text-teal-700">{p.price}</div>
         </div>
       ))}
-      <div className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-stone-300 py-3 text-xs font-semibold text-stone-400 hover:border-orange-300 hover:text-orange-500 cursor-pointer transition-colors">
+      <div className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-stone-300 py-3 text-xs font-semibold text-stone-400 hover:border-teal-300 hover:text-teal-700 cursor-pointer transition-colors">
         + Add product
       </div>
     </div>
@@ -177,11 +177,11 @@ function ShippingMock() {
           <span className="text-xs font-bold text-emerald-600">JOD 25</span>
         </div>
       </div>
-      <div className="rounded-xl border border-orange-200 bg-orange-50 p-4 space-y-2">
-        <div className="text-xs font-bold text-orange-700">Discount Code</div>
+      <div className="rounded-xl border border-teal-200 bg-teal-50 p-4 space-y-2">
+        <div className="text-xs font-bold text-teal-900">Discount Code</div>
         <div className="flex items-center justify-between">
-          <span className="font-mono text-xs font-bold text-orange-600 bg-white border border-orange-200 rounded px-2 py-1">RAMADAN20</span>
-          <span className="text-xs font-bold text-orange-600">-20%</span>
+          <span className="font-mono text-xs font-bold text-teal-800 bg-white border border-teal-200 rounded px-2 py-1">RAMADAN20</span>
+          <span className="text-xs font-bold text-teal-800">-20%</span>
         </div>
         <div className="text-xs text-stone-400">Used 0 / 100 times</div>
       </div>
@@ -197,7 +197,7 @@ function StorefrontMock() {
         <div className="h-2.5 w-2.5 rounded-full bg-yellow-400" />
         <div className="h-2.5 w-2.5 rounded-full bg-green-400" />
         <div className="flex-1 mx-3 rounded-md bg-white border border-stone-200 px-3 py-1 text-xs text-stone-400 font-mono">
-          plinth.io/s/sultan
+          sultan.matjari.jo
         </div>
       </div>
       <div className="bg-stone-900 p-5">
@@ -212,7 +212,7 @@ function StorefrontMock() {
           <span className="text-2xl mb-2 block">✨</span>
           <div className="text-white font-bold text-sm">Oud Collection 2025</div>
           <div className="text-stone-400 text-xs mt-1">Limited Edition · 12 pieces left</div>
-          <div className="mt-4 rounded-full bg-orange-500 text-white text-xs font-bold py-2 px-6 inline-block">
+          <div className="mt-4 rounded-full bg-teal-700 text-white text-xs font-bold py-2 px-6 inline-block">
             Shop Now →
           </div>
         </div>
@@ -224,7 +224,7 @@ function StorefrontMock() {
             <div key={p.name} className="rounded-xl bg-stone-800 p-3 text-center">
               <span className="text-lg">{p.emoji}</span>
               <div className="text-white text-xs font-semibold mt-1">{p.name}</div>
-              <div className="text-orange-400 text-xs font-bold">{p.price}</div>
+              <div className="text-teal-500 text-xs font-bold">{p.price}</div>
             </div>
           ))}
         </div>
@@ -248,7 +248,7 @@ function AnalyticsMock() {
         {[
           { label: 'Views', value: '1,240', color: 'text-violet-600' },
           { label: 'Orders', value: '38', color: 'text-emerald-600' },
-          { label: 'Revenue', value: 'JOD 892', color: 'text-orange-600' },
+          { label: 'Revenue', value: 'JOD 892', color: 'text-teal-800' },
         ].map((s) => (
           <div key={s.label} className="text-center rounded-xl bg-stone-50 border border-stone-100 py-3">
             <div className={`text-base font-black ${s.color}`}>{s.value}</div>
@@ -260,7 +260,7 @@ function AnalyticsMock() {
         {bars.map((h, i) => (
           <div key={i} className="flex-1 flex flex-col items-center gap-1">
             <div
-              className="w-full rounded-t-sm bg-gradient-to-t from-orange-500 to-orange-300 opacity-80"
+              className="w-full rounded-t-sm bg-gradient-to-t from-teal-700 to-teal-300 opacity-80"
               style={{ height: `${h}%` }}
             />
             <span className="text-[9px] text-stone-400">{days[i]}</span>
@@ -345,13 +345,13 @@ export default function HowItWorks() {
       subtitle: lang === 'ar' ? 'الانطلاقة' : 'Getting Started',
       title: lang === 'ar' ? 'اطلب متجرك في دقيقتين' : 'Request your store in 2 minutes',
       description: lang === 'ar'
-        ? 'أرسل طلبك مع اسم متجرك وفئتك وبريدك الإلكتروني. يراجع فريق Plinth كل طلب يدويًا لضمان الجودة، ثم يُنشئ لك متجرك الإلكتروني.'
-        : 'Fill out a quick form with your store name, category, and contact details. The Plinth team reviews every request manually to ensure quality, then sets up your storefront.',
+        ? 'أرسل طلبك مع اسم متجرك وفئتك وبريدك الإلكتروني. يراجع فريق متجري كل طلب يدويًا لضمان الجودة، ثم يُنشئ لك متجرك الإلكتروني.'
+        : 'Fill out a quick form with your store name, category, and contact details. The Matjari team reviews every request manually to ensure quality, then sets up your storefront.',
       bullets: lang === 'ar'
         ? ['نموذج سريع — أقل من دقيقتين', 'مراجعة يدوية من قِبَل فريقنا', 'إشعار فوري عبر البريد عند الموافقة', 'اختر اسم مستخدم مميزًا لمتجرك']
         : ['Quick form — under 2 minutes', 'Manual review by our team', 'Instant email notification on approval', 'Reserve your unique store username'],
       visual: <RequestFormMock />,
-      accent: 'bg-orange-100 text-orange-600',
+      accent: 'bg-teal-100 text-teal-800',
     },
     {
       number: '02',
@@ -402,8 +402,8 @@ export default function HowItWorks() {
         ? 'بمجرد اكتمال الإعداد، يراجع فريقنا متجرك ويفعّله. تحصل على رابط مميز جاهز للمشاركة على كل منصات التواصل الاجتماعي.'
         : 'Once setup is complete, our team reviews and activates your store. You get a shareable link ready to post on every social media platform.',
       bullets: lang === 'ar'
-        ? ['رابط مميز (plinth.io/s/اسمك)', 'عرض متجانس على الجوال والشاشات الكبيرة', 'جاهز للمشاركة على إنستغرام وواتساب', 'يدعم العربية والإنجليزية']
-        : ['Unique link (plinth.io/s/yourname)', 'Seamless mobile and desktop experience', 'Ready to share on Instagram and WhatsApp', 'Arabic and English support built-in'],
+        ? ['رابط مميز (اسمك.matjari.jo)', 'عرض متجانس على الجوال والشاشات الكبيرة', 'جاهز للمشاركة على إنستغرام وواتساب', 'يدعم العربية والإنجليزية']
+        : ['Unique link (yourname.matjari.jo)', 'Seamless mobile and desktop experience', 'Ready to share on Instagram and WhatsApp', 'Arabic and English support built-in'],
       visual: <StorefrontMock />,
       accent: 'bg-rose-100 text-rose-600',
     },
@@ -433,14 +433,14 @@ export default function HowItWorks() {
     {
       q: lang === 'ar' ? 'هل أحتاج إلى خبرة تقنية؟' : 'Do I need any technical experience?',
       a: lang === 'ar'
-        ? 'لا. Plinth مصمم للتجار غير التقنيين. كل شيء من الثيمات إلى المنتجات إلى الشحن يتم عبر واجهة بسيطة وسهلة.'
-        : 'None at all. Plinth is designed for non-technical merchants. Everything from themes to products to shipping is managed through a simple, intuitive interface.',
+        ? 'لا. متجري مصمم للتجار غير التقنيين. كل شيء من الثيمات إلى المنتجات إلى الشحن يتم عبر واجهة بسيطة وسهلة.'
+        : 'None at all. Matjari is designed for non-technical merchants. Everything from themes to products to shipping is managed through a simple, intuitive interface.',
     },
     {
       q: lang === 'ar' ? 'ما طرق الدفع المدعومة؟' : 'What payment methods are supported?',
       a: lang === 'ar'
-        ? 'يدعم Plinth حاليًا الدفع عند الاستلام (COD)، وهو الطريقة الأكثر شيوعًا في السوق الأردني. سيتم إضافة بوابات الدفع الإلكتروني قريبًا.'
-        : 'Plinth currently supports cash on delivery (COD), the most widely used payment method in Jordan. Electronic payment gateways are coming soon.',
+        ? 'يدعم متجري حاليًا الدفع عند الاستلام (COD)، وهو الطريقة الأكثر شيوعًا في السوق الأردني. سيتم إضافة بوابات الدفع الإلكتروني قريبًا.'
+        : 'Matjari currently supports cash on delivery (COD), the most widely used payment method in Jordan. Electronic payment gateways are coming soon.',
     },
     {
       q: lang === 'ar' ? 'هل يدعم النظام العربية؟' : 'Does the platform support Arabic?',
@@ -451,21 +451,21 @@ export default function HowItWorks() {
   ];
 
   return (
-    <div className="min-h-screen bg-stone-50 text-stone-900 overflow-x-hidden selection:bg-orange-200 selection:text-orange-900">
+    <div className="min-h-screen bg-stone-50 text-stone-900 overflow-x-hidden selection:bg-teal-200 selection:text-teal-950">
       <PublicNav />
 
       {/* ── HERO ── */}
       <section className="mt-[67px] bg-gradient-to-b from-stone-100 to-stone-50 border-b border-stone-200 py-20 md:py-28 text-center">
         <div className="max-w-3xl mx-auto px-6">
           <FadeIn>
-            <span className="inline-flex items-center gap-2 rounded-full bg-orange-50 border border-orange-200 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-orange-600 mb-6">
-              <span className="h-1.5 w-1.5 rounded-full bg-orange-500 animate-pulse" />
+            <span className="inline-flex items-center gap-2 rounded-full bg-teal-50 border border-teal-200 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-teal-800 mb-6">
+              <span className="h-1.5 w-1.5 rounded-full bg-teal-700 animate-pulse" />
               {lang === 'ar' ? 'دليل خطوة بخطوة' : 'Step-by-step guide'}
             </span>
           </FadeIn>
           <FadeIn delay={0.05}>
             <h1 className="text-4xl md:text-6xl font-black tracking-tighter text-stone-900 leading-tight mb-5">
-              {lang === 'ar' ? 'كيف يعمل Plinth' : 'How Plinth Works'}
+              {lang === 'ar' ? 'كيف يعمل متجري' : 'How Matjari Works'}
             </h1>
           </FadeIn>
           <FadeIn delay={0.1}>
@@ -478,7 +478,7 @@ export default function HowItWorks() {
           <FadeIn delay={0.15}>
             <Link
               to="/request-website"
-              className="inline-flex items-center gap-2 rounded-full bg-orange-500 text-white px-8 py-3.5 text-sm font-bold shadow-lg shadow-orange-200 hover:bg-orange-600 transition-all hover:scale-105"
+              className="inline-flex items-center gap-2 rounded-full bg-teal-700 text-white px-8 py-3.5 text-sm font-bold shadow-lg shadow-teal-200 hover:bg-teal-800 transition-all hover:scale-105"
             >
               {lang === 'ar' ? 'ابدأ الآن' : 'Start for free'} <ArrowRight className="h-4 w-4" />
             </Link>
@@ -539,7 +539,7 @@ export default function HowItWorks() {
             {[
               { icon: Palette, label: lang === 'ar' ? 'ثيمات احترافية' : 'Pro themes', accent: 'bg-violet-50 text-violet-600 ring-1 ring-violet-100' },
               { icon: Package, label: lang === 'ar' ? 'إدارة الطلبات' : 'Order management', accent: 'bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100' },
-              { icon: Tag, label: lang === 'ar' ? 'كودات الخصم' : 'Discount codes', accent: 'bg-orange-50 text-orange-600 ring-1 ring-orange-100' },
+              { icon: Tag, label: lang === 'ar' ? 'كودات الخصم' : 'Discount codes', accent: 'bg-teal-50 text-teal-800 ring-1 ring-teal-100' },
               { icon: Truck, label: lang === 'ar' ? 'قواعد الشحن' : 'Shipping rules', accent: 'bg-rose-50 text-rose-600 ring-1 ring-rose-100' },
               { icon: TrendingUp, label: lang === 'ar' ? 'تحليلات متقدمة' : 'Advanced analytics', accent: 'bg-sky-50 text-sky-600 ring-1 ring-sky-100' },
               { icon: ShieldCheck, label: lang === 'ar' ? 'أمان كامل' : 'Full security', accent: 'bg-slate-100 text-slate-600 ring-1 ring-slate-200' },
@@ -584,12 +584,12 @@ export default function HowItWorks() {
             </h2>
             <p className="text-stone-400 mb-8 leading-relaxed">
               {lang === 'ar'
-                ? 'انضم إلى التجار الأردنيين الذين يبنون متاجرهم على Plinth.'
-                : 'Join Jordanian entrepreneurs already building their brands on Plinth.'}
+                ? 'انضم إلى التجار الأردنيين الذين يبنون متاجرهم على متجري.'
+                : 'Join Jordanian entrepreneurs already building their brands on Matjari.'}
             </p>
             <Link
               to="/request-website"
-              className="inline-flex items-center gap-2 rounded-full bg-orange-500 text-white px-8 py-4 text-sm font-bold shadow-lg shadow-orange-500/30 hover:bg-orange-400 transition-all hover:scale-105"
+              className="inline-flex items-center gap-2 rounded-full bg-teal-700 text-white px-8 py-4 text-sm font-bold shadow-lg shadow-teal-700/30 hover:bg-teal-500 transition-all hover:scale-105"
             >
               {lang === 'ar' ? 'اطلب متجرك الآن' : 'Request your store'} <ArrowRight className="h-4 w-4" />
             </Link>
@@ -601,9 +601,9 @@ export default function HowItWorks() {
       <footer className="bg-stone-900 border-t border-stone-800 py-8 text-center text-xs text-stone-500">
         <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
           <span className="font-heading font-black tracking-tighter text-white text-sm">
-            PLINTH<span className="text-orange-500">.</span>
+            Matjari<span className="text-amber-400">.</span>
           </span>
-          <span>© {new Date().getFullYear()} Plinth. {lang === 'ar' ? 'جميع الحقوق محفوظة.' : 'All rights reserved.'}</span>
+          <span>© {new Date().getFullYear()} Matjari. {lang === 'ar' ? 'جميع الحقوق محفوظة.' : 'All rights reserved.'}</span>
           <div className="flex gap-4">
             <Link to="/" className="hover:text-stone-300 transition-colors">{lang === 'ar' ? 'الرئيسية' : 'Home'}</Link>
             <Link to="/brands" className="hover:text-stone-300 transition-colors">{lang === 'ar' ? 'المتاجر' : 'Brands'}</Link>

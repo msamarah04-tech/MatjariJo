@@ -134,7 +134,7 @@ function SidebarContent({ badges, onClose }: { badges: PlatformBadges; onClose?:
     <>
       <div className="flex h-20 items-center justify-between border-b border-line px-5">
         <Link to="/platform" className="flex items-center gap-2">
-          <span className="font-logo text-2xl font-black tracking-tighter text-ink">PLINTH<span className="text-accent">.</span></span>
+          <img src="/logo.png" alt="Matjari Jordan" className="h-14 w-auto -my-2" />
         </Link>
         {onClose ? (
           <button onClick={onClose} aria-label="Close menu" className="rounded-md p-1 text-muted hover:bg-paper hover:text-ink">

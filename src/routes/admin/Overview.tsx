@@ -18,6 +18,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { useStore } from '@/lib/store';
+import { storefrontUrl } from '@/lib/tenant';
 import { money, timeAgo } from '@/lib/format';
 import { getStoreInsights } from '@/lib/analytics';
 import { Button } from '@/components/ui/Button';
@@ -68,7 +69,7 @@ export default function Overview() {
         title="Overview"
         subtitle={`How ${store.name} is doing across the last 30 days.`}
         action={
-          <Button variant="ghost" className="gap-2 border border-line" onClick={() => window.open(`/#/s/${store.slug}`, '_blank')}>
+          <Button variant="ghost" className="gap-2 border border-line" onClick={() => window.open(storefrontUrl(store.slug), '_blank')}>
             <ExternalLink className="h-4 w-4" /> View storefront
           </Button>
         }

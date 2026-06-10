@@ -13,8 +13,9 @@ import type {
   TicketMessage,
   User,
 } from '@prisma/client';
-import type { ProductAttributeValue } from '../shared/contract.js';
+import type { PlanStatus, ProductAttributeValue } from '../shared/contract.js';
 import { publicAttributes } from '../shared/productCategorySchemas.js';
+import { derivePlanStatus } from '../shared/plans.js';
 
 const ms = (date: Date | null | undefined) => date ? date.getTime() : undefined;
 
@@ -85,6 +86,9 @@ export function serializeStore(store: Store) {
     suspensionReason: store.suspensionReason,
     internalNote: store.internalNote,
     commissionOverrideBps: store.commissionOverrideBps ?? undefined,
+    plan: store.plan,
+    planStatus: derivePlanStatus(store.planStatus as PlanStatus, ms(store.planPaidUntil)),
+    planPaidUntil: ms(store.planPaidUntil),
     isFeatured: store.isFeatured,
     ownerId: store.ownerId,
     createdAt: ms(store.createdAt)!,
@@ -93,7 +97,17 @@ export function serializeStore(store: Store) {
 
 export function serializePublicStore(store: Store) {
   const serialized = serializeStore(store);
-  const { internalNote: _internalNote, suspensionReason: _suspensionReason, commissionOverrideBps: _commissionOverrideBps, ownerId: _ownerId, ...publicStore } = serialized;
+  const {
+    internalNote: _internalNote,
+    suspensionReason: _suspensionReason,
+    commissionOverrideBps: _commissionOverrideBps,
+    ownerId: _ownerId,
+    // Billing data never reaches the public storefront payload.
+    plan: _plan,
+    planStatus: _planStatus,
+    planPaidUntil: _planPaidUntil,
+    ...publicStore
+  } = serialized;
   return publicStore;
 }
 

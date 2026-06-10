@@ -29,8 +29,8 @@ async function main() {
     update: {},
     create: {
       id: 'platform',
-      platformName: 'Plinth',
-      commissionRateBps: 800,
+      platformName: 'Matjari Jordan',
+      commissionRateBps: 0,
       defaultCurrency: 'USD',
       categories: JSON.stringify(['Apparel', 'Home', 'Beauty', 'Food', 'Electronics']),
       supportEmail: 'support@example.com',

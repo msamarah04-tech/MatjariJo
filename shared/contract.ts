@@ -25,6 +25,10 @@ export const flagSeverityEnum = z.enum(['LOW', 'MEDIUM', 'HIGH']);
 export const ticketAuthorEnum = z.enum(['OWNER', 'PLATFORM', 'CUSTOMER']);
 export const shopRequestStatusEnum = z.enum(['PENDING', 'IN_REVIEW', 'APPROVED', 'REJECTED']);
 export const shopRequestPlanEnum = z.enum(['STARTER', 'GROWTH', 'SCALE']);
+// Stores and shop requests share one plan vocabulary.
+export const storePlanEnum = shopRequestPlanEnum;
+// PAST_DUE is never stored — it is derived from planPaidUntil on read (see shared/plans.ts).
+export const planStatusEnum = z.enum(['TRIAL', 'ACTIVE', 'PAST_DUE']);
 export const paymentMethodEnum = z.enum(['COD']);
 export const storefrontTemplateEnum = z.enum(['editorial', 'boutique', 'market', 'lookbook']);
 
@@ -43,6 +47,8 @@ export type FlagSeverity = z.infer<typeof flagSeverityEnum>;
 export type TicketAuthor = z.infer<typeof ticketAuthorEnum>;
 export type ShopRequestStatus = z.infer<typeof shopRequestStatusEnum>;
 export type ShopRequestPlan = z.infer<typeof shopRequestPlanEnum>;
+export type StorePlan = ShopRequestPlan;
+export type PlanStatus = z.infer<typeof planStatusEnum>;
 export type PaymentMethod = z.infer<typeof paymentMethodEnum>;
 export type StorefrontTemplate = z.infer<typeof storefrontTemplateEnum>;
 
@@ -99,6 +105,11 @@ export interface Store {
   suspensionReason?: string;
   internalNote?: string;
   commissionOverrideBps?: number;
+  // Subscription plan (admin/platform payloads only — stripped from public storefront).
+  plan?: StorePlan;
+  planStatus?: PlanStatus;
+  /** ms epoch; trial end while TRIAL, paid-until once ACTIVE. */
+  planPaidUntil?: number;
   isFeatured?: boolean;
   ownerId: string;
   createdAt: number;

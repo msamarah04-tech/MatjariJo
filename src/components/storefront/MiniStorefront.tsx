@@ -70,38 +70,54 @@ export function MiniStorefront({ store, products = [] }: MiniStorefrontProps) {
           </div>
         </header>
 
-        {/* Hero — Editorial */}
+        {/* Hero — Editorial: big type + featured card with floating price chip + ticker */}
         {template.id === 'editorial' && (
-          <div className="grid grid-cols-2 gap-3 px-4 py-6 items-center">
-            <div className="flex flex-col gap-2">
-              <span className="w-fit rounded-full border px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest opacity-50" style={{ borderColor: 'var(--c-line)' }}>
-                {store.category || 'Collection'}
-              </span>
-              <h1 className="text-lg font-black leading-tight tracking-tight" style={{ fontFamily: theme.hero }}>
-                {store.tagline || store.name}
-              </h1>
-              <div className={cn('mt-1 flex h-7 w-full items-center justify-center text-[10px] font-black uppercase tracking-wider', btnCls)}>
-                Shop Now
+          <div style={{ backgroundColor: 'var(--c-surface)' }}>
+            <div className="grid grid-cols-2 gap-3 px-4 py-6 items-center">
+              <div className="flex flex-col gap-2">
+                <span className="flex w-fit items-center gap-1 rounded-full border px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest opacity-60" style={{ borderColor: 'var(--c-line)', backgroundColor: 'var(--c-bg)' }}>
+                  <span className="h-1 w-1 rounded-full" style={{ backgroundColor: 'var(--c-primary)' }} />
+                  {store.category || 'Collection'}
+                </span>
+                <h1 className="text-lg font-black leading-tight tracking-tight" style={{ fontFamily: theme.hero }}>
+                  {store.tagline || store.name}
+                </h1>
+                <div className={cn('mt-1 flex h-7 w-full items-center justify-center text-[10px] font-black uppercase tracking-wider', btnCls)}>
+                  Shop Now
+                </div>
+              </div>
+              <div className="relative aspect-[4/5] overflow-hidden rounded-xl" style={{ backgroundColor: 'var(--c-soft)' }}>
+                {featuredProduct && productPrimaryImage(featuredProduct as Product)
+                  ? <img src={productPrimaryImage(featuredProduct as Product)!} alt="" className="h-full w-full object-cover" />
+                  : <div className="h-full w-full flex items-center justify-center text-3xl opacity-40">{featuredProduct?.imageEmoji || '📦'}</div>
+                }
+                {featuredProduct && (
+                  <div className="absolute inset-x-1.5 bottom-1.5 flex items-center justify-between gap-1 rounded-lg px-2 py-1 text-[8px] font-black backdrop-blur-md" style={{ backgroundColor: 'color-mix(in srgb, var(--c-bg) 85%, transparent)' }}>
+                    <span className="truncate">{featuredProduct.name}</span>
+                    <span className="shrink-0 rounded-full px-1.5 py-0.5" style={{ backgroundColor: 'var(--c-text)', color: 'var(--c-bg)' }}>{money(featuredProduct.priceCents || 0)}</span>
+                  </div>
+                )}
               </div>
             </div>
-            <div className="aspect-[4/5] overflow-hidden rounded-xl" style={{ backgroundColor: 'var(--c-soft)' }}>
-              {featuredProduct && productPrimaryImage(featuredProduct as Product)
-                ? <img src={productPrimaryImage(featuredProduct as Product)!} alt="" className="h-full w-full object-cover" />
-                : <div className="h-full w-full flex items-center justify-center text-3xl opacity-40">{featuredProduct?.imageEmoji || '📦'}</div>
-              }
+            <div className="flex gap-4 overflow-hidden border-t px-4 py-1.5 text-[8px] font-black uppercase tracking-widest opacity-40" style={{ borderColor: 'var(--c-line)' }}>
+              {['New in', 'Best sellers', 'Gifts'].map((item) => <span key={item} className="flex shrink-0 items-center gap-4">{item} <span style={{ color: 'var(--c-primary)' }}>✦</span></span>)}
             </div>
           </div>
         )}
 
-        {/* Hero — Boutique */}
+        {/* Hero — Boutique: centered refined type beside full-height image */}
         {template.id === 'boutique' && (
           <div className="grid grid-cols-2 items-stretch" style={{ minHeight: '120px' }}>
-            <div className="flex flex-col justify-center gap-2 px-4 py-6">
+            <div className="flex flex-col items-center justify-center gap-2 px-4 py-6 text-center">
+              <div className="flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest opacity-45">
+                <span className="h-px w-4 bg-current opacity-40" />
+                {store.category || 'Collection'}
+                <span className="h-px w-4 bg-current opacity-40" />
+              </div>
               <h1 className="text-base font-black leading-tight tracking-tight" style={{ fontFamily: theme.hero }}>
                 {store.tagline || store.name}
               </h1>
-              <p className="text-[10px] font-medium opacity-50 leading-relaxed">Curated collection for Jordan.</p>
-              <div className={cn('mt-1 flex h-7 w-full items-center justify-center text-[10px] font-black uppercase tracking-wider', btnCls)}>
+              <div className={cn('mt-1 flex h-7 w-fit items-center justify-center px-4 text-[10px] font-black uppercase tracking-wider', btnCls)}>
                 Shop Now
               </div>
             </div>
@@ -114,11 +130,15 @@ export function MiniStorefront({ store, products = [] }: MiniStorefrontProps) {
           </div>
         )}
 
-        {/* Hero — Market */}
+        {/* Hero — Market: search-first with category chips */}
         {template.id === 'market' && (
           <div className="border-b px-4 py-4" style={{ borderColor: 'var(--c-line)', backgroundColor: 'var(--c-surface)' }}>
             <h1 className="text-sm font-black tracking-tight" style={{ fontFamily: theme.hero }}>{store.name}</h1>
             <p className="text-[10px] font-medium opacity-50">{store.tagline}</p>
+            <div className="mt-2 flex h-7 items-center gap-1.5 rounded-lg border px-2.5 text-[9px] font-medium opacity-50" style={{ borderColor: 'var(--c-line)', backgroundColor: 'var(--c-bg)' }}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              Search products…
+            </div>
             <div className="mt-2 flex gap-1.5 overflow-x-hidden">
               {['All', 'Fashion', 'Beauty', 'Gifts'].map((cat) => (
                 <span key={cat} className={cn('shrink-0 rounded-full px-2.5 py-0.5 text-[9px] font-bold', cat === 'All' ? 'text-[var(--c-bg)]' : 'border opacity-50')} style={cat === 'All' ? { backgroundColor: 'var(--c-text)' } : { borderColor: 'var(--c-line)' }}>
@@ -129,14 +149,17 @@ export function MiniStorefront({ store, products = [] }: MiniStorefrontProps) {
           </div>
         )}
 
-        {/* Hero — Lookbook */}
+        {/* Hero — Lookbook: full-bleed image with overlay type */}
         {template.id === 'lookbook' && (
-          <div className="relative overflow-hidden" style={{ minHeight: '130px', backgroundColor: 'var(--c-soft)' }}>
+          <div className="relative overflow-hidden" style={{ minHeight: '140px', backgroundColor: 'var(--c-soft)' }}>
             {featuredProduct && productPrimaryImage(featuredProduct as Product) && (
-              <img src={productPrimaryImage(featuredProduct as Product)!} alt="" className="absolute inset-0 h-full w-full object-cover opacity-70" />
+              <img src={productPrimaryImage(featuredProduct as Product)!} alt="" className="absolute inset-0 h-full w-full object-cover" />
             )}
-            <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.6), transparent)' }} />
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.7), rgba(0,0,0,0.1))' }} />
             <div className="absolute bottom-4 left-4 right-4">
+              <span className="mb-1 inline-block rounded-full border border-white/30 bg-white/15 px-2 py-0.5 text-[8px] font-black uppercase tracking-widest text-white backdrop-blur-sm">
+                {store.category || 'Collection'}
+              </span>
               <h1 className="text-base font-black leading-tight tracking-tight text-white" style={{ fontFamily: theme.hero }}>
                 {store.tagline || store.name}
               </h1>
@@ -194,7 +217,7 @@ export function MiniStorefront({ store, products = [] }: MiniStorefrontProps) {
         {/* Footer */}
         <div className="border-t px-4 py-4" style={{ borderColor: 'var(--c-line)' }}>
           <p className="text-[10px] font-black tracking-tight" style={{ fontFamily: theme.hero }}>{store.name}</p>
-          <p className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.15em] opacity-30">Powered by Plinth</p>
+          <p className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.15em] opacity-30">Powered by Matjari</p>
         </div>
       </div>
     </div>

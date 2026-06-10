@@ -3,7 +3,9 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../db.js';
 import { authenticate, blockIfMustChangePassword, requireStoreAccess } from '../auth.js';
 import { auditSecurity } from '../audit.js';
-import { conflict, notFound } from '../errors.js';
+import { conflict, forbidden, notFound } from '../errors.js';
+import { PLAN_DEFS } from '../../shared/plans.js';
+import type { StorePlan } from '../../shared/contract.js';
 import { parseRange, storeInsights } from '../analytics.js';
 import { asyncRoute, dateFromMs, shippingPatch } from '../http.js';
 import { isPlatformOwner } from '../policies/roles.policy.js';
@@ -57,6 +59,10 @@ adminRouter.get('/admin/stores/:storeId', requireStoreAccess, asyncRoute(async (
 adminRouter.patch('/admin/stores/:storeId', requireStoreAccess, asyncRoute(async (req, res) => {
   const input = adminStorePatchSchema.parse(req.body);
   const { shipping, themeOverrides, ...patch } = input;
+  if (patch.slug) {
+    const taken = await prisma.store.findUnique({ where: { slug: patch.slug }, select: { id: true } });
+    if (taken && taken.id !== req.params.storeId) throw conflict('That store address is already taken.');
+  }
   const store = await prisma.store.update({
     where: { id: req.params.storeId },
     data: {
@@ -82,6 +88,16 @@ adminRouter.get('/admin/stores/:storeId/products', requireStoreAccess, asyncRout
 
 adminRouter.post('/admin/stores/:storeId/products', requireStoreAccess, asyncRoute(async (req, res) => {
   const input = productCreateSchema.parse(req.body);
+  // Subscription plans cap the catalog size; this is the only plan-gated action.
+  const store = await prisma.store.findUnique({ where: { id: req.params.storeId }, select: { plan: true } });
+  // Fall back to STARTER for unknown plan values; null cap means unlimited (SCALE).
+  const cap = (PLAN_DEFS[(store?.plan ?? 'STARTER') as StorePlan] ?? PLAN_DEFS.STARTER).maxProducts;
+  if (cap !== null) {
+    const count = await prisma.product.count({ where: { storeId: req.params.storeId } });
+    if (count >= cap) {
+      throw forbidden(`Product limit reached for the ${store?.plan ?? 'STARTER'} plan (${cap} products). Contact support to upgrade.`);
+    }
+  }
   const { tags, details, ...data } = input;
   const normalized = normalizeProductDetails(details.categoryKey, details);
   const product = await prisma.product.create({ data: { ...data, tags: JSON.stringify(tags), details: JSON.stringify(normalized), storeId: req.params.storeId } });

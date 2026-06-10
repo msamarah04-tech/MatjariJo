@@ -138,7 +138,7 @@ export default function Landing() {
     { icon: Palette, titleKey: 'featStorefrontTitle', descKey: 'featStorefrontDesc', accent: 'bg-violet-50 text-violet-600 ring-violet-100' },
     { icon: BarChart3, titleKey: 'featAnalyticsTitle', descKey: 'featAnalyticsDesc', accent: 'bg-sky-50 text-sky-600 ring-sky-100' },
     { icon: Package, titleKey: 'featOrdersTitle', descKey: 'featOrdersDesc', accent: 'bg-emerald-50 text-emerald-600 ring-emerald-100' },
-    { icon: Tag, titleKey: 'featDiscountsTitle', descKey: 'featDiscountsDesc', accent: 'bg-orange-50 text-orange-600 ring-orange-100' },
+    { icon: Tag, titleKey: 'featDiscountsTitle', descKey: 'featDiscountsDesc', accent: 'bg-teal-50 text-teal-800 ring-teal-100' },
     { icon: Truck, titleKey: 'featShippingTitle', descKey: 'featShippingDesc', accent: 'bg-rose-50 text-rose-600 ring-rose-100' },
     { icon: ShieldCheck, titleKey: 'featSecurityTitle', descKey: 'featSecurityDesc', accent: 'bg-slate-100 text-slate-600 ring-slate-200' },
   ] as const;
@@ -174,22 +174,20 @@ export default function Landing() {
   ] as const;
 
   return (
-    <div className="min-h-screen bg-stone-50 text-stone-900 overflow-x-hidden selection:bg-orange-200 selection:text-orange-900">
+    <div className="min-h-screen bg-stone-50 text-stone-900 overflow-x-hidden selection:bg-teal-200 selection:text-teal-950">
 
       {/* ── NAV ── */}
       <nav className="fixed top-0 start-0 end-0 z-50">
         {/* orange accent line */}
-        <div className="h-[3px] bg-gradient-to-r from-orange-400 via-orange-500 to-amber-400" />
+        <div className="h-[3px] bg-gradient-to-r from-teal-500 via-teal-700 to-amber-400" />
         {/* main bar */}
         <div className="flex h-16 items-center justify-between bg-white px-6 md:px-12 border-b border-stone-200 shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
 
           {/* logo */}
-          <Link to="/" className="flex items-center gap-2.5 shrink-0">
-            <span className="font-heading text-xl font-black tracking-tighter text-stone-900">
-              PLINTH<span className="text-orange-500">.</span>
-            </span>
-            <span className="rounded-full bg-orange-50 border border-orange-200 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-orange-600 hidden sm:inline">
-              Jordan
+          <Link to="/" className="flex items-center gap-2 shrink-0">
+            <img src="/logo.png" alt="Matjari Jordan" className="h-14 w-auto -my-2" />
+            <span className="rounded-full bg-teal-50 border border-teal-200 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-teal-800 hidden sm:inline">
+              الأردن · Jordan
             </span>
           </Link>
 
@@ -212,6 +210,12 @@ export default function Landing() {
               className="rounded-full px-4 py-2 text-xs font-bold uppercase tracking-widest text-stone-400 transition-all hover:bg-stone-100 hover:text-stone-900"
             >
               {t('navBrands')}
+            </Link>
+            <Link
+              to="/pricing"
+              className="rounded-full px-4 py-2 text-xs font-bold uppercase tracking-widest text-stone-400 transition-all hover:bg-stone-100 hover:text-stone-900"
+            >
+              {t('navPricing')}
             </Link>
           </div>
 
@@ -242,7 +246,7 @@ export default function Landing() {
         {/* ── layered background ── */}
         <div className="pointer-events-none absolute inset-0 bg-[#FAFAF8]">
           {/* color blobs */}
-          <div className="absolute -top-40 -end-40 h-[700px] w-[700px] rounded-full bg-orange-200/50 blur-[130px]" />
+          <div className="absolute -top-40 -end-40 h-[700px] w-[700px] rounded-full bg-teal-200/50 blur-[130px]" />
           <div className="absolute bottom-0 -start-40 h-[500px] w-[500px] rounded-full bg-violet-100/50 blur-[110px]" />
           <div className="absolute top-1/2 left-1/2 h-[400px] w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-sky-100/30 blur-[90px]" />
           {/* subtle dot grid */}
@@ -271,8 +275,8 @@ export default function Landing() {
                 className="inline-flex items-center gap-2.5 rounded-full border border-stone-200 bg-white/80 backdrop-blur-sm px-4 py-2 mb-8 shadow-sm"
               >
                 <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500" />
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-500 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-700" />
                 </span>
                 <span className="text-xs font-bold uppercase tracking-widest text-stone-500">{t('heroBadge')}</span>
               </motion.div>
@@ -282,7 +286,7 @@ export default function Landing() {
                 {[
                   { text: t('heroLine1'), cls: 'text-stone-900 font-black' },
                   { text: t('heroLine2'), cls: 'text-stone-300 font-extralight italic' },
-                  { text: t('heroLine3'), cls: 'font-black bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600 bg-clip-text text-transparent' },
+                  { text: t('heroLine3'), cls: 'font-black bg-gradient-to-br from-teal-500 via-teal-700 to-teal-800 bg-clip-text text-transparent' },
                 ].map((line, i) => (
                   <div key={i} className="overflow-hidden">
                     <motion.div
@@ -316,7 +320,7 @@ export default function Landing() {
               >
                 <Link
                   to="/request-website"
-                  className="group relative inline-flex items-center justify-center gap-2 rounded-full bg-orange-500 px-8 py-4 text-sm font-bold text-white hover:bg-orange-600 transition-all hover:scale-[1.03] shadow-[0_8px_32px_rgba(249,115,22,0.38)]"
+                  className="group relative inline-flex items-center justify-center gap-2 rounded-full bg-teal-700 px-8 py-4 text-sm font-bold text-white hover:bg-teal-800 transition-all hover:scale-[1.03] shadow-[0_8px_32px_rgba(249,115,22,0.38)]"
                 >
                   {t('heroCtaPrimary')}
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
@@ -346,7 +350,7 @@ export default function Landing() {
                 <div>
                   <div className="flex gap-0.5 mb-0.5">
                     {Array.from({ length: 5 }).map((_, i) => (
-                      <svg key={i} className="h-3.5 w-3.5 fill-orange-400" viewBox="0 0 20 20">
+                      <svg key={i} className="h-3.5 w-3.5 fill-teal-500" viewBox="0 0 20 20">
                         <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                       </svg>
                     ))}
@@ -361,7 +365,7 @@ export default function Landing() {
             {/* ── RIGHT: visual ── */}
             <div className="relative hidden lg:block">
               {/* glow behind the mockup */}
-              <div className="absolute inset-0 scale-75 rounded-full bg-orange-200/40 blur-[60px]" />
+              <div className="absolute inset-0 scale-75 rounded-full bg-teal-200/40 blur-[60px]" />
 
               {/* storefront mockup */}
               <motion.div
@@ -378,13 +382,13 @@ export default function Landing() {
                     <div className="h-2.5 w-2.5 rounded-full bg-green-300" />
                   </div>
                   <div className="flex-1 mx-3 rounded-full bg-white border border-stone-200 px-3 py-1.5 text-[10px] font-medium text-stone-400 text-center tracking-tight">
-                    🔒 plinth.io/s/sultan
+                    🔒 sultan.matjari.jo
                   </div>
                 </div>
                 {/* store body */}
                 <div className="bg-stone-950">
                   <div className="px-5 py-4 flex items-center justify-between border-b border-white/[0.07]">
-                    <span className="text-white font-black tracking-tighter">SULTAN<span className="text-orange-400">.</span></span>
+                    <span className="text-white font-black tracking-tighter">SULTAN<span className="text-teal-500">.</span></span>
                     <div className="flex items-center gap-3">
                       <span className="text-white/30 text-[11px]">Shop</span>
                       <span className="text-white/30 text-[11px]">About</span>
@@ -403,7 +407,7 @@ export default function Landing() {
                     >✨</motion.div>
                     <div className="text-white font-bold text-sm mb-1 relative">Oud Collection 2025</div>
                     <div className="text-white/40 text-[11px] mb-4 relative">Limited Edition · 12 pieces left</div>
-                    <div className="inline-flex items-center gap-1.5 rounded-full bg-orange-500 px-4 py-1.5 text-white text-xs font-bold relative">
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-teal-700 px-4 py-1.5 text-white text-xs font-bold relative">
                       Shop Now <ArrowRight className="h-3 w-3" />
                     </div>
                   </div>
@@ -415,10 +419,10 @@ export default function Landing() {
                       { emoji: '✨', name: 'Gold Musk', price: 'JOD 38' },
                       { emoji: '🌿', name: 'Fresh Cedar', price: 'JOD 29' },
                     ].map((p) => (
-                      <div key={p.name} className="group rounded-xl bg-stone-50 p-3 border border-stone-100 hover:border-orange-200 transition-colors">
+                      <div key={p.name} className="group rounded-xl bg-stone-50 p-3 border border-stone-100 hover:border-teal-200 transition-colors">
                         <div className="h-14 rounded-lg bg-white flex items-center justify-center text-2xl mb-2 border border-stone-100">{p.emoji}</div>
                         <div className="text-[11px] font-bold text-stone-700">{p.name}</div>
-                        <div className="text-[10px] text-orange-500 font-bold mt-0.5">{p.price}</div>
+                        <div className="text-[10px] text-teal-700 font-bold mt-0.5">{p.price}</div>
                       </div>
                     ))}
                   </div>
@@ -463,7 +467,7 @@ export default function Landing() {
                   <div className="text-[11px] text-emerald-500 font-semibold mb-3">↑ Revenue growth</div>
                   <div className="flex items-end gap-0.5 h-8">
                     {[28, 45, 35, 62, 48, 75, 90].map((h, i) => (
-                      <div key={i} className="flex-1 rounded-sm bg-orange-400/70" style={{ height: `${h}%` }} />
+                      <div key={i} className="flex-1 rounded-sm bg-teal-500/70" style={{ height: `${h}%` }} />
                     ))}
                   </div>
                 </motion.div>
@@ -522,7 +526,7 @@ export default function Landing() {
               initial={{ opacity: 0 }}
               whileInView={{ opacity: 1 }}
               viewport={{ once: true }}
-              className="text-xs font-bold uppercase tracking-widest text-orange-500 mb-4"
+              className="text-xs font-bold uppercase tracking-widest text-teal-700 mb-4"
             >
               {t('featuresTag')}
             </motion.p>
@@ -585,7 +589,7 @@ export default function Landing() {
             </div>
             <Link
               to="/request-website"
-              className="inline-flex items-center gap-2 text-sm font-bold text-stone-900 hover:text-orange-500 transition-colors group"
+              className="inline-flex items-center gap-2 text-sm font-bold text-stone-900 hover:text-teal-700 transition-colors group"
             >
               {t('themesGetStore')} <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
             </Link>
@@ -611,7 +615,7 @@ export default function Landing() {
             </div>
             <div className="rounded-2xl border border-stone-200 bg-white overflow-hidden shadow-sm">
               <div className="bg-stone-900 p-4 border-b border-stone-700 flex items-center justify-between">
-                <div className="font-black text-white tracking-tighter text-sm">SULTAN<span className="text-orange-400">.</span></div>
+                <div className="font-black text-white tracking-tighter text-sm">SULTAN<span className="text-teal-500">.</span></div>
                 <div className="flex gap-3 text-xs text-stone-400">
                   <span>Shop</span><span>About</span><span>Contact</span>
                 </div>
@@ -622,7 +626,7 @@ export default function Landing() {
                 <div className="h-3 w-full rounded-full bg-stone-100 mb-1" />
                 <div className="h-3 w-4/5 rounded-full bg-stone-100 mb-5" />
                 <div className="flex gap-3">
-                  <div className="h-9 flex-1 rounded-full bg-orange-500" />
+                  <div className="h-9 flex-1 rounded-full bg-teal-700" />
                   <div className="h-9 w-9 rounded-full bg-stone-100 border border-stone-200" />
                 </div>
               </div>
@@ -639,7 +643,7 @@ export default function Landing() {
               initial={{ opacity: 0 }}
               whileInView={{ opacity: 1 }}
               viewport={{ once: true }}
-              className="text-xs font-bold uppercase tracking-widest text-orange-500 mb-4"
+              className="text-xs font-bold uppercase tracking-widest text-teal-700 mb-4"
             >
               {t('howTag')}
             </motion.p>
@@ -667,7 +671,7 @@ export default function Landing() {
                   className="group flex gap-6 items-start"
                 >
                   <div className="shrink-0 flex flex-col items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-50 text-orange-500 ring-1 ring-orange-100 group-hover:bg-orange-500 group-hover:text-white transition-all duration-300">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-50 text-teal-700 ring-1 ring-teal-100 group-hover:bg-teal-700 group-hover:text-white transition-all duration-300">
                       <Icon className="h-5 w-5" />
                     </div>
                     {i < STEPS.length - 1 && (
@@ -695,7 +699,7 @@ export default function Landing() {
                 initial={{ opacity: 0 }}
                 whileInView={{ opacity: 1 }}
                 viewport={{ once: true }}
-                className="text-xs font-bold uppercase tracking-widest text-orange-500 mb-4"
+                className="text-xs font-bold uppercase tracking-widest text-teal-700 mb-4"
               >
                 {t('brandsTag')}
               </motion.p>
@@ -731,9 +735,9 @@ export default function Landing() {
                 <div className="p-6 flex items-center justify-between">
                   <div>
                     <h3 className="font-bold text-stone-900 text-lg">{store.name}</h3>
-                    <p className="text-xs font-bold uppercase tracking-widest text-orange-500 mt-1">{store.tag}</p>
+                    <p className="text-xs font-bold uppercase tracking-widest text-teal-700 mt-1">{store.tag}</p>
                   </div>
-                  <div className="h-9 w-9 rounded-full border border-stone-200 flex items-center justify-center text-stone-400 group-hover:border-orange-200 group-hover:text-orange-500 group-hover:bg-orange-50 transition-all">
+                  <div className="h-9 w-9 rounded-full border border-stone-200 flex items-center justify-center text-stone-400 group-hover:border-teal-200 group-hover:text-teal-700 group-hover:bg-teal-50 transition-all">
                     <ArrowUpRight className="h-4 w-4" />
                   </div>
                 </div>
@@ -750,7 +754,7 @@ export default function Landing() {
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
-            className="text-xs font-bold uppercase tracking-widest text-orange-500 mb-4 text-center"
+            className="text-xs font-bold uppercase tracking-widest text-teal-700 mb-4 text-center"
           >
             {t('faqTag')}
           </motion.p>
@@ -774,7 +778,7 @@ export default function Landing() {
       <section className="py-32 px-6 bg-stone-900">
         <div className="mx-auto max-w-4xl text-center relative">
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <div className="h-[400px] w-[600px] rounded-full bg-orange-500/10 blur-[100px]" />
+            <div className="h-[400px] w-[600px] rounded-full bg-teal-700/10 blur-[100px]" />
           </div>
           <motion.div
             initial={{ opacity: 0, y: 24 }}
@@ -783,19 +787,19 @@ export default function Landing() {
             transition={{ duration: 0.6 }}
             className="relative z-10"
           >
-            <div className="inline-flex items-center gap-2 rounded-full border border-orange-500/20 bg-orange-500/10 px-4 py-2 mb-8">
-              <Sparkles className="h-3.5 w-3.5 text-orange-400" />
-              <span className="text-xs font-bold uppercase tracking-widest text-orange-400">{t('ctaBadge')}</span>
+            <div className="inline-flex items-center gap-2 rounded-full border border-teal-700/20 bg-teal-700/10 px-4 py-2 mb-8">
+              <Sparkles className="h-3.5 w-3.5 text-teal-500" />
+              <span className="text-xs font-bold uppercase tracking-widest text-teal-500">{t('ctaBadge')}</span>
             </div>
             <h2 className="font-heading text-[clamp(2.5rem,7vw,6rem)] font-black tracking-tighter text-white leading-[0.95] mb-6">
               {t('ctaTitle1')}<br />
-              <span className="text-orange-500">{t('ctaTitle2')}</span>
+              <span className="text-teal-700">{t('ctaTitle2')}</span>
             </h2>
             <p className="text-stone-400 max-w-md mx-auto mb-10 leading-relaxed">{t('ctaSub')}</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
                 to="/request-website"
-                className="group inline-flex items-center justify-center gap-2 rounded-full bg-orange-500 px-10 py-4 text-sm font-bold text-white hover:bg-orange-400 transition-all hover:scale-105 shadow-[0_0_50px_rgba(249,115,22,0.35)]"
+                className="group inline-flex items-center justify-center gap-2 rounded-full bg-teal-700 px-10 py-4 text-sm font-bold text-white hover:bg-teal-500 transition-all hover:scale-105 shadow-[0_0_50px_rgba(249,115,22,0.35)]"
               >
                 {t('ctaPrimary')}
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
@@ -815,13 +819,16 @@ export default function Landing() {
       <footer className="bg-stone-900 border-t border-white/5 px-6 py-10">
         <div className="mx-auto max-w-7xl flex flex-col md:flex-row items-center justify-between gap-6">
           <Link to="/" className="font-heading text-2xl font-black tracking-tighter text-white">
-            PLINTH<span className="text-orange-500">.</span>
+            Matjari<span className="text-amber-400">.</span>
           </Link>
           <div className="flex flex-wrap justify-center gap-8 text-xs font-bold uppercase tracking-widest text-stone-500">
             <Link to="/request-website" className="hover:text-white transition-colors">{t('footerStartSelling')}</Link>
             <Link to="/sign-in" className="hover:text-white transition-colors">{t('footerMerchantLogin')}</Link>
             <a href="#features" className="hover:text-white transition-colors">{t('footerFeatures')}</a>
             <a href="#how-it-works" className="hover:text-white transition-colors">{t('footerHowItWorks')}</a>
+            <Link to="/pricing" className="hover:text-white transition-colors">{t('navPricing')}</Link>
+            <Link to="/privacy" className="hover:text-white transition-colors">{t('legalPrivacyTitle')}</Link>
+            <Link to="/terms" className="hover:text-white transition-colors">{t('legalTermsTitle')}</Link>
           </div>
           <p className="text-xs text-stone-600">{t('footerCopyright')}</p>
         </div>

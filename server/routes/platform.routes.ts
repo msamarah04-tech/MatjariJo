@@ -16,15 +16,18 @@ import {
   usernameFromShopSlug,
 } from '../services/onboarding.js';
 import { buildStoreDataExport, eraseStoreCustomerData } from '../services/dataPrivacy.js';
+import { notifyPlanPayment, notifyShopApproved } from '../services/notifications.js';
 import {
   commissionSchema,
   ownerStatusSchema,
   platformSettingsPatchSchema,
   platformStorePatchSchema,
   rejectSchema,
+  storePlanSchema,
   ticketReplySchema,
   ticketStatusSchema,
 } from '../validators.js';
+import { TRIAL_DAYS, addOneMonth } from '../../shared/plans.js';
 import {
   serializeAuditLog,
   serializeOrder,
@@ -111,6 +114,10 @@ platformRouter.post('/platform/shop-requests/:id/approve', asyncRoute(async (req
         logoEmoji: '🛍️',
         status: 'ACTIVE',
         reviewStatus: 'APPROVED',
+        // Subscription: requested tier (default STARTER) with a free trial window.
+        plan: request.plan ?? 'STARTER',
+        planStatus: 'TRIAL',
+        planPaidUntil: new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
       },
     });
     const updatedRequest = await tx.shopRequest.update({
@@ -121,6 +128,7 @@ platformRouter.post('/platform/shop-requests/:id/approve', asyncRoute(async (req
     return { user, store, request: updatedRequest };
   });
   await auditSecurity(req.user!, selfService ? 'Approved website request (owner self-set credentials)' : 'Approved website request and issued shop-owner credentials', result.store.name, { targetType: 'ShopRequest', targetId: request.id, ip: req.ip });
+  notifyShopApproved(result.store, result.user);
   res.status(201).json({
     request: serializeShopRequest(result.request),
     store: serializeStore(result.store),
@@ -193,6 +201,31 @@ platformRouter.patch('/platform/stores/:storeId/commission', asyncRoute(async (r
   const input = commissionSchema.parse(req.body);
   const store = await prisma.store.update({ where: { id: req.params.storeId }, data: { commissionOverrideBps: input.commissionOverrideBps ?? null } });
   await audit(req.user!, 'Set store commission override', store.name, { targetType: 'Store', targetId: store.id, detail: input });
+  res.json({ store: serializeStore(store) });
+}));
+
+platformRouter.patch('/platform/stores/:storeId/plan', asyncRoute(async (req, res) => {
+  const input = storePlanSchema.parse(req.body);
+  const store = await prisma.store.update({ where: { id: req.params.storeId }, data: { plan: input.plan } });
+  await audit(req.user!, `Changed subscription plan to ${input.plan}`, store.name, { targetType: 'Store', targetId: store.id, detail: input });
+  res.json({ store: serializeStore(store) });
+}));
+
+// Manual billing: the platform owner records an off-platform payment (CliQ/bank
+// transfer) which activates the store and extends paid-until by one month.
+// Extending from max(now, paidUntil) lets back-to-back payments stack months
+// while a PAST_DUE store restarts from today rather than its lapsed date.
+platformRouter.post('/platform/stores/:storeId/plan/record-payment', asyncRoute(async (req, res) => {
+  const existing = await prisma.store.findUnique({ where: { id: req.params.storeId } });
+  if (!existing) throw notFound('Store not found.');
+  const now = new Date();
+  const base = existing.planPaidUntil && existing.planPaidUntil > now ? existing.planPaidUntil : now;
+  const store = await prisma.store.update({
+    where: { id: existing.id },
+    data: { planStatus: 'ACTIVE', planPaidUntil: addOneMonth(base) },
+  });
+  await auditSecurity(req.user!, `Recorded subscription payment (${store.plan})`, store.name, { targetType: 'Store', targetId: store.id, ip: req.ip });
+  notifyPlanPayment(store);
   res.json({ store: serializeStore(store) });
 }));
 

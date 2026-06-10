@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { computeOrderSummary } from './checkout';
-import { AnalyticsEvent, AnalyticsEventType, AuditLog, Discount, Order, OrderStatus, OwnerStatus, PlatformSettings, Product, ProductFlag, Role, ShopRequest, ShopRequestStatus, Store, StoreReviewStatus, StoreStatus, SupportTicket, TicketStatus, User } from './types';
+import { AnalyticsEvent, AnalyticsEventType, AuditLog, Discount, Order, OrderStatus, OwnerStatus, PlatformSettings, Product, ProductFlag, Role, ShopRequest, ShopRequestStatus, Store, StorePlan, StoreReviewStatus, StoreStatus, SupportTicket, TicketStatus, User } from './types';
 import { BootstrapPayload, credentialsForRole, getBootstrap } from '@/api/bootstrap.api';
 import { login, logout as logoutApi, refreshSession, changePassword as changePasswordApi } from '@/api/auth.api';
 import { getPublicStore, placePublicOrder, trackAnalytics } from '@/api/storefront.api';
@@ -27,6 +27,8 @@ const normalizeStore = (store: Store): Store => ({
   isFeatured: store.isFeatured ?? false,
   // commissionOverrideBps stays undefined unless explicitly set (falls back to platform rate).
   commissionOverrideBps: store.commissionOverrideBps,
+  plan: store.plan ?? 'STARTER',
+  planStatus: store.planStatus ?? 'TRIAL',
 });
 
 const normalizeProduct = (product: Product): Product => ({
@@ -67,7 +69,7 @@ const normalizeAnalyticsEvent = (event: AnalyticsEvent): AnalyticsEvent => ({
 });
 
 const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
-  platformName: 'Plinth',
+  platformName: 'Matjari Jordan',
   commissionRateBps: 800,
   defaultCurrency: 'USD',
   categories: ['Apparel', 'Home', 'Beauty', 'Food', 'Electronics'],
@@ -148,7 +150,21 @@ const canManage = (currentUser: User | null, stores: Store[], storeId: string) =
 };
 
 /** Keys a shop owner must never change through an admin store edit (scope / ownership / platform-controlled). */
-const PROTECTED_STORE_KEYS = ['id', 'slug', 'ownerId', 'createdAt', 'status', 'reviewStatus', 'suspensionReason', 'internalNote', 'commissionOverrideBps', 'isFeatured'];
+const PROTECTED_STORE_KEYS = ['id', 'ownerId', 'createdAt', 'status', 'reviewStatus', 'suspensionReason', 'internalNote', 'commissionOverrideBps', 'isFeatured'];
+
+/**
+ * Store update payload. The listed fields accept null meaning "clear the stored
+ * value" — undefined keys are dropped from JSON, so null is the only way to
+ * erase a previously saved value through the PATCH API.
+ */
+export type StorePatch = Omit<Partial<Store>, 'logoUrl' | 'logoEmoji' | 'contactPhone' | 'address' | 'taxRegistrationNumber' | 'taxRateBpsOverride'> & {
+  logoUrl?: string | null;
+  logoEmoji?: string | null;
+  contactPhone?: string | null;
+  address?: string | null;
+  taxRegistrationNumber?: string | null;
+  taxRateBpsOverride?: number | null;
+};
 
 export type ShopApprovalSetup = {
   logoEmoji?: string;
@@ -231,7 +247,8 @@ interface AppState {
 
   // store CRUD
   createStore: (input: Omit<Store, 'id' | 'slug' | 'createdAt' | 'status' | 'ownerId'> & { products?: Omit<Product, 'id' | 'storeId' | 'createdAt'>[] }) => string;
-  updateStore: (id: string, patch: Partial<Store>) => void;
+  // Resolves true when persisted; false when the API rejected the update (details in apiError).
+  updateStore: (id: string, patch: StorePatch) => Promise<boolean>;
   setStoreStatus: (id: string, status: StoreStatus) => void;
   reviewStore: (id: string, reviewStatus: StoreReviewStatus, note?: string) => void;
   suspendStore: (id: string, reason: string) => void;
@@ -265,6 +282,9 @@ interface AppState {
 
   // store oversight
   setStoreCommission: (id: string, bps?: number) => void;
+  // Subscription billing (manual): change tier / record an off-platform payment.
+  setStorePlan: (id: string, plan: StorePlan) => Promise<boolean>;
+  recordPlanPayment: (id: string) => Promise<boolean>;
   toggleFeatured: (id: string) => void;
 
   // moderation
@@ -286,6 +306,18 @@ interface AppState {
   fulfillOrder: (storeId: string, id: string) => void;
 
   clearSession: () => void;
+}
+
+// One-time storage-key rename (Plinth → Matjari rebrand): move the persisted
+// state so existing sessions and carts survive. Runs before the store hydrates.
+if (typeof localStorage !== 'undefined') {
+  try {
+    const legacy = localStorage.getItem('plinth-v1');
+    if (legacy && !localStorage.getItem('matjari-v1')) {
+      localStorage.setItem('matjari-v1', legacy);
+      localStorage.removeItem('plinth-v1');
+    }
+  } catch { /* storage unavailable — start fresh */ }
 }
 
 export const useStore = create<AppState>()(
@@ -450,21 +482,29 @@ export const useStore = create<AppState>()(
 
         return id;
       },
-      updateStore: (id, patch) => {
+      updateStore: async (id, patch) => {
         const token = get().token;
         if (token) {
           const { shipping, ...rest } = patch;
-          adminApi.updateAdminStore(id, { ...rest, shipping })
-            .then(() => get().loadBootstrap())
-            .catch((error) => set({ apiError: error instanceof Error ? error.message : 'Could not update store.' }));
-          return;
+          try {
+            await adminApi.updateAdminStore(id, { ...rest, shipping });
+            await get().loadBootstrap();
+            return true;
+          } catch (error) {
+            set({ apiError: error instanceof Error ? error.message : 'Could not update store.' });
+            return false;
+          }
         }
         set((state) => {
           if (!canManage(state.currentUser, state.stores, id)) return state;
-          const safePatch: Partial<Store> = { ...patch };
+          // null means "clear" — map to undefined so the local Store shape stays consistent.
+          const safePatch = Object.fromEntries(
+            Object.entries(patch).map(([key, value]) => [key, value === null ? undefined : value]),
+          ) as Partial<Store>;
           PROTECTED_STORE_KEYS.forEach((key) => delete (safePatch as Record<string, unknown>)[key]);
           return { stores: state.stores.map((s) => (s.id === id ? { ...s, ...safePatch } : s)) };
         });
+        return true;
       },
       setStoreStatus: (id, status) => {
         const token = get().token;
@@ -892,6 +932,42 @@ export const useStore = create<AppState>()(
         }));
       },
 
+      setStorePlan: async (id, plan) => {
+        const token = get().token;
+        if (token) {
+          try {
+            await platformApi.setStorePlan(id, plan);
+            await get().loadBootstrap();
+            return true;
+          } catch (error) {
+            set({ apiError: error instanceof Error ? error.message : 'Could not change the plan.' });
+            return false;
+          }
+        }
+        set((state) => ({ stores: state.stores.map((store) => (store.id === id ? { ...store, plan } : store)) }));
+        return true;
+      },
+
+      recordPlanPayment: async (id) => {
+        const token = get().token;
+        if (token) {
+          try {
+            await platformApi.recordStorePlanPayment(id);
+            await get().loadBootstrap();
+            return true;
+          } catch (error) {
+            set({ apiError: error instanceof Error ? error.message : 'Could not record the payment.' });
+            return false;
+          }
+        }
+        set((state) => ({
+          stores: state.stores.map((store) => (store.id === id
+            ? { ...store, planStatus: 'ACTIVE', planPaidUntil: Date.now() + 30 * 24 * 60 * 60 * 1000 }
+            : store)),
+        }));
+        return true;
+      },
+
       toggleFeatured: (id) => {
         const token = get().token;
         if (token) {
@@ -1159,7 +1235,7 @@ export const useStore = create<AppState>()(
       },
     }),
     {
-      name: 'plinth-v1',
+      name: 'matjari-v1',
       version: 8,
       migrate: (persisted: any) => {
         // v8 moves runtime entities to the backend. Keep auth/cart state only.

@@ -1,4 +1,4 @@
-# Plinth
+# Matjari
 
 A **self-hosted, multi-store e-commerce SaaS** built for the Jordanian market. One **platform
 owner** onboards and oversees the shop owners they approve; each **shop owner** runs a single
@@ -61,7 +61,7 @@ The platform owner is seeded from `.env` (sign in with username **or** email):
 
 | Username | Email | Password |
 | --- | --- | --- |
-| `platform-admin` | `owner@plinth.local` | `ChangeMe123!` |
+| `platform-admin` | `owner@matjari.local` | `ChangeMe123!` |
 
 **Change it before any real use.** Shop owners are **self-service**: they choose their own username +
 password on the public "request a website" form, and once the platform owner approves the request

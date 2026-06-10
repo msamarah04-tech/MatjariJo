@@ -15,10 +15,12 @@ import {
   Paintbrush,
   Plus,
   Search,
+  Settings as SettingsIcon,
   TriangleAlert,
   X,
 } from 'lucide-react';
 import { useStore } from '@/lib/store';
+import { storefrontUrl } from '@/lib/tenant';
 import { cn } from '@/lib/cn';
 import { Store } from '@/lib/types';
 import { StoreAvatar } from '@/components/ui/dashboard';
@@ -35,6 +37,7 @@ import Products from './Products';
 import Orders from './Orders';
 import Discounts from './Discounts';
 import Appearance from './Appearance';
+import Settings from './Settings';
 
 const Analytics = lazy(() => import('./Analytics'));
 
@@ -53,6 +56,7 @@ const NAV: NavItem[] = [
   { labelKey: 'navDiscounts', to: 'discounts', icon: BadgePercent },
   { labelKey: 'navAnalytics', to: 'analytics', icon: BarChart3 },
   { labelKey: 'navAppearance', to: 'appearance', icon: Paintbrush },
+  { labelKey: 'navSettings', to: 'settings', icon: SettingsIcon },
 ];
 
 export default function Admin() {
@@ -69,6 +73,7 @@ export default function Admin() {
           element={<Suspense fallback={<div className="space-y-6"><SkeletonCards /></div>}><Analytics /></Suspense>}
         />
         <Route path="appearance" element={<Appearance />} />
+        <Route path="settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="." replace />} />
       </Route>
       <Route path="*" element={<StoreResolver />} />
@@ -145,6 +150,7 @@ function AdminShell() {
       <div className="flex min-w-0 flex-1 flex-col">
         <AdminTopBar store={store} onMenu={() => setMobileOpen(true)} />
         <MaintenanceBanner />
+        <PlanPastDueBanner store={store} />
         <main className="flex-1 px-5 py-6 md:px-8 md:py-8">
           <div className="mx-auto max-w-6xl">
             <Outlet context={context} />
@@ -203,7 +209,7 @@ function SidebarContent({ store, userStores, isPlatformViewer, onClose }: { stor
 
       <div className="space-y-1 border-t border-line p-3">
         <a
-          href={`/#/s/${store.slug}`}
+          href={storefrontUrl(store.slug)}
           target="_blank"
           rel="noreferrer"
           className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-muted transition-colors hover:bg-paper hover:text-ink"
@@ -303,7 +309,7 @@ function AdminTopBar({ store, onMenu }: { store: Store; onMenu: () => void }) {
           <kbd className="rounded border border-line px-1.5 py-0.5 text-[10px] font-black">⌘K</kbd>
         </button>
         <a
-          href={`/#/s/${store.slug}`}
+          href={storefrontUrl(store.slug)}
           target="_blank"
           rel="noreferrer"
           className="hidden items-center gap-2 rounded-full border border-line bg-surface px-3 py-2 text-xs font-bold text-muted transition-colors hover:bg-paper sm:flex"
@@ -331,6 +337,17 @@ function MaintenanceBanner() {
     <div className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-5 py-2.5 text-sm font-bold text-amber-800 md:px-8">
       <TriangleAlert className="h-4 w-4 shrink-0" />
       {t('adminMaintenanceMsg')}
+    </div>
+  );
+}
+
+function PlanPastDueBanner({ store }: { store: Store }) {
+  const { t } = useI18n();
+  if (store.planStatus !== 'PAST_DUE') return null;
+  return (
+    <div className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-5 py-2.5 text-sm font-bold text-amber-800 md:px-8">
+      <TriangleAlert className="h-4 w-4 shrink-0" />
+      {t('adminPastDueMsg')}
     </div>
   );
 }

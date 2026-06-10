@@ -2,14 +2,14 @@ import { AnalyticsEvent, AuditLog, Discount, Order, PlatformSettings, Product, P
 
 export const platformOwner: User = {
   id: 'user-platform-1',
-  email: 'platform@plinth.demo',
+  email: 'platform@matjari.demo',
   name: 'System Admin',
   role: 'PLATFORM_OWNER',
 };
 
 export const shopOwner: User = {
   id: 'user-shop-1',
-  email: 'shop@plinth.demo',
+  email: 'shop@matjari.demo',
   name: 'Demo Merchant',
   role: 'SHOP_OWNER',
 };
@@ -86,13 +86,13 @@ export const seedStores: Store[] = [
 ];
 
 export const seedPlatformSettings: PlatformSettings = {
-  platformName: 'Plinth',
+  platformName: 'Matjari Jordan',
   commissionRateBps: 800,
   defaultCurrency: 'USD',
   categories: ['Home & Garden', 'Food & Drink', 'Fashion', 'Beauty', 'Art', 'Books'],
   globalAnnouncement: '',
   maintenanceMode: false,
-  supportEmail: 'support@plinth.demo',
+  supportEmail: 'support@matjari.demo',
   auditCap: 200,
   autoFlagThreshold: 3,
 };

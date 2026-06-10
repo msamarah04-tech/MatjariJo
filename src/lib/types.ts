@@ -20,6 +20,8 @@ export type {
   TicketAuthor,
   ShopRequestStatus,
   ShopRequestPlan,
+  StorePlan,
+  PlanStatus,
   PaymentMethod,
   StorefrontTemplate,
   ThemeOverrides,

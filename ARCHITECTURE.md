@@ -1,15 +1,15 @@
-# Plinth Architecture And Structure
+# Matjari Architecture And Structure
 
 Last updated: 2026-06-06
 
-This document describes the current architecture of Plinth after the production-hardening work
+This document describes the current architecture of Matjari after the production-hardening work
 (money correctness, security, transactional commerce, the backend refactor, a shared contract,
 Jordan localization, and self-hosted ops). It is direct about what is solid and what is still
 incremental.
 
 ## Current State
 
-Plinth is a **self-hosted, self-contained, multi-store commerce SaaS** for Jordan — one platform
+Matjari is a **self-hosted, self-contained, multi-store commerce SaaS** for Jordan — one platform
 owner and the shop owners they approve. No third-party integrations; their adapter seams are
 designed for later.
 

@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { ExternalLink, Image as ImageIcon, Instagram, LayoutTemplate, Palette, RotateCcw, Type } from 'lucide-react';
 import { useStore } from '@/lib/store';
+import { storefrontUrl } from '@/lib/tenant';
 import { HEADING_FONTS, STOREFRONT_TEMPLATES, THEMES, resolveStoreTheme, type ThemeOverrides } from '@/lib/themes';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -148,7 +149,7 @@ export default function Appearance() {
     }
   };
 
-  const onSubmit = (data: FormValues) => {
+  const onSubmit = async (data: FormValues) => {
     const {
       shippingType,
       shippingFlatText,
@@ -175,7 +176,18 @@ export default function Appearance() {
       freeOverCents: shippingType === 'FREE_OVER' && shippingFreeOverText ? Math.round(parseFloat(shippingFreeOverText) * 100) : undefined,
     };
     const themeOverrides = overridesFromValues(data);
-    updateStore(store.id, { ...patch, themeOverrides, shipping });
+    const saved = await updateStore(store.id, {
+      ...patch,
+      // Send null (not undefined) so picking an emoji clears a previous image logo and vice versa.
+      logoUrl: data.logoUrl || null,
+      logoEmoji: data.logoEmoji || null,
+      themeOverrides,
+      shipping,
+    });
+    if (!saved) {
+      toast({ title: 'Could not save changes', description: useStore.getState().apiError || 'Please try again.', type: 'error' });
+      return;
+    }
     reset(data);
     toast({ title: 'Storefront updated', type: 'success' });
   };
@@ -204,7 +216,7 @@ export default function Appearance() {
         title="Appearance"
         subtitle="Brand, theme, and design settings for your storefront."
         action={
-          <Button type="button" variant="ghost" className="gap-2 border border-line" onClick={() => window.open(`/#/s/${store.slug}`, '_blank')}>
+          <Button type="button" variant="ghost" className="gap-2 border border-line" onClick={() => window.open(storefrontUrl(store.slug), '_blank')}>
             <ExternalLink className="h-4 w-4" /> View live
           </Button>
         }
@@ -530,41 +542,74 @@ export default function Appearance() {
 }
 
 function TemplateDiagram({ id }: { id: FormValues['storefrontTemplate'] }) {
-  const common = 'rounded bg-current opacity-20';
+  const block = 'rounded bg-current opacity-15';
+  const strong = 'rounded bg-current opacity-30';
   if (id === 'market') {
+    // Search bar + category chips + dense grid
     return (
-      <div className="mt-4 grid grid-cols-4 gap-1 text-ink">
-        <span className={cn(common, 'col-span-4 h-3')} />
-        {Array.from({ length: 8 }).map((_, i) => <span key={i} className={cn(common, 'h-8')} />)}
+      <div className="mt-4 space-y-1 text-ink">
+        <div className={cn(strong, 'h-4 w-full rounded-full')} />
+        <div className="flex gap-1">
+          <span className={cn(strong, 'h-2 w-8 rounded-full')} />
+          <span className={cn(block, 'h-2 w-8 rounded-full')} />
+          <span className={cn(block, 'h-2 w-8 rounded-full')} />
+        </div>
+        <div className="grid grid-cols-5 gap-1">
+          {Array.from({ length: 10 }).map((_, i) => <span key={i} className={cn(block, 'h-6')} />)}
+        </div>
       </div>
     );
   }
   if (id === 'lookbook') {
+    // Full-bleed hero with overlay type + collage grid
     return (
-      <div className="mt-4 grid grid-cols-3 gap-1 text-ink">
-        <span className={cn(common, 'col-span-2 row-span-2 h-16')} />
-        <span className={cn(common, 'h-7')} />
-        <span className={cn(common, 'h-8')} />
-        <span className={cn(common, 'col-span-3 h-4')} />
+      <div className="mt-4 space-y-1 text-ink">
+        <div className={cn(strong, 'relative h-14 w-full overflow-hidden')}>
+          <span className="absolute bottom-1.5 start-1.5 h-2 w-1/2 rounded bg-current opacity-60" />
+          <span className="absolute bottom-5 start-1.5 h-1.5 w-1/3 rounded bg-current opacity-40" />
+        </div>
+        <div className="grid grid-cols-4 gap-1">
+          <span className={cn(block, 'col-span-2 h-8')} />
+          <span className={cn(block, 'h-8')} />
+          <span className={cn(block, 'h-8')} />
+        </div>
       </div>
     );
   }
   if (id === 'boutique') {
+    // Centered type beside full-height image, airy 3-col grid
     return (
-      <div className="mt-4 grid grid-cols-2 gap-1 text-ink">
-        <span className={cn(common, 'h-14')} />
-        <span className={cn(common, 'h-14')} />
-        <span className={cn(common, 'h-8')} />
-        <span className={cn(common, 'h-8')} />
+      <div className="mt-4 space-y-1 text-ink">
+        <div className="grid grid-cols-2 gap-1">
+          <div className="flex flex-col items-center justify-center gap-1 py-2">
+            <span className={cn(block, 'h-1.5 w-8 rounded-full')} />
+            <span className={cn(strong, 'h-3 w-12')} />
+            <span className={cn(block, 'h-1.5 w-10 rounded-full')} />
+          </div>
+          <span className={cn(strong, 'h-12')} />
+        </div>
+        <div className="grid grid-cols-3 gap-1.5">
+          {Array.from({ length: 3 }).map((_, i) => <span key={i} className={cn(block, 'h-8')} />)}
+        </div>
       </div>
     );
   }
+  // Editorial: big headline + featured card, ticker, balanced grid
   return (
-    <div className="mt-4 grid grid-cols-3 gap-1 text-ink">
-      <span className={cn(common, 'col-span-3 h-10')} />
-      <span className={cn(common, 'h-9')} />
-      <span className={cn(common, 'h-9')} />
-      <span className={cn(common, 'h-9')} />
+    <div className="mt-4 space-y-1 text-ink">
+      <div className="grid grid-cols-[1.2fr_0.8fr] gap-1">
+        <div className="flex flex-col justify-center gap-1">
+          <span className={cn(block, 'h-2 w-8 rounded-full')} />
+          <span className={cn(strong, 'h-4 w-full')} />
+          <span className={cn(strong, 'h-4 w-3/4')} />
+          <span className={cn(strong, 'h-2.5 w-10 rounded-full')} />
+        </div>
+        <span className={cn(strong, 'h-14')} />
+      </div>
+      <div className={cn(block, 'h-1.5 w-full rounded-full')} />
+      <div className="grid grid-cols-4 gap-1">
+        {Array.from({ length: 4 }).map((_, i) => <span key={i} className={cn(block, 'h-7')} />)}
+      </div>
     </div>
   );
 }

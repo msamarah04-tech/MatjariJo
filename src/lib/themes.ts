@@ -231,26 +231,26 @@ export const STOREFRONT_TEMPLATES: StorefrontTemplate[] = [
   {
     id: 'editorial',
     name: 'Editorial',
-    vibe: 'Big story, balanced grid',
-    description: 'Best for fashion, gifts, and brands that lead with a strong tagline.',
+    vibe: 'Bold magazine hero',
+    description: 'Oversized headline, a spotlighted product with a floating price card, and a category ticker. For brands with a story.',
   },
   {
     id: 'boutique',
     name: 'Boutique',
-    vibe: 'Polished showroom',
-    description: 'A refined split hero and spacious cards for premium stores.',
+    vibe: 'Elegant showroom split',
+    description: 'Full-height imagery beside centered, refined type and frameless product cards. Made for premium, curated catalogs.',
   },
   {
     id: 'market',
     name: 'Market',
-    vibe: 'Fast catalog browsing',
-    description: 'Denser filters and product cards for stores with many SKUs.',
+    vibe: 'Search-first catalog',
+    description: 'A big search bar and category chips right in the hero, with a dense five-column grid. Built for many products.',
   },
   {
     id: 'lookbook',
     name: 'Lookbook',
-    vibe: 'Image-first collection',
-    description: 'Visual, immersive sections for apparel, decor, and lifestyle products.',
+    vibe: 'Immersive imagery',
+    description: 'A full-bleed photo hero with overlay type and an oversized collage grid. Let photography do the selling.',
   },
 ];
 

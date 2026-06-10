@@ -44,8 +44,8 @@ export default function SignIn() {
 
       <Card className="w-full max-w-md relative z-10 animate-fade-up">
         <CardHeader className="text-center pb-8 pt-10">
-          <CardTitle className="text-5xl font-logo !font-black !tracking-tighter">
-            PLINTH<span className="text-accent">.</span>
+          <CardTitle>
+            <img src="/logo.png" alt="Matjari Jordan" className="mx-auto h-24 w-auto -my-4" />
           </CardTitle>
           <p className="text-muted mt-4 text-[10px] uppercase font-bold tracking-widest">{t('backendConnected')}</p>
         </CardHeader>

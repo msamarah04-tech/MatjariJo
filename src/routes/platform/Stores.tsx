@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Copy, ExternalLink, KeyRound, LayoutGrid, Search, Settings2, Star, Trash2 } from 'lucide-react';
 import { useStore } from '@/lib/store';
+import { storefrontUrl } from '@/lib/tenant';
 import { money } from '@/lib/format';
-import { Order, OwnerStatus, Store, StoreStatus } from '@/lib/types';
+import { Order, OwnerStatus, PlanStatus, Store, StorePlan, StoreStatus } from '@/lib/types';
+import { PLAN_DEFS, PLAN_ORDER } from '@shared/plans';
 import { effectiveCommissionBps } from '@/lib/analytics';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -22,6 +24,7 @@ const REVENUE_STATUSES: Order['status'][] = ['APPROVED', 'FULFILLED'];
 
 const ownerName = (ownerId: string) => ownerId;
 const ownerTone = (status: OwnerStatus) => (status === 'ACTIVE' ? 'green' : status === 'RESTRICTED' ? 'amber' : 'red');
+const planTone = (status?: PlanStatus) => (status === 'ACTIVE' ? 'green' : status === 'PAST_DUE' ? 'amber' : 'blue');
 
 export default function Stores() {
   const stores = useStore((s) => s.stores);
@@ -32,6 +35,8 @@ export default function Stores() {
 
   const setStoreStatus = useStore((s) => s.setStoreStatus);
   const setStoreCommission = useStore((s) => s.setStoreCommission);
+  const setStorePlan = useStore((s) => s.setStorePlan);
+  const recordPlanPayment = useStore((s) => s.recordPlanPayment);
   const toggleFeatured = useStore((s) => s.toggleFeatured);
   const setOwnerStatus = useStore((s) => s.setOwnerStatus);
   const deletePlatformStore = useStore((s) => s.deletePlatformStore);
@@ -179,7 +184,7 @@ export default function Stores() {
                   <th className="px-4 py-3 text-right">Products</th>
                   <th className="px-4 py-3 text-right">Orders</th>
                   <th className="px-4 py-3 text-right">GMV</th>
-                  <th className="px-4 py-3 text-right">Commission</th>
+                  <th className="px-4 py-3 text-right">Plan</th>
                   <th className="px-4 py-3 text-right">Status</th>
                 </tr>
               </thead>
@@ -203,9 +208,10 @@ export default function Stores() {
                     <td className="px-4 py-3 text-right font-semibold">{row.orderCount}</td>
                     <td className="px-4 py-3 text-right font-semibold">{money(row.gmvCents, row.store.currency)}</td>
                     <td className="px-4 py-3 text-right">
-                      <span className={cn('font-semibold', row.store.commissionOverrideBps !== undefined && 'text-accent')}>
-                        {(row.commissionBps / 100).toFixed(1)}%
-                      </span>
+                      <div className="flex items-center justify-end gap-2">
+                        <span className="font-semibold">{row.store.plan ?? 'STARTER'}</span>
+                        <StatusPill label={row.store.planStatus ?? 'TRIAL'} tone={planTone(row.store.planStatus)} />
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <StatusPill label={row.store.status} tone={row.store.status === 'ACTIVE' ? 'green' : 'red'} />
@@ -226,8 +232,9 @@ export default function Stores() {
                     <span className="truncate">{row.store.name}</span>
                     {row.store.isFeatured && <Star className="h-3.5 w-3.5 fill-accent text-accent" />}
                   </div>
-                  <p className="truncate text-xs text-muted">{money(row.gmvCents, row.store.currency)} · {row.orderCount} orders</p>
+                  <p className="truncate text-xs text-muted">{money(row.gmvCents, row.store.currency)} · {row.orderCount} orders · {row.store.plan ?? 'STARTER'}</p>
                 </div>
+                <StatusPill label={row.store.planStatus ?? 'TRIAL'} tone={planTone(row.store.planStatus)} />
                 <StatusPill label={row.store.status} tone={row.store.status === 'ACTIVE' ? 'green' : 'red'} />
               </button>
             ))}
@@ -249,6 +256,14 @@ export default function Stores() {
             onSuspend={() => setConfirm({ kind: 'suspend', store: activeRow.store })}
             onToggleFeatured={() => { toggleFeatured(activeRow.store.id); toast({ title: activeRow.store.isFeatured ? 'Store unfeatured' : 'Store featured', type: 'success' }); }}
             onSetCommission={(bps) => { setStoreCommission(activeRow.store.id, bps); toast({ title: bps === undefined ? 'Override cleared' : 'Commission updated', type: 'success' }); }}
+            onSetPlan={async (plan) => {
+              const ok = await setStorePlan(activeRow.store.id, plan);
+              toast(ok ? { title: `Plan changed to ${plan}`, type: 'success' } : { title: 'Could not change plan', type: 'error' });
+            }}
+            onRecordPayment={async () => {
+              const ok = await recordPlanPayment(activeRow.store.id);
+              toast(ok ? { title: 'Payment recorded', description: 'Paid-until extended by one month.', type: 'success' } : { title: 'Could not record payment', type: 'error' });
+            }}
             onOwner={(next) => {
               if (next === 'ACTIVE') { setOwnerStatus(activeRow.store.ownerId, 'ACTIVE'); toast({ title: 'Owner reactivated', type: 'success' }); }
               else setConfirm({ kind: next === 'BANNED' ? 'ban' : 'restrict', store: activeRow.store });
@@ -323,6 +338,8 @@ function StoreDetail({
   onSuspend,
   onToggleFeatured,
   onSetCommission,
+  onSetPlan,
+  onRecordPayment,
   onOwner,
   onResetPassword,
   onDelete,
@@ -333,6 +350,8 @@ function StoreDetail({
   onSuspend: () => void;
   onToggleFeatured: () => void;
   onSetCommission: (bps?: number) => void;
+  onSetPlan: (plan: StorePlan) => void;
+  onRecordPayment: () => void;
   onOwner: (next: OwnerStatus) => void;
   onResetPassword: () => void;
   onDelete: () => void;
@@ -357,12 +376,42 @@ function StoreDetail({
       </div>
 
       <div className="flex gap-2">
-        <Button variant="ghost" className="flex-1 gap-2 border border-line" onClick={() => window.open(`/#/s/${store.slug}`, '_blank')}>
+        <Button variant="ghost" className="flex-1 gap-2 border border-line" onClick={() => window.open(storefrontUrl(store.slug), '_blank')}>
           <ExternalLink className="h-4 w-4" /> Storefront
         </Button>
         <Button variant="ghost" className="flex-1 gap-2 border border-line" onClick={() => window.open(`/#/admin/${store.id}`, '_blank')}>
           <Settings2 className="h-4 w-4" /> Admin
         </Button>
+      </div>
+
+      {/* Subscription (manual billing) */}
+      <div className="rounded-xl border border-line bg-paper p-4">
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted">Subscription</p>
+          <StatusPill label={store.planStatus ?? 'TRIAL'} tone={planTone(store.planStatus)} />
+        </div>
+        <p className="mb-3 text-xs text-muted">
+          {store.planPaidUntil
+            ? `${store.planStatus === 'TRIAL' ? 'Trial ends' : store.planStatus === 'PAST_DUE' ? 'Lapsed' : 'Paid until'} ${new Date(store.planPaidUntil).toLocaleDateString()}`
+            : 'No billing date recorded yet.'}
+        </p>
+        <div className="mb-3 grid grid-cols-3 gap-2">
+          {PLAN_ORDER.map((plan) => (
+            <button
+              key={plan}
+              type="button"
+              onClick={() => plan !== store.plan && onSetPlan(plan)}
+              className={cn(
+                'rounded-lg border px-2 py-2 text-center transition-colors',
+                store.plan === plan ? 'border-accent bg-accent-soft text-accent' : 'border-line bg-surface hover:border-ink/30',
+              )}
+            >
+              <span className="block text-xs font-black">{plan}</span>
+              <span className="block text-[10px] font-bold text-muted">JOD {PLAN_DEFS[plan].priceMonthlyJod}/mo</span>
+            </button>
+          ))}
+        </div>
+        <Button variant="accent" className="w-full" onClick={onRecordPayment}>Record payment (+1 month)</Button>
       </div>
 
       {/* Commission override */}

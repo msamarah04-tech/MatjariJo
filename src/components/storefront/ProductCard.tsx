@@ -20,7 +20,7 @@ import { getProductCategorySchema, tr } from '@/lib/productCategory';
 /**
  * NOTE: the brief named the prop type `StorefrontProduct` with `priceMinor` /
  * `compareAtPriceMinor` / top-level `slug` / `details.options[].values: string[]`.
- * Plinth's actual shared storefront product (the source of truth, from the storefront
+ * Matjari's actual shared storefront product (the source of truth, from the storefront
  * API serializer) is `Product` from `@/lib/types` — money lives in `*Cents` (already
  * integer MINOR units per shared/money.ts), the slug lives in `details.slug`, options
  * carry `{ value, colorHex }` objects, and variants use `selections`/`priceCents`/

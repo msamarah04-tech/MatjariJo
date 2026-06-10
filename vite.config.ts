@@ -15,7 +15,9 @@ export default defineConfig(() => {
     server: {
       host: '0.0.0.0',
       port: 5000,
-      allowedHosts: true,
+      // `as const`: the type is `true | string[]`, so a plain boolean doesn't typecheck.
+      // true = accept any Host header (needed for <slug>.localhost tenant domains).
+      allowedHosts: true as const,
       hmr: process.env.DISABLE_HMR !== 'true',
       watch: process.env.DISABLE_HMR === 'true' ? null : {
         ignored: ['**/.local/**', '**/node_modules/**'],

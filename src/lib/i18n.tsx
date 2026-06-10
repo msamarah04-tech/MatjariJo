@@ -3,7 +3,9 @@ import { formatMoney, DEFAULT_CURRENCY } from '@shared/money';
 import { setMoneyLocale } from '@/lib/format';
 
 export type Lang = 'en' | 'ar';
-const STORAGE_KEY = 'plinth-lang';
+const STORAGE_KEY = 'matjari-lang';
+// Pre-rebrand key; read once as a fallback so existing visitors keep their language.
+const LEGACY_STORAGE_KEY = 'plinth-lang';
 export const AMMAN_TZ = 'Asia/Amman';
 
 const localeFor = (lang: Lang) => (lang === 'ar' ? 'ar-JO' : 'en-JO');
@@ -55,6 +57,7 @@ const en: Dict = {
   navFeatures: 'Features',
   navHowItWorks: 'How it works',
   navBrands: 'Brands',
+  navPricing: 'Pricing',
   navLogIn: 'Log in',
   navStartSelling: 'Start Selling',
 
@@ -116,25 +119,25 @@ const en: Dict = {
   // ── landing – faq ────────────────────────────────────────────────────────
   faqTag: 'FAQ',
   faqTitle: 'Common questions.',
-  faq1Q: 'Is Plinth optimised for businesses in Jordan?',
+  faq1Q: 'Is Matjari optimised for businesses in Jordan?',
   faq1A: 'Yes. Every detail — from JOD currency with 3-decimal precision to the COD approval workflow and Jordan phone validation — is purpose-built for the local market.',
   faq2Q: 'How customisable are the storefronts?',
   faq2A: 'Completely. Switch themes instantly, upload your logo, configure announcements, set your brand colours, and preview every change live before publishing.',
   faq3Q: 'Can I run discount campaigns and track their impact?',
   faq3A: 'Yes. Create percentage, fixed-amount, or free-shipping codes with usage caps, minimum cart thresholds, and expiry dates. Analytics shows revenue impact per campaign.',
   faq4Q: 'Do I need to install anything?',
-  faq4A: 'No software, no plugins. Plinth runs entirely in the browser — manage your store from any device, anywhere.',
+  faq4A: 'No software, no plugins. Matjari runs entirely in the browser — manage your store from any device, anywhere.',
 
   // ── landing – cta ────────────────────────────────────────────────────────
   ctaBadge: 'Ready to launch?',
   ctaTitle1: 'Start selling in',
   ctaTitle2: 'Jordan today.',
-  ctaSub: 'Join a growing community of Jordanian brands using Plinth to run their online business with zero complexity.',
+  ctaSub: 'Join a growing community of Jordanian brands using Matjari to run their online business with zero complexity.',
   ctaPrimary: 'Request your store',
   ctaSecondary: 'Merchant login',
 
   // ── landing – footer ─────────────────────────────────────────────────────
-  footerCopyright: `© ${new Date().getFullYear()} Plinth. Built for Jordan.`,
+  footerCopyright: `© ${new Date().getFullYear()} Matjari Jordan. Built for Jordan.`,
   footerStartSelling: 'Start Selling',
   footerMerchantLogin: 'Merchant Login',
   footerFeatures: 'Features',
@@ -160,6 +163,26 @@ const en: Dict = {
   adminNoAccessDesc: "This store doesn't exist or you don't have access to it.",
   adminGoToMyStores: 'Go to my stores',
   adminMaintenanceMsg: 'Maintenance mode is on — your storefront shows a maintenance notice to customers.',
+  adminPastDueMsg: 'Your subscription payment is overdue — your storefront is still live. Contact support to settle your invoice.',
+  // ── pricing page ─────────────────────────────────────────────────────────
+  pricingTitle: 'Simple monthly pricing',
+  pricingSubtitle: 'Keep everything you sell — no commission, no hidden fees. Start with a free 14-day trial.',
+  pricingPerMonth: '/month',
+  pricingMostPopular: 'Most popular',
+  pricingTrialNote: 'Every store starts with a free 14-day trial. Pay by CliQ or bank transfer.',
+  pricingCta: 'Start free trial',
+  pricingUpToProducts: 'Up to {n} products',
+  pricingUnlimitedProducts: 'Unlimited products',
+  pricingStarterDesc: 'Everything you need to open your first online store.',
+  pricingGrowthDesc: 'A bigger catalog for shops that are picking up speed.',
+  pricingScaleDesc: 'No limits for established brands moving real volume.',
+  pricingFeatureStorefront: 'Your own storefront at yourshop.matjari.jo',
+  pricingFeatureThemes: 'All templates, themes, and custom colors',
+  pricingFeatureCod: 'Cash on Delivery orders with internal tax invoices',
+  pricingFeatureAnalytics: 'Sales analytics and discount codes',
+  pricingFeatureSupport: 'Priority support',
+  legalPrivacyTitle: 'Privacy',
+  legalTermsTitle: 'Terms',
 
   // ── platform nav ─────────────────────────────────────────────────────────
   navShopRequests: 'Shop Requests',
@@ -219,6 +242,7 @@ const ar: Dict = {
   navFeatures: 'المميزات',
   navHowItWorks: 'كيف يعمل',
   navBrands: 'العلامات',
+  navPricing: 'الأسعار',
   navLogIn: 'تسجيل الدخول',
   navStartSelling: 'ابدأ البيع',
 
@@ -280,25 +304,25 @@ const ar: Dict = {
   // ── landing – faq ────────────────────────────────────────────────────────
   faqTag: 'الأسئلة الشائعة',
   faqTitle: 'أسئلة شائعة.',
-  faq1Q: 'هل Plinth محسَّن للشركات في الأردن؟',
+  faq1Q: 'هل متجري محسَّن للشركات في الأردن؟',
   faq1A: 'نعم. كل تفصيل — من عملة JOD بدقة 3 خانات عشرية إلى سير عمل الموافقة على الدفع عند الاستلام والتحقق من أرقام الهاتف الأردنية — مبني خصيصاً للسوق المحلية.',
   faq2Q: 'ما مدى قابلية تخصيص واجهات المتاجر؟',
   faq2A: 'كلياً. بدّل القوالب فوراً، ارفع شعارك، اضبط الإعلانات، وعاين كل تغيير مباشرةً قبل النشر.',
   faq3Q: 'هل يمكنني إدارة حملات الخصم وتتبّع تأثيرها؟',
   faq3A: 'نعم. أنشئ رموز نسبة مئوية أو مبلغ ثابت أو شحن مجاني مع حدود استخدام وحد أدنى للسلة وتواريخ انتهاء. تُظهر التحليلات تأثير الإيرادات لكل حملة.',
   faq4Q: 'هل أحتاج إلى تثبيت أي شيء؟',
-  faq4A: 'لا برامج ولا إضافات. يعمل Plinth بالكامل في المتصفح — أدر متجرك من أي جهاز وأي مكان.',
+  faq4A: 'لا برامج ولا إضافات. يعمل متجري بالكامل في المتصفح — أدر متجرك من أي جهاز وأي مكان.',
 
   // ── landing – cta ────────────────────────────────────────────────────────
   ctaBadge: 'هل أنت مستعد للإطلاق؟',
   ctaTitle1: 'ابدأ البيع في',
   ctaTitle2: 'الأردن اليوم.',
-  ctaSub: 'انضم إلى مجتمع متنامٍ من العلامات التجارية الأردنية التي تستخدم Plinth لإدارة أعمالها الإلكترونية بكل سهولة.',
+  ctaSub: 'انضم إلى مجتمع متنامٍ من العلامات التجارية الأردنية التي تستخدم متجري لإدارة أعمالها الإلكترونية بكل سهولة.',
   ctaPrimary: 'اطلب متجرك',
   ctaSecondary: 'دخول التجار',
 
   // ── landing – footer ─────────────────────────────────────────────────────
-  footerCopyright: `© ${new Date().getFullYear()} Plinth. مبني للأردن.`,
+  footerCopyright: `© ${new Date().getFullYear()} متجري الأردن. مبني للأردن.`,
   footerStartSelling: 'ابدأ البيع',
   footerMerchantLogin: 'دخول التجار',
   footerFeatures: 'المميزات',
@@ -324,6 +348,26 @@ const ar: Dict = {
   adminNoAccessDesc: 'هذا المتجر غير موجود أو ليس لديك صلاحية الوصول إليه.',
   adminGoToMyStores: 'الذهاب إلى متاجري',
   adminMaintenanceMsg: 'وضع الصيانة مفعّل — واجهة متجرك تعرض إشعار صيانة للعملاء.',
+  adminPastDueMsg: 'دفعة اشتراكك متأخرة — متجرك لا يزال يعمل. تواصل مع الدعم لتسوية الفاتورة.',
+  // ── pricing page ─────────────────────────────────────────────────────────
+  pricingTitle: 'أسعار شهرية بسيطة',
+  pricingSubtitle: 'احتفظ بكل ما تبيعه — بدون عمولة وبدون رسوم خفية. ابدأ بتجربة مجانية لمدة 14 يوماً.',
+  pricingPerMonth: '/شهرياً',
+  pricingMostPopular: 'الأكثر شيوعاً',
+  pricingTrialNote: 'كل متجر يبدأ بتجربة مجانية لمدة 14 يوماً. الدفع عبر كليك أو حوالة بنكية.',
+  pricingCta: 'ابدأ التجربة المجانية',
+  pricingUpToProducts: 'حتى {n} منتجاً',
+  pricingUnlimitedProducts: 'منتجات غير محدودة',
+  pricingStarterDesc: 'كل ما تحتاجه لفتح متجرك الإلكتروني الأول.',
+  pricingGrowthDesc: 'كتالوج أكبر للمتاجر التي تنمو بسرعة.',
+  pricingScaleDesc: 'بلا حدود للعلامات التجارية الراسخة ذات الحجم الكبير.',
+  pricingFeatureStorefront: 'متجرك الخاص على yourshop.matjari.jo',
+  pricingFeatureThemes: 'كل القوالب والثيمات والألوان المخصصة',
+  pricingFeatureCod: 'طلبات الدفع عند الاستلام مع فواتير ضريبية داخلية',
+  pricingFeatureAnalytics: 'تحليلات المبيعات ورموز الخصم',
+  pricingFeatureSupport: 'دعم ذو أولوية',
+  legalPrivacyTitle: 'الخصوصية',
+  legalTermsTitle: 'الشروط',
 
   // ── platform nav ─────────────────────────────────────────────────────────
   navShopRequests: 'طلبات المتاجر',
@@ -357,7 +401,9 @@ const I18nContext = createContext<I18nValue | null>(null);
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [lang, setLang] = useState<Lang>(() => {
     if (typeof localStorage === 'undefined') return 'en';
-    return (localStorage.getItem(STORAGE_KEY) as Lang) || 'en';
+    return (localStorage.getItem(STORAGE_KEY) as Lang)
+      || (localStorage.getItem(LEGACY_STORAGE_KEY) as Lang)
+      || 'en';
   });
   const dir = lang === 'ar' ? 'rtl' : 'ltr';
   const locale = localeFor(lang);

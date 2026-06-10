@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, ClipboardList, Copy, Search, XCircle } from 'lucide-react';
 import { useStore } from '@/lib/store';
+import { storefrontUrl } from '@/lib/tenant';
 import { THEMES } from '@/lib/themes';
 import { timeAgo } from '@/lib/format';
 import { ShopRequest, ShopRequestStatus } from '@/lib/types';
@@ -294,7 +295,7 @@ function RequestDetail({ request, storeSlug, onMarkReview }: { request: ShopRequ
       {request.storeId && storeSlug && (
         <div className="rounded-xl border border-green-200 bg-green-50 p-3">
           <p className="text-sm font-bold text-green-800">Store created — /{storeSlug}</p>
-          <Button size="sm" variant="ghost" className="mt-2 border border-green-200 bg-white/70 text-green-800" onClick={() => window.open(`/#/s/${storeSlug}`, '_blank')}>
+          <Button size="sm" variant="ghost" className="mt-2 border border-green-200 bg-white/70 text-green-800" onClick={() => window.open(storefrontUrl(storeSlug), '_blank')}>
             Open storefront
           </Button>
         </div>

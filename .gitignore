@@ -15,3 +15,6 @@ prisma/dev.db
 prisma/shadow.db
 test-results/
 playwright-report/
+
+# Replit agent state / local tooling
+.local/
