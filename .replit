@@ -22,7 +22,6 @@ INITIAL_PLATFORM_EMAIL = "owner@matjari.local"
 INITIAL_PLATFORM_USERNAME = "platform-admin"
 INITIAL_PLATFORM_PASSWORD = "ChangeMe123!"
 INITIAL_PLATFORM_NAME = "Platform Owner"
-MATJARI_DB_URL = "file:./dev.db"
 
 [workflows]
 runButton = "Project"
@@ -40,13 +39,13 @@ args = "Start application"
 name = "Start application"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run dev:all"
-waitForPort = 5000
-
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx concurrently -n frontend,backend -c cyan,magenta \"npm run dev\" \"npm run api:dev\""
+waitForPort = 5000
 
 [[ports]]
 localPort = 4000
