@@ -22,7 +22,7 @@ INITIAL_PLATFORM_EMAIL = "owner@matjari.local"
 INITIAL_PLATFORM_USERNAME = "platform-admin"
 INITIAL_PLATFORM_PASSWORD = "ChangeMe123!"
 INITIAL_PLATFORM_NAME = "Platform Owner"
-MAIL_FROM = "Matjari Jordan <no-reply@matjari.jo>"
+MAIL_FROM = "Matjari Jordan <onboarding@resend.dev>"
 
 [workflows]
 runButton = "Project"
