@@ -6,11 +6,11 @@
   "scripts": {
     "dev": "vite",
     "dev:all": "concurrently -n frontend,backend -c cyan,magenta \"npm run dev\" \"npm run api:dev\"",
-    "api:dev": "DATABASE_URL=file:./dev.db tsx watch server/index.ts",
+    "api:dev": "tsx watch server/index.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
-    "db:seed": "DATABASE_URL=${DATABASE_URL:-file:./dev.db} prisma db seed",
+    "db:seed": "prisma db seed",
     "db:backup": "tsx scripts/backup.ts",
     "build": "vite build",
     "preview": "vite preview",
