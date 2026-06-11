@@ -314,7 +314,8 @@ export const discountPatchSchema = discountFieldsSchema.partial().strict();
 
 export const publicOrderSchema = z.object({
   customerName: z.string().trim().min(1).max(120),
-  customerEmail: z.preprocess((value) => value === '' ? undefined : value, emailSchema.optional()),
+  // Required: order-lifecycle emails (confirmation, approval + invoice, fulfillment) go here.
+  customerEmail: emailSchema,
   customerPhone: jordanPhoneSchema.optional(),
   shippingAddress: z.string().trim().max(1000).optional(),
   note: z.string().trim().max(1000).optional(),

@@ -12,6 +12,7 @@ import { isPlatformOwner } from '../policies/roles.policy.js';
 import { changeOrderStatus } from '../services/orders.js';
 import { buildStoreDataExport } from '../services/dataPrivacy.js';
 import { buildInvoiceModel, renderInvoiceHtml } from '../services/invoices.js';
+import { notifyOrderApproved, notifyOrderFulfilled, notifyOrderRejected } from '../services/notifications.js';
 import {
   adminStorePatchSchema,
   discountBaseSchema,
@@ -160,12 +161,26 @@ adminRouter.get('/admin/stores/:storeId/orders/:orderId/invoice', requireStoreAc
   res.type('html').send(renderInvoiceHtml(model, lang));
 }));
 
-adminRouter.post('/admin/stores/:storeId/orders/:orderId/approve', requireStoreAccess, asyncRoute(async (req, res) => res.json({ order: serializeOrder(await changeOrderStatus(req.user!, req.params.orderId, 'APPROVED', undefined, req.params.storeId)) })));
+adminRouter.post('/admin/stores/:storeId/orders/:orderId/approve', requireStoreAccess, asyncRoute(async (req, res) => {
+  const order = await changeOrderStatus(req.user!, req.params.orderId, 'APPROVED', undefined, req.params.storeId);
+  const store = await prisma.store.findUnique({ where: { id: req.params.storeId } });
+  // Fire-and-forget: the customer gets the approval email with the bill attached (EN + AR).
+  if (store) notifyOrderApproved(store, order);
+  res.json({ order: serializeOrder(order) });
+}));
 adminRouter.post('/admin/stores/:storeId/orders/:orderId/reject', requireStoreAccess, asyncRoute(async (req, res) => {
   const input = rejectSchema.parse(req.body);
-  res.json({ order: serializeOrder(await changeOrderStatus(req.user!, req.params.orderId, 'REJECTED', input.reason, req.params.storeId)) });
+  const order = await changeOrderStatus(req.user!, req.params.orderId, 'REJECTED', input.reason, req.params.storeId);
+  const store = await prisma.store.findUnique({ where: { id: req.params.storeId } });
+  if (store) notifyOrderRejected(store, order);
+  res.json({ order: serializeOrder(order) });
 }));
-adminRouter.post('/admin/stores/:storeId/orders/:orderId/fulfill', requireStoreAccess, asyncRoute(async (req, res) => res.json({ order: serializeOrder(await changeOrderStatus(req.user!, req.params.orderId, 'FULFILLED', undefined, req.params.storeId)) })));
+adminRouter.post('/admin/stores/:storeId/orders/:orderId/fulfill', requireStoreAccess, asyncRoute(async (req, res) => {
+  const order = await changeOrderStatus(req.user!, req.params.orderId, 'FULFILLED', undefined, req.params.storeId);
+  const store = await prisma.store.findUnique({ where: { id: req.params.storeId } });
+  if (store) notifyOrderFulfilled(store, order);
+  res.json({ order: serializeOrder(order) });
+}));
 
 adminRouter.get('/admin/stores/:storeId/discounts', requireStoreAccess, asyncRoute(async (req, res) => {
   const discounts = await prisma.discount.findMany({ where: { storeId: req.params.storeId }, orderBy: { createdAt: 'desc' } });

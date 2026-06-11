@@ -155,7 +155,7 @@ storefrontRouter.post('/public/stores/:slug/orders', publicWriteRateLimiter, asy
         data: {
           storeId: store.id,
           customerName: input.customerName,
-          customerEmail: input.customerEmail ?? '',
+          customerEmail: input.customerEmail,
           customerPhone: input.customerPhone,
           shippingAddress: input.shippingAddress,
           note: input.note,

@@ -75,7 +75,7 @@ const GOVERNORATES = [
 
 const checkoutSchema = z.object({
   customerName: z.string().trim().min(2, 'Full name is required.'),
-  customerEmail: z.string().trim().email('Enter a valid email.').optional().or(z.literal('')),
+  customerEmail: z.string().trim().email('Enter a valid email.'),
   customerPhone: z.string().trim().refine(isJordanMobile, 'Enter a valid Jordan mobile number.'),
   governorate: z.enum(GOVERNORATES, { message: 'Choose a governorate.' }),
   address: z.string().trim().min(8, 'Delivery address is required.'),
@@ -132,7 +132,7 @@ const text = {
     customer: 'Customer',
     delivery: 'Delivery',
     fullName: 'Full name',
-    emailOptional: 'Email (optional)',
+    emailOptional: 'Email (for your order updates and invoice)',
     phone: 'Jordan mobile',
     governorate: 'Governorate',
     address: 'Street, building, area',
@@ -205,7 +205,7 @@ const text = {
     customer: 'العميل',
     delivery: 'التوصيل',
     fullName: 'الاسم الكامل',
-    emailOptional: 'البريد الإلكتروني (اختياري)',
+    emailOptional: 'البريد الإلكتروني (لتحديثات طلبك والفاتورة)',
     phone: 'رقم الموبايل الأردني',
     governorate: 'المحافظة',
     address: 'الشارع، المبنى، المنطقة',
@@ -573,7 +573,7 @@ function StorefrontFrame({ store, products, discounts }: { store: Store; product
       const orderId = await placeOrder({
         storeId: store.id,
         customerName: values.customerName,
-        customerEmail: values.customerEmail || undefined,
+        customerEmail: values.customerEmail,
         customerPhone: normalizedPhone,
         shippingAddress: address,
         discountCode: appliedCode,

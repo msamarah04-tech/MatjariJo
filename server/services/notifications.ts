@@ -6,6 +6,7 @@ import { formatMoney } from '../../shared/money.js';
 import { PLAN_DEFS, TRIAL_DAYS } from '../../shared/plans.js';
 import type { StorePlan } from '../../shared/contract.js';
 import { sendMail } from './mail.js';
+import { buildInvoiceModel, renderInvoiceHtml } from './invoices.js';
 
 type OrderWithItems = Order & { items: OrderItem[] };
 
@@ -64,6 +65,58 @@ export function notifyOrderPlaced(store: Store, order: OrderWithItems): void {
       });
     })
     .catch((error) => logger.error({ err: error, storeId: store.id }, 'Owner order alert lookup failed'));
+}
+
+/**
+ * Order approved by the owner: the customer gets the confirmation plus the
+ * internal tax invoice (the bill) attached in English and Arabic.
+ */
+export function notifyOrderApproved(store: Store, order: OrderWithItems): void {
+  if (!order.customerEmail) return; // legacy orders may predate the required-email checkout
+  (async () => {
+    const model = await buildInvoiceModel(order.id);
+    const attachments = (['en', 'ar'] as const).map((lang) => ({
+      filename: `invoice-${model.number}-${lang}.html`,
+      content: Buffer.from(renderInvoiceHtml(model, lang), 'utf8').toString('base64'),
+      contentType: 'text/html',
+    }));
+    sendMail({
+      to: order.customerEmail,
+      subject: `Order approved — ${store.name} · Invoice ${model.number}`,
+      html: wrap(`Your order is approved ✅`, `
+        <p style="font-size:14px;line-height:1.6"><strong>${store.name}</strong> approved your order and it is being prepared. Invoice: <code>${model.number}</code></p>
+        ${orderLinesHtml(order)}
+        <p style="font-size:14px;line-height:1.6;margin-top:16px">Please have <strong>${money(order.totalCents, order.currency)}</strong> ready — payment is cash on delivery.</p>
+        <p style="font-size:14px;line-height:1.6">Your tax invoice is attached in English and Arabic. فاتورتك الضريبية مرفقة بالعربية والإنجليزية.</p>`),
+      attachments,
+    });
+  })().catch((error) => logger.error({ err: error, orderId: order.id }, 'Order approval email failed'));
+}
+
+/** Order rejected: tell the customer, including the owner's reason. */
+export function notifyOrderRejected(store: Store, order: OrderWithItems): void {
+  if (!order.customerEmail) return;
+  sendMail({
+    to: order.customerEmail,
+    subject: `Order update — ${store.name}`,
+    html: wrap('About your order', `
+      <p style="font-size:14px;line-height:1.6">We're sorry — <strong>${store.name}</strong> could not accept your order <code>${order.id}</code>.</p>
+      ${order.rejectionReason ? `<p style="font-size:14px;line-height:1.6">Reason: ${order.rejectionReason}</p>` : ''}
+      <p style="font-size:14px;line-height:1.6">Nothing was charged — payment is cash on delivery. You're welcome to place a new order any time.</p>`),
+  });
+}
+
+/** Order fulfilled: delivery / handover confirmation. */
+export function notifyOrderFulfilled(store: Store, order: OrderWithItems): void {
+  if (!order.customerEmail) return;
+  sendMail({
+    to: order.customerEmail,
+    subject: `Your order is on its way — ${store.name}`,
+    html: wrap('Your order is on its way 🚚', `
+      <p style="font-size:14px;line-height:1.6"><strong>${store.name}</strong> marked your order <code>${order.invoiceNumber || order.id}</code> as fulfilled.</p>
+      <p style="font-size:14px;line-height:1.6">Delivery to: ${order.shippingAddress || 'address on file'}. Please have <strong>${money(order.totalCents, order.currency)}</strong> ready in cash.</p>
+      <p style="font-size:14px;line-height:1.6">Thank you for shopping with ${store.name}!</p>`),
+  });
 }
 
 /** Shop request approved: welcome the owner with their storefront link and trial window. */
