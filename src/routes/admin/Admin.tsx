@@ -34,6 +34,8 @@ import { LangToggle } from '@/components/ui/LangToggle';
 
 import Overview from './Overview';
 import Products from './Products';
+import ProductEditor from './ProductEditor';
+import ProductImport from './ProductImport';
 import Orders from './Orders';
 import Discounts from './Discounts';
 import Appearance from './Appearance';
@@ -65,7 +67,12 @@ export default function Admin() {
       <Route index element={<StoreResolver />} />
       <Route path=":storeId" element={<AdminShell />}>
         <Route index element={<Overview />} />
-        <Route path="products" element={<Products />} />
+        <Route path="products">
+          <Route index element={<Products />} />
+          <Route path="new" element={<ProductEditor />} />
+          <Route path="import" element={<ProductImport />} />
+          <Route path=":productId/edit" element={<ProductEditor />} />
+        </Route>
         <Route path="orders" element={<Orders />} />
         <Route path="discounts" element={<Discounts />} />
         <Route

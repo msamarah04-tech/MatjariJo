@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Boxes, Eye, EyeOff, PackageSearch, Plus, Star, TriangleAlert } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Boxes, Eye, EyeOff, FileUp, PackageSearch, Plus, Star, TriangleAlert } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { money } from '@/lib/format';
 import { Product } from '@/lib/types';
@@ -8,17 +9,15 @@ import { StoreAvatar, PageHeader, SegmentedControl } from '@/components/ui/dashb
 import { ResourceTable, Column } from '@/components/ui/ResourceTable';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { toast } from '@/components/ui/Toast';
-import { useFocusParam } from '@/lib/useFocusParam';
 import { cn } from '@/lib/cn';
 import { LOW_STOCK_THRESHOLD, useAdminContext, useStoreProducts } from './shared';
 import { isVariableProduct, productPriceRange, productStock } from '@/lib/productOptions';
-import { ProductWizard } from './ProductWizard';
 
 type StatusFilter = 'ALL' | 'ACTIVE' | 'HIDDEN';
 
 export default function Products() {
   const { storeId, store } = useAdminContext();
-  const addProduct = useStore((s) => s.addProduct);
+  const navigate = useNavigate();
   const updateProduct = useStore((s) => s.updateProduct);
   const deleteProduct = useStore((s) => s.deleteProduct);
   const platformCategories = useStore((s) => s.platformSettings.categories);
@@ -27,10 +26,7 @@ export default function Products() {
   const [status, setStatus] = useState<StatusFilter>('ALL');
   const [category, setCategory] = useState('ALL');
   const [collection, setCollection] = useState('ALL');
-  const [editing, setEditing] = useState<Product | null>(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const [deleting, setDeleting] = useState<Product | null>(null);
-  const [focusId, clearFocus] = useFocusParam();
 
   const storeProducts = useMemo(() => [...scopedProducts].sort((a, b) => b.createdAt - a.createdAt), [scopedProducts]);
   const categories = useMemo(() => Array.from(new Set([
@@ -39,15 +35,6 @@ export default function Products() {
     ...storeProducts.map((p) => p.category?.trim()).filter(Boolean) as string[],
   ])).filter(Boolean).sort((a, b) => a.localeCompare(b)), [platformCategories, store.category, storeProducts]);
   const collections = useMemo(() => Array.from(new Set(storeProducts.map((p) => p.collection?.trim()).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b)), [storeProducts]);
-
-  // Deep link → open the product editor.
-  useEffect(() => {
-    if (!focusId) return;
-    const product = storeProducts.find((p) => p.id === focusId);
-    if (product) { setEditing(product); setDrawerOpen(true); }
-    clearFocus();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusId]);
 
   const rows = useMemo(() => storeProducts
     .filter((p) => status === 'ALL' || (status === 'ACTIVE' ? p.isActive : !p.isActive))
@@ -61,30 +48,6 @@ export default function Products() {
     HIDDEN: storeProducts.filter((p) => !p.isActive).length,
     FEATURED: storeProducts.filter((p) => p.isFeatured).length,
     LOW: storeProducts.filter((p) => p.isActive && productStock(p) <= LOW_STOCK_THRESHOLD).length,
-  };
-
-  const openCreate = () => { setEditing(null); setDrawerOpen(true); };
-  const openEdit = (product: Product) => { setEditing(product); setDrawerOpen(true); };
-
-  // The ProductWizard builds the full, backend-shaped payload; this only persists it
-  // and surfaces errors (re-throwing keeps the wizard open for a retry).
-  const save = async (payload: Record<string, unknown>) => {
-    try {
-      if (editing) {
-        await updateProduct(storeId, editing.id, payload as Partial<Product>);
-        toast({ title: 'Product updated', type: 'success' });
-      } else {
-        await addProduct(storeId, payload as Omit<Product, 'id' | 'storeId' | 'createdAt'>);
-        toast({ title: 'Product added', type: 'success' });
-      }
-    } catch (error) {
-      toast({
-        title: editing ? 'Could not update product' : 'Could not add product',
-        description: error instanceof Error ? error.message : undefined,
-        type: 'error',
-      });
-      throw error;
-    }
   };
 
   const columns: Column<Product>[] = [
@@ -127,7 +90,7 @@ export default function Products() {
         <div className="text-right">
           {isVariableProduct(p) ? (
             <span className="font-semibold">
-              {productPriceRange(p).min === productPriceRange(p).max ? money(productPriceRange(p).min, store.currency) : `${money(productPriceRange(p).min, store.currency)} - ${money(productPriceRange(p).max, store.currency)}`}
+              {productPriceRange(p).min === productPriceRange(p).max ? money(productPriceRange(p).min, store.currency) : `${money(productPriceRange(p).min, store.currency)} – ${money(productPriceRange(p).max, store.currency)}`}
             </span>
           ) : (
             <>
@@ -149,7 +112,7 @@ export default function Products() {
         </span>
       ),
     },
-    { key: 'isActive', label: 'Status', align: 'right', sortable: true, sortValue: (p) => (p.isActive ? 1 : 0), render: (p) => (
+    { key: 'isActive', label: 'Visibility', align: 'right', sortable: true, sortValue: (p) => (p.isActive ? 1 : 0), render: (p) => (
       <div className="flex justify-end">
         <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-widest', p.isActive ? 'border-green-200 bg-green-50 text-green-700' : 'border-line bg-paper text-muted')}>
           {p.isActive ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
@@ -163,8 +126,21 @@ export default function Products() {
     <div className="space-y-6">
       <PageHeader
         title="Products"
-        subtitle="Manage every customer-facing product detail: images, categories, collections, pricing, stock, tags, and storefront visibility."
-        action={<Button variant="accent" className="gap-2" onClick={openCreate}><Plus className="h-4 w-4" /> New product</Button>}
+        subtitle="Manage every customer-facing product detail: images, categories, pricing, stock, and storefront visibility."
+        action={
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              className="border border-line gap-2"
+              onClick={() => navigate('import')}
+            >
+              <FileUp className="h-4 w-4" /> Import Excel
+            </Button>
+            <Button variant="accent" className="gap-2" onClick={() => navigate('new')}>
+              <Plus className="h-4 w-4" /> New product
+            </Button>
+          </div>
+        }
       />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
@@ -206,8 +182,8 @@ export default function Products() {
             )}
           </div>
         }
-        onRowClick={openEdit}
-        onEdit={openEdit}
+        onRowClick={(p) => navigate(`${p.id}/edit`)}
+        onEdit={(p) => navigate(`${p.id}/edit`)}
         onDelete={(p) => setDeleting(p)}
         bulkActions={[
           { label: 'Activate', run: (ids) => { ids.forEach((id) => void updateProduct(storeId, id, { isActive: true }).catch(() => {})); toast({ title: `${ids.length} activated`, type: 'success' }); } },
@@ -219,21 +195,22 @@ export default function Products() {
         emptyIcon={PackageSearch}
         emptyTitle="No products yet"
         emptyText="Add items to start selling on your storefront."
-        emptyAction={<Button variant="accent" onClick={openCreate}><Plus className="mr-2 h-4 w-4" /> Add your first product</Button>}
-      />
-
-      <ProductWizard
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        store={store}
-        editing={editing}
-        onSubmit={save}
+        emptyAction={
+          <div className="flex gap-2 justify-center">
+            <Button variant="ghost" className="border border-line gap-2" onClick={() => navigate('import')}>
+              <FileUp className="h-4 w-4" /> Import Excel
+            </Button>
+            <Button variant="accent" onClick={() => navigate('new')}>
+              <Plus className="mr-2 h-4 w-4" /> Add your first product
+            </Button>
+          </div>
+        }
       />
 
       <ConfirmDialog
         isOpen={Boolean(deleting)}
         title="Delete this product?"
-        description={deleting ? `“${deleting.name}” will be removed from your storefront. This can't be undone.` : ''}
+        description={deleting ? `"${deleting.name}" will be removed from your storefront. This can't be undone.` : ''}
         confirmLabel="Delete"
         destructive
         onCancel={() => setDeleting(null)}

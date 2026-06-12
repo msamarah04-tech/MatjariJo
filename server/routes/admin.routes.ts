@@ -129,6 +129,40 @@ adminRouter.patch('/admin/stores/:storeId/products/:productId', requireStoreAcce
   res.json({ product: serializeProduct(updated) });
 }));
 
+// Bulk product import — respects plan cap; processes rows one-by-one so partial success is possible.
+adminRouter.post('/admin/stores/:storeId/products/bulk', requireStoreAccess, asyncRoute(async (req, res) => {
+  const products: unknown[] = Array.isArray(req.body?.products) ? req.body.products : [];
+  if (products.length === 0) return res.json({ imported: 0, skipped: 0, errors: [] });
+  if (products.length > 500) throw forbidden('Maximum 500 products per import batch.');
+
+  const store = await prisma.store.findUnique({ where: { id: req.params.storeId }, select: { plan: true } });
+  const cap = (PLAN_DEFS[(store?.plan ?? 'STARTER') as StorePlan] ?? PLAN_DEFS.STARTER).maxProducts;
+
+  let imported = 0;
+  let skipped = 0;
+  const errors: { row: number; message: string }[] = [];
+
+  for (let i = 0; i < products.length; i++) {
+    const rowNum = i + 3; // +3 because row 1=header, row 2=hint
+    try {
+      if (cap !== null) {
+        const count = await prisma.product.count({ where: { storeId: req.params.storeId } });
+        if (count >= cap) { skipped++; continue; }
+      }
+      const input = productCreateSchema.parse(products[i]);
+      const { tags, details, ...data } = input;
+      const normalized = normalizeProductDetails(details.categoryKey, details);
+      await prisma.product.create({ data: { ...data, tags: JSON.stringify(tags), details: JSON.stringify(normalized), storeId: req.params.storeId } });
+      imported++;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Invalid row';
+      errors.push({ row: rowNum, message: msg.slice(0, 200) });
+    }
+  }
+
+  res.status(201).json({ imported, skipped, errors });
+}));
+
 adminRouter.delete('/admin/stores/:storeId/products/:productId', requireStoreAccess, asyncRoute(async (req, res) => {
   const params = productIdParamSchema.parse(req.params);
   const product = await prisma.product.findFirst({ where: { id: params.productId, storeId: params.storeId } });
