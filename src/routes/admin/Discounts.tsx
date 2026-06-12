@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  BadgePercent, Check, ChevronDown, ImageIcon, Layers, Plus,
-  Tag, Trash2, Truck, X, Zap,
+  BadgePercent, Check, ChevronDown, ImageIcon, Layers, Package,
+  Plus, Search, Tag, Trash2, Truck, X, Zap,
 } from 'lucide-react';
 import { parseMoney, toMajor } from '@shared/money';
 import { useStore } from '@/lib/store';
@@ -9,7 +9,7 @@ import { money } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { prepareImageDataUrl } from '@/lib/images';
 import { getDiscountStatus } from '@/lib/checkout';
-import type { Discount, DiscountDetails, DiscountType } from '@/lib/types';
+import type { Discount, DiscountDetails, DiscountType, Product } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { PageHeader } from '@/components/ui/dashboard';
@@ -18,7 +18,7 @@ import { Drawer } from '@/components/ui/Drawer';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { toast } from '@/components/ui/Toast';
 import { useFocusParam } from '@/lib/useFocusParam';
-import { useAdminContext, useStoreDiscounts } from './shared';
+import { useAdminContext, useStoreDiscounts, useStoreProducts } from './shared';
 
 // ---------------------------------------------------------------------------
 // Offer type definitions
@@ -32,11 +32,11 @@ type OfferMeta = {
 };
 
 const OFFER_TYPES: OfferMeta[] = [
-  { type: 'PERCENT',      icon: BadgePercent, label: 'Percent off',    tagline: 'e.g. 20% off the total order',          color: 'text-violet-600 bg-violet-50 border-violet-200' },
-  { type: 'FIXED',        icon: Tag,          label: 'Fixed amount',   tagline: 'e.g. JOD 5 off',                        color: 'text-blue-600 bg-blue-50 border-blue-200' },
-  { type: 'FREE_SHIPPING',icon: Truck,        label: 'Free shipping',  tagline: 'Remove delivery fees at checkout',       color: 'text-emerald-600 bg-emerald-50 border-emerald-200' },
-  { type: 'BXGY',         icon: Layers,       label: 'Quantity deal',  tagline: 'Buy X+ items, get Y% off the cart',     color: 'text-orange-600 bg-orange-50 border-orange-200' },
-  { type: 'TIERED',       icon: Zap,          label: 'Spend tiers',    tagline: 'The more they spend, the bigger the deal', color: 'text-rose-600 bg-rose-50 border-rose-200' },
+  { type: 'PERCENT',       icon: BadgePercent, label: 'Percent off',     tagline: 'e.g. 20% off the total order',             color: 'text-violet-600 bg-violet-50 border-violet-200' },
+  { type: 'FIXED',         icon: Tag,          label: 'Fixed amount',    tagline: 'e.g. JOD 5 off',                           color: 'text-blue-600 bg-blue-50 border-blue-200' },
+  { type: 'FREE_SHIPPING', icon: Truck,        label: 'Free shipping',   tagline: 'Remove delivery fees at checkout',          color: 'text-emerald-600 bg-emerald-50 border-emerald-200' },
+  { type: 'BXGY',          icon: Layers,       label: 'Quantity deal',   tagline: 'Buy X+ items, get Y% off the cart',        color: 'text-orange-600 bg-orange-50 border-orange-200' },
+  { type: 'TIERED',        icon: Zap,          label: 'Spend tiers',     tagline: 'The more they spend, the bigger the deal', color: 'text-rose-600 bg-rose-50 border-rose-200' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -49,16 +49,12 @@ type FormState = {
   name: string;
   imageDataUrl: string | null;
   code: string;
-  // PERCENT
   percent: string;
-  // FIXED
   fixedAmount: string;
-  // BXGY
   buyQty: string;
   bxgyPct: string;
-  // TIERED
   tiers: Tier[];
-  // Common
+  selectedProductIds: string[];
   minSubtotal: string;
   usageLimit: string;
   expiresAt: string;
@@ -71,6 +67,7 @@ function blankForm(type: DiscountType = 'PERCENT'): FormState {
     name: '', imageDataUrl: null, code: '',
     percent: '10', fixedAmount: '', buyQty: '3', bxgyPct: '15',
     tiers: [{ minText: '', pct: '' }],
+    selectedProductIds: [],
     minSubtotal: '', usageLimit: '', expiresAt: '', active: true,
   };
 }
@@ -93,6 +90,7 @@ function formFromDiscount(d: Discount, currency: string): FormState {
     buyQty: det && 'buyQty' in det ? String(det.buyQty) : '3',
     bxgyPct: det && 'discountPct' in det ? String(det.discountPct) : '15',
     tiers,
+    selectedProductIds: d.productIds ?? [],
     minSubtotal: d.minSubtotalCents ? String(toMajor(d.minSubtotalCents, currency)) : '',
     usageLimit: d.usageLimit != null ? String(d.usageLimit) : '',
     expiresAt: d.expiresAt ? new Date(d.expiresAt).toISOString().slice(0, 10) : '',
@@ -104,8 +102,8 @@ function formFromDiscount(d: Discount, currency: string): FormState {
 // Helpers
 // ---------------------------------------------------------------------------
 const statusTone = (s: string) =>
-  s === 'Valid' ? 'border-green-200 bg-green-50 text-green-700'
-  : s === 'Inactive' ? 'border-line bg-paper text-muted'
+  s === 'Valid'        ? 'border-green-200 bg-green-50 text-green-700'
+  : s === 'Inactive'  ? 'border-line bg-paper text-muted'
   : 'border-amber-200 bg-amber-50 text-amber-700';
 
 const offerLabel = (d: Discount, currency: string) => {
@@ -121,7 +119,9 @@ const offerLabel = (d: Discount, currency: string) => {
   return '—';
 };
 
-function Field({ label, required, hint, error, children }: { label: string; required?: boolean; hint?: string; error?: string; children: React.ReactNode }) {
+function Field({ label, required, hint, error, children }: {
+  label: string; required?: boolean; hint?: string; error?: string; children: React.ReactNode;
+}) {
   return (
     <div>
       <label className="mb-1.5 flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-muted">
@@ -136,7 +136,9 @@ function Field({ label, required, hint, error, children }: { label: string; requ
 
 const inputCls = 'h-10 w-full rounded-md border border-line bg-surface px-3 text-sm font-semibold text-ink focus:outline-none focus:ring-1 focus:ring-accent';
 
-function MoneyField({ label, value, onChange, currency, hint }: { label: string; value: string; onChange: (v: string) => void; currency: string; hint?: string }) {
+function MoneyField({ label, value, onChange, currency, hint }: {
+  label: string; value: string; onChange: (v: string) => void; currency: string; hint?: string;
+}) {
   return (
     <Field label={label} hint={hint}>
       <div className="relative">
@@ -184,7 +186,9 @@ function OfferTypePicker({ value, onChange }: { value: DiscountType; onChange: (
 // ---------------------------------------------------------------------------
 // Image picker (compact)
 // ---------------------------------------------------------------------------
-function ImagePicker({ value, existing, onChange }: { value: string | null; existing?: string; onChange: (url: string | null) => void }) {
+function ImagePicker({ value, existing, onChange }: {
+  value: string | null; existing?: string; onChange: (url: string | null) => void;
+}) {
   const ref = useRef<HTMLInputElement>(null);
   const preview = value || existing;
 
@@ -220,7 +224,7 @@ function ImagePicker({ value, existing, onChange }: { value: string | null; exis
 }
 
 // ---------------------------------------------------------------------------
-// Tier builder (for TIERED type)
+// Tier builder
 // ---------------------------------------------------------------------------
 function TierBuilder({ tiers, onChange, currency }: { tiers: Tier[]; onChange: (t: Tier[]) => void; currency: string }) {
   const set = (i: number, patch: Partial<Tier>) =>
@@ -238,18 +242,154 @@ function TierBuilder({ tiers, onChange, currency }: { tiers: Tier[]; onChange: (
             <Input type="number" min="1" max="100" value={tier.pct} onChange={(e) => set(i, { pct: e.target.value })} placeholder="% off" className="pe-7 h-9 text-xs" />
             <span className="pointer-events-none absolute end-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-muted">%</span>
           </div>
-          <button type="button" onClick={() => onChange(tiers.filter((_, idx) => idx !== i))} className="grid h-9 w-9 place-items-center rounded-lg border border-line bg-paper text-muted hover:text-red-500">
+          <button type="button" onClick={() => onChange(tiers.filter((_, idx) => idx !== i))}
+            className="grid h-9 w-9 place-items-center rounded-lg border border-line bg-paper text-muted hover:text-red-500">
             <Trash2 className="h-3.5 w-3.5" />
           </button>
         </div>
       ))}
       {tiers.length < 5 && (
         <button type="button" onClick={() => onChange([...tiers, { minText: '', pct: '' }])}
-          className="flex items-center gap-1.5 rounded-xl border border-dashed border-line px-3 py-2 text-xs font-bold text-muted hover:border-ink/30 hover:text-ink w-full">
+          className="flex w-full items-center gap-1.5 rounded-xl border border-dashed border-line px-3 py-2 text-xs font-bold text-muted hover:border-ink/30 hover:text-ink">
           <Plus className="h-3.5 w-3.5" /> Add tier
         </button>
       )}
       <p className="text-[10px] text-muted">The highest qualifying tier applies at checkout.</p>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Product picker
+// ---------------------------------------------------------------------------
+function ProductPicker({ selected, products, currency, onChange }: {
+  selected: string[];
+  products: Product[];
+  currency: string;
+  onChange: (ids: string[]) => void;
+}) {
+  const [scope, setScope] = useState<'all' | 'specific'>(selected.length > 0 ? 'specific' : 'all');
+  const [query, setQuery] = useState('');
+
+  const toggle = (id: string) => {
+    onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
+  };
+
+  const filtered = useMemo(() => {
+    const q = query.toLowerCase().trim();
+    return products.filter((p) =>
+      !q || p.name.toLowerCase().includes(q) || (p.category ?? '').toLowerCase().includes(q),
+    );
+  }, [products, query]);
+
+  return (
+    <div className="rounded-2xl border border-line bg-surface p-4 space-y-3">
+      <p className="text-xs font-black text-ink">Applies to</p>
+
+      {/* Scope toggle */}
+      <div className="grid grid-cols-2 gap-2">
+        {([['all', 'All products', 'Discount applies to every product in the cart'] as const,
+           ['specific', 'Specific products', 'Only selected products count toward this offer'] as const]).map(([val, label, hint]) => (
+          <button
+            key={val}
+            type="button"
+            onClick={() => {
+              setScope(val);
+              if (val === 'all') onChange([]);
+            }}
+            className={cn(
+              'flex flex-col items-start rounded-xl border p-3 text-start transition-all',
+              scope === val
+                ? 'border-accent bg-accent/5 shadow-sm ring-1 ring-accent/30'
+                : 'border-line bg-paper hover:border-ink/20',
+            )}
+          >
+            <span className="flex w-full items-center justify-between">
+              <span className="text-xs font-black text-ink">{label}</span>
+              {scope === val && <Check className="h-3.5 w-3.5 text-accent" />}
+            </span>
+            <span className="mt-0.5 text-[10px] leading-tight text-muted">{hint}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Product list */}
+      {scope === 'specific' && (
+        <div className="space-y-2">
+          {/* Search */}
+          <div className="relative">
+            <Search className="pointer-events-none absolute start-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
+            <input
+              type="text"
+              placeholder="Search products…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="h-9 w-full rounded-lg border border-line bg-paper ps-9 pe-3 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+          </div>
+
+          {/* Selected chips */}
+          {selected.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {selected.map((id) => {
+                const p = products.find((x) => x.id === id);
+                if (!p) return null;
+                return (
+                  <span key={id} className="flex items-center gap-1 rounded-full border border-accent/30 bg-accent/5 px-2 py-0.5 text-[10px] font-bold text-accent">
+                    {p.name}
+                    <button type="button" onClick={() => toggle(id)} className="hover:text-red-500">
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </span>
+                );
+              })}
+              {selected.length > 1 && (
+                <button type="button" onClick={() => onChange([])}
+                  className="rounded-full border border-line px-2 py-0.5 text-[10px] font-bold text-muted hover:text-red-500">
+                  Clear all
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Scrollable product list */}
+          <div className="max-h-56 overflow-y-auto rounded-xl border border-line bg-paper divide-y divide-line">
+            {filtered.length === 0 && (
+              <p className="py-6 text-center text-xs text-muted">No products found</p>
+            )}
+            {filtered.map((p) => {
+              const checked = selected.includes(p.id);
+              return (
+                <label key={p.id} className={cn(
+                  'flex cursor-pointer items-center gap-3 px-3 py-2.5 transition-colors hover:bg-accent/5',
+                  checked && 'bg-accent/5',
+                )}>
+                  <input type="checkbox" checked={checked} onChange={() => toggle(p.id)} className="h-4 w-4 accent-accent shrink-0" />
+                  <div className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-lg border border-line bg-paper text-sm">
+                    {p.imageUrl
+                      ? <img src={p.imageUrl} alt="" className="h-full w-full object-cover" />
+                      : <Package className="h-3.5 w-3.5 text-muted" />}
+                  </div>
+                  <span className="flex-1 min-w-0">
+                    <span className="block truncate text-xs font-bold text-ink">{p.name}</span>
+                    {p.category && <span className="text-[10px] text-muted">{p.category}</span>}
+                  </span>
+                  <span className="shrink-0 text-xs font-semibold text-muted">{money(p.priceCents, currency)}</span>
+                </label>
+              );
+            })}
+          </div>
+
+          {selected.length > 0 && (
+            <p className="text-[10px] text-muted">
+              {selected.length} product{selected.length !== 1 ? 's' : ''} selected — discount applies only to these items in the cart.
+            </p>
+          )}
+          {selected.length === 0 && (
+            <p className="text-[10px] text-red-500">Select at least one product, or switch to "All products".</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -274,10 +414,11 @@ function AdvancedSection({ children }: { children: React.ReactNode }) {
 // ---------------------------------------------------------------------------
 // Offer drawer
 // ---------------------------------------------------------------------------
-function OfferDrawer({ open, onClose, editing, storeDiscounts, currency }: {
+function OfferDrawer({ open, onClose, editing, storeDiscounts, storeProducts, currency }: {
   open: boolean; onClose: () => void;
   editing: Discount | null;
   storeDiscounts: Discount[];
+  storeProducts: Product[];
   currency: string;
 }) {
   const addDiscount = useStore((s) => s.addDiscount);
@@ -342,10 +483,15 @@ function OfferDrawer({ open, onClose, editing, storeDiscounts, currency }: {
       details = JSON.stringify({ tiers });
     }
 
+    const productIds = form.selectedProductIds.length > 0
+      ? JSON.stringify(form.selectedProductIds)
+      : null;
+
     return {
       name: form.name.trim() || undefined,
       imageUrl: form.imageDataUrl || (editing?.imageUrl && !form.imageDataUrl ? editing.imageUrl : undefined),
       details: details ?? null,
+      productIds,
       code: form.code.trim().toUpperCase(),
       type,
       value,
@@ -379,6 +525,8 @@ function OfferDrawer({ open, onClose, editing, storeDiscounts, currency }: {
   };
 
   const meta = OFFER_TYPES.find((m) => m.type === form.type)!;
+  const borderColor = meta.color.split(' ').find((c) => c.startsWith('border')) ?? 'border-line';
+  const textColor  = meta.color.split(' ').find((c) => c.startsWith('text'))   ?? 'text-ink';
 
   return (
     <Drawer
@@ -424,22 +572,20 @@ function OfferDrawer({ open, onClose, editing, storeDiscounts, currency }: {
             </Field>
           </div>
           <Field label="Offer image" hint="Shown when the customer applies the code (optional)">
-            <ImagePicker
-              value={form.imageDataUrl}
-              existing={editing?.imageUrl}
-              onChange={(url) => set('imageDataUrl', url)}
-            />
+            <ImagePicker value={form.imageDataUrl} existing={editing?.imageUrl} onChange={(url) => set('imageDataUrl', url)} />
           </Field>
         </div>
 
         {/* Type-specific fields */}
-        <div className={cn('rounded-2xl border p-4 space-y-4', meta.color.split(' ').filter((c) => c.startsWith('border')).join(' '), 'bg-surface')}>
-          <p className={cn('text-xs font-black', meta.color.split(' ').filter((c) => c.startsWith('text')).join(' '))}>{meta.label}</p>
+        <div className={cn('rounded-2xl border p-4 space-y-4', borderColor, 'bg-surface')}>
+          <p className={cn('text-xs font-black', textColor)}>{meta.label}</p>
 
           {form.type === 'PERCENT' && (
             <Field label="Percent off" required error={errors.percent}>
               <div className="relative">
-                <Input type="number" min="1" max="100" step="1" value={form.percent} onChange={(e) => set('percent', e.target.value)} placeholder="20" className={cn('pe-8', errors.percent && 'border-red-400')} />
+                <Input type="number" min="1" max="100" step="1" value={form.percent}
+                  onChange={(e) => set('percent', e.target.value)} placeholder="20"
+                  className={cn('pe-8', errors.percent && 'border-red-400')} />
                 <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted">%</span>
               </div>
             </Field>
@@ -457,13 +603,17 @@ function OfferDrawer({ open, onClose, editing, storeDiscounts, currency }: {
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Minimum item count" required error={errors.buyQty} hint="Customer needs at least this many items in their cart">
                 <div className="relative">
-                  <Input type="number" min="2" step="1" value={form.buyQty} onChange={(e) => set('buyQty', e.target.value)} placeholder="3" className={cn('pe-14', errors.buyQty && 'border-red-400')} />
+                  <Input type="number" min="2" step="1" value={form.buyQty}
+                    onChange={(e) => set('buyQty', e.target.value)} placeholder="3"
+                    className={cn('pe-14', errors.buyQty && 'border-red-400')} />
                   <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted">items</span>
                 </div>
               </Field>
               <Field label="Discount applied" required error={errors.bxgyPct}>
                 <div className="relative">
-                  <Input type="number" min="1" max="100" step="1" value={form.bxgyPct} onChange={(e) => set('bxgyPct', e.target.value)} placeholder="15" className={cn('pe-8', errors.bxgyPct && 'border-red-400')} />
+                  <Input type="number" min="1" max="100" step="1" value={form.bxgyPct}
+                    onChange={(e) => set('bxgyPct', e.target.value)} placeholder="15"
+                    className={cn('pe-8', errors.bxgyPct && 'border-red-400')} />
                   <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted">%</span>
                 </div>
               </Field>
@@ -484,6 +634,14 @@ function OfferDrawer({ open, onClose, editing, storeDiscounts, currency }: {
           )}
         </div>
 
+        {/* Product scoping */}
+        <ProductPicker
+          selected={form.selectedProductIds}
+          products={storeProducts}
+          currency={currency}
+          onChange={(ids) => set('selectedProductIds', ids)}
+        />
+
         {/* Advanced / limits */}
         <AdvancedSection>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -495,10 +653,12 @@ function OfferDrawer({ open, onClose, editing, storeDiscounts, currency }: {
               hint="Leave blank for no minimum"
             />
             <Field label="Usage limit" hint="Max total redemptions (blank = unlimited)">
-              <Input type="number" min="1" step="1" value={form.usageLimit} onChange={(e) => set('usageLimit', e.target.value)} placeholder="Unlimited" />
+              <Input type="number" min="1" step="1" value={form.usageLimit}
+                onChange={(e) => set('usageLimit', e.target.value)} placeholder="Unlimited" />
             </Field>
             <Field label="Expiry date" hint="Code stops working after this date">
-              <input type="date" value={form.expiresAt} onChange={(e) => set('expiresAt', e.target.value)} className={cn(inputCls, 'cursor-pointer')} />
+              <input type="date" value={form.expiresAt} onChange={(e) => set('expiresAt', e.target.value)}
+                className={cn(inputCls, 'cursor-pointer')} />
             </Field>
           </div>
           <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-line bg-paper px-4 py-3 hover:bg-line/10">
@@ -520,6 +680,7 @@ export default function Discounts() {
   const { storeId, store } = useAdminContext();
   const deleteDiscount = useStore((s) => s.deleteDiscount);
   const scopedDiscounts = useStoreDiscounts(storeId);
+  const scopedProducts  = useStoreProducts(storeId);
   const currency = store.currency;
 
   const [editing, setEditing] = useState<Discount | null>(null);
@@ -527,7 +688,14 @@ export default function Discounts() {
   const [deleting, setDeleting] = useState<Discount | null>(null);
   const [focusId, clearFocus] = useFocusParam();
 
-  const storeDiscounts = useMemo(() => [...scopedDiscounts].sort((a, b) => b.createdAt - a.createdAt), [scopedDiscounts]);
+  const storeDiscounts = useMemo(
+    () => [...scopedDiscounts].sort((a, b) => b.createdAt - a.createdAt),
+    [scopedDiscounts],
+  );
+  const storeProducts = useMemo(
+    () => [...scopedProducts].sort((a, b) => a.name.localeCompare(b.name)),
+    [scopedProducts],
+  );
 
   useEffect(() => {
     if (!focusId) return;
@@ -538,7 +706,7 @@ export default function Discounts() {
   }, [focusId]);
 
   const openCreate = () => { setEditing(null); setDrawerOpen(true); };
-  const openEdit = (d: Discount) => { setEditing(d); setDrawerOpen(true); };
+  const openEdit   = (d: Discount) => { setEditing(d); setDrawerOpen(true); };
 
   const columns: Column<Discount>[] = [
     {
@@ -546,15 +714,16 @@ export default function Discounts() {
       render: (d) => {
         const meta = OFFER_TYPES.find((m) => m.type === d.type);
         const Icon = meta?.icon ?? Tag;
+        const textCol = meta?.color.split(' ').find((c) => c.startsWith('text'));
         return (
           <div className="flex items-center gap-2">
             {d.imageUrl && (
-              <img src={d.imageUrl} alt="" className="h-8 w-8 rounded-lg object-cover border border-line shrink-0" />
+              <img src={d.imageUrl} alt="" className="h-8 w-8 shrink-0 rounded-lg border border-line object-cover" />
             )}
             <div>
               {d.name && <p className="text-xs font-black text-ink leading-none">{d.name}</p>}
               <div className="flex items-center gap-1.5 mt-0.5">
-                <Icon className={cn('h-3 w-3', meta?.color.split(' ').find((c) => c.startsWith('text')))} />
+                <Icon className={cn('h-3 w-3', textCol)} />
                 <span className="font-mono text-sm font-black text-ink">{d.code}</span>
               </div>
             </div>
@@ -562,10 +731,19 @@ export default function Discounts() {
         );
       },
     },
-    { key: 'value', label: 'Reward', render: (d) => <span className="text-sm text-muted">{offerLabel(d, currency)}</span>, sortValue: (d) => d.type },
     {
-      key: 'minSubtotalCents', label: 'Minimum', align: 'right', hideOnMobile: true,
-      render: (d) => <span className="text-muted">{d.minSubtotalCents ? money(d.minSubtotalCents, currency) : '—'}</span>,
+      key: 'value', label: 'Reward',
+      render: (d) => <span className="text-sm text-muted">{offerLabel(d, currency)}</span>,
+      sortValue: (d) => d.type,
+    },
+    {
+      key: 'productIds', label: 'Products', hideOnMobile: true,
+      render: (d) => {
+        const count = d.productIds?.length ?? 0;
+        return count > 0
+          ? <span className="rounded-full border border-line bg-paper px-2 py-0.5 text-[10px] font-bold text-ink">{count} product{count !== 1 ? 's' : ''}</span>
+          : <span className="text-xs text-muted">All</span>;
+      },
     },
     {
       key: 'usedCount', label: 'Used', align: 'right', sortable: true,
@@ -580,7 +758,11 @@ export default function Discounts() {
       key: 'active', label: 'Status', align: 'right',
       render: (d) => {
         const status = getDiscountStatus(d, Number.MAX_SAFE_INTEGER);
-        return <span className={cn('rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-widest', statusTone(status))}>{status}</span>;
+        return (
+          <span className={cn('rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-widest', statusTone(status))}>
+            {status}
+          </span>
+        );
       },
     },
   ];
@@ -617,6 +799,7 @@ export default function Discounts() {
         onClose={() => setDrawerOpen(false)}
         editing={editing}
         storeDiscounts={storeDiscounts}
+        storeProducts={storeProducts}
         currency={currency}
       />
 

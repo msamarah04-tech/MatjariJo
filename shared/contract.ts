@@ -272,6 +272,8 @@ export interface Discount {
   name?: string;
   imageUrl?: string;
   details?: DiscountDetails;
+  /** If set, only these product IDs are eligible for the discount. Empty = all products. */
+  productIds?: string[];
   code: string;
   type: DiscountType;
   value: number;

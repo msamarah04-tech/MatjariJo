@@ -292,6 +292,7 @@ const discountFieldsSchema = z.object({
   name: z.string().trim().max(80).optional().nullable(),
   imageUrl: z.string().max(2000).optional().nullable(),
   details: z.string().max(4000).optional().nullable(),
+  productIds: z.string().max(8000).optional().nullable(),
   code: z.string().trim().min(1).max(40).transform((value) => value.toUpperCase()),
   type: discountTypeEnum,
   value: z.number().int().min(0),

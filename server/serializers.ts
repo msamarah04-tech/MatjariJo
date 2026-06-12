@@ -168,12 +168,17 @@ export function serializeDiscount(discount: Discount) {
   if (discount.details) {
     try { parsedDetails = JSON.parse(discount.details); } catch { /* ignore malformed */ }
   }
+  let parsedProductIds: string[] | undefined = undefined;
+  if (discount.productIds) {
+    try { parsedProductIds = JSON.parse(discount.productIds); } catch { /* ignore */ }
+  }
   return {
     id: discount.id,
     storeId: discount.storeId,
     name: discount.name ?? undefined,
     imageUrl: discount.imageUrl ?? undefined,
     details: parsedDetails,
+    productIds: parsedProductIds?.length ? parsedProductIds : undefined,
     code: discount.code,
     type: discount.type,
     value: discount.value,

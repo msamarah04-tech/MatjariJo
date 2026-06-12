@@ -109,9 +109,18 @@ export function computeOrder(
   });
 
   const subtotalCents = items.reduce((sum, item) => sum + item.lineTotalCents, 0);
-  const totalQty = items.reduce((sum, item) => sum + item.quantity, 0);
+  // Scoped to specific products if productIds is set
+  let scopedProductIds: string[] | undefined;
+  if (discount?.productIds) {
+    try { scopedProductIds = JSON.parse(discount.productIds); } catch { /* ignore */ }
+  }
+  const scopedItems = scopedProductIds?.length
+    ? items.filter((item) => scopedProductIds!.includes(item.productId))
+    : items;
+  const scopedSubtotal = scopedItems.reduce((sum, item) => sum + item.lineTotalCents, 0);
+  const totalQty = scopedItems.reduce((sum, item) => sum + item.quantity, 0);
   const validDiscount = discountIsValid(discount, subtotalCents) ? discount : undefined;
-  const discountCents = computeDiscountCents(validDiscount, subtotalCents, totalQty);
+  const discountCents = computeDiscountCents(validDiscount, scopedSubtotal, totalQty);
   const freeShipping = validDiscount?.type === 'FREE_SHIPPING';
   const shippingAmountCents = shippingCents(store, subtotalCents, freeShipping);
 

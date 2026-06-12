@@ -185,6 +185,7 @@ model Discount {
   name             String?
   imageUrl         String?
   details          String?
+  productIds       String?
   code             String
   type             String
   value            Int

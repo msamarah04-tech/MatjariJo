@@ -96,9 +96,13 @@ export function getDiscountCents(discount: Discount | undefined, subtotalCents: 
 export function computeOrderSummary(store: Store, products: Product[], cartItems: CartLine[], discount?: Discount): SummaryResult {
   const items = getActiveOrderItems(cartItems, products);
   const subtotalCents = getSubtotalCents(items);
-  const totalQty = items.reduce((sum, item) => sum + item.quantity, 0);
+  const scopedItems = discount?.productIds?.length
+    ? items.filter((item) => discount.productIds!.includes(item.productId))
+    : items;
+  const scopedSubtotal = scopedItems.reduce((sum, item) => sum + item.priceCents * item.quantity, 0);
+  const totalQty = scopedItems.reduce((sum, item) => sum + item.quantity, 0);
   const validDiscount = discount && getDiscountStatus(discount, subtotalCents) === 'Valid' ? discount : undefined;
-  const discountCents = getDiscountCents(validDiscount, subtotalCents, totalQty);
+  const discountCents = getDiscountCents(validDiscount, scopedSubtotal, totalQty);
   const freeShipping = validDiscount?.type === 'FREE_SHIPPING';
   const shippingCents = getShippingCents(store, subtotalCents, freeShipping);
   // Mirror the server's GST math so the cart preview matches the final order/invoice.
