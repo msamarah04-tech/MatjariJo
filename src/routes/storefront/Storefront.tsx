@@ -49,6 +49,7 @@ import {
   selectedVariant,
 } from '@/lib/productOptions';
 import { isJordanMobile, normalizeJordanMobile } from '@shared/phone';
+import type { HeroSlide } from '@shared/contract';
 import { categoryDetailRows } from '@/lib/productCategory';
 import { mainSiteUrl } from '@/lib/tenant';
 
@@ -762,7 +763,7 @@ function StorefrontFrame({ store, products, discounts }: { store: Store; product
 
       <main>
         <Routes>
-          <Route path="/" element={<HomePage store={store} products={products} addToCart={addToCart} />} />
+          <Route path="/" element={<HomePage store={store} products={products} discounts={discounts} addToCart={addToCart} />} />
           <Route path="/p/:productId" element={<ProductDetail store={store} products={products} addToCart={addToCart} />} />
           <Route path="/about" element={<AboutPage store={store} />} />
           <Route path="/cart" element={<CartPage store={store} products={products} cartItems={cartItems} summary={summary} activeDiscount={activeDiscount} setQuantity={setQuantity} openCheckout={beginCheckout} />} />
@@ -854,7 +855,7 @@ function StorefrontFrame({ store, products, discounts }: { store: Store; product
   );
 }
 
-function HomePage({ store, products, addToCart }: { store: Store; products: Product[]; addToCart: (productId: string, quantity?: number, variantId?: string) => void }) {
+function HomePage({ store, products, discounts, addToCart }: { store: Store; products: Product[]; discounts: Discount[]; addToCart: (productId: string, quantity?: number, variantId?: string) => void }) {
   const c = useCopy();
   const theme = resolveStoreTheme(store.themeId || 'mono', store.themeOverrides);
   const template = getStorefrontTemplate(store.storefrontTemplate);
@@ -889,15 +890,22 @@ function HomePage({ store, products, addToCart }: { store: Store; products: Prod
 
   const featuredProduct = featured[0] || products[0];
   const templateId = template.id as TemplateId;
+  const heroSlides = ((store.themeOverrides as { heroSlides?: HeroSlide[] } | null)?.heroSlides ?? []).filter((s) => s.enabled);
 
   return (
     <>
-      {templateId === 'editorial' && <EditorialHero store={store} theme={theme} featuredProduct={featuredProduct} collections={collections} />}
-      {templateId === 'boutique' && <BoutiqueHero store={store} theme={theme} featuredProduct={featuredProduct} />}
-      {templateId === 'market' && (
-        <MarketHero store={store} theme={theme} query={query} setQuery={setQuery} collections={collections} collection={collection} setCollection={setCollection} count={filtered.length} />
+      {heroSlides.length > 0 ? (
+        <HeroCarousel slides={heroSlides} store={store} products={products} discounts={discounts} theme={theme} addToCart={addToCart} />
+      ) : (
+        <>
+          {templateId === 'editorial' && <EditorialHero store={store} theme={theme} featuredProduct={featuredProduct} collections={collections} />}
+          {templateId === 'boutique' && <BoutiqueHero store={store} theme={theme} featuredProduct={featuredProduct} />}
+          {templateId === 'market' && (
+            <MarketHero store={store} theme={theme} query={query} setQuery={setQuery} collections={collections} collection={collection} setCollection={setCollection} count={filtered.length} />
+          )}
+          {templateId === 'lookbook' && <LookbookHero store={store} theme={theme} featuredProduct={featuredProduct} />}
+        </>
       )}
-      {templateId === 'lookbook' && <LookbookHero store={store} theme={theme} featuredProduct={featuredProduct} />}
 
       {/* Featured products */}
       {featured.length > 0 && templateId !== 'market' && (
@@ -1030,6 +1038,234 @@ function HeroFeaturedCard({ store, product }: { store: Store; product?: Product 
         </span>
       </div>
     </Link>
+  );
+}
+
+/* ── Hero Carousel ──────────────────────────────────────────────────── */
+
+function offerSlideDescription(discount: Discount | undefined, currency: string): string {
+  if (!discount) return 'Exclusive offer — use the code at checkout.';
+  if (discount.type === 'PERCENT') return `${discount.value}% off your entire order`;
+  if (discount.type === 'FIXED') return 'Items at a special set price';
+  if (discount.type === 'FREE_SHIPPING') return 'Free shipping on your order';
+  if (discount.type === 'BXGY' && discount.details) {
+    const d = discount.details as { buyQty: number; priceCents: number };
+    return `Buy ${d.buyQty}+ items for just ${money(d.priceCents, currency)} total`;
+  }
+  if (discount.type === 'TIERED') return 'The more you spend, the more you save';
+  return 'Exclusive offer — use the code at checkout.';
+}
+
+function OfferSlide({ slide, store, discounts, theme }: {
+  slide: HeroSlide; store: Store; discounts: Discount[]; theme: Theme;
+}) {
+  const [copied, setCopied] = useState(false);
+  const discount = discounts.find((d) => d.code === slide.discountCode);
+  const code = slide.discountCode || '';
+  const copyCode = () => {
+    navigator.clipboard.writeText(code).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2200);
+  };
+  const offerBadge = discount?.type === 'FREE_SHIPPING' ? 'Free Shipping' : discount?.type === 'TIERED' ? 'Spend & Save' : 'Special Offer';
+  return (
+    <section className="relative overflow-hidden bg-[var(--c-surface)] min-h-[60vh] flex items-center sm:min-h-[72vh]">
+      <div aria-hidden className="pointer-events-none absolute -top-40 end-0 h-[32rem] w-[32rem] rounded-full bg-[var(--c-accent)] opacity-[0.08] blur-3xl" />
+      <div aria-hidden className="pointer-events-none absolute bottom-0 -start-32 h-72 w-72 rounded-full bg-[var(--c-primary)] opacity-[0.08] blur-3xl" />
+      <div className="relative z-10 mx-auto grid max-w-7xl w-full items-center gap-10 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-[1fr_auto] lg:gap-20 lg:px-12 lg:py-24">
+        <Reveal className="flex flex-col gap-6">
+          <span className="w-fit rounded-full bg-[var(--c-accent)]/15 px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.22em] text-[var(--c-accent)] border border-[var(--c-accent)]/20">
+            🎁 {offerBadge}
+          </span>
+          <h2 className="text-[2.5rem] font-black leading-[1.02] tracking-tighter sm:text-6xl lg:text-7xl" style={{ fontFamily: theme.hero }}>
+            {slide.title || discount?.name || 'Exclusive Deal'}
+          </h2>
+          <p className="max-w-sm text-base font-medium leading-relaxed opacity-60">
+            {slide.subtitle || offerSlideDescription(discount, store.currency)}
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            {code && (
+              <button type="button" onClick={copyCode} className="inline-flex h-12 items-center gap-3 rounded-xl bg-[var(--c-text)] px-5 text-[var(--c-bg)] transition-all hover:opacity-80 active:scale-[0.97]">
+                <span className="font-mono text-sm font-black tracking-[0.15em]">{code}</span>
+                <span className="h-4 w-px bg-current opacity-30" />
+                <span className="text-[10px] font-black uppercase tracking-wider">{copied ? '✓ Copied!' : 'Copy'}</span>
+              </button>
+            )}
+            <button type="button" onClick={scrollToProducts} className="inline-flex h-12 items-center gap-2 px-4 text-[11px] font-black uppercase tracking-[0.12em] opacity-50 hover:opacity-100 transition-opacity">
+              Shop now <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
+            </button>
+          </div>
+        </Reveal>
+        {code && (
+          <div aria-hidden className="hidden lg:flex shrink-0 items-center justify-center">
+            <div className="relative flex h-56 w-56 items-center justify-center rounded-[2rem] bg-[var(--c-accent)]/10 border-2 border-[var(--c-accent)]/20 shadow-xl">
+              <span className="break-all px-4 text-center font-mono text-2xl font-black tracking-[0.18em] text-[var(--c-accent)]">{code}</span>
+              {discount?.type === 'PERCENT' && (
+                <span className="absolute -top-5 -right-5 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--c-accent)] text-sm font-black text-[var(--c-bg)] shadow-lg">
+                  -{discount.value}%
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function ProductSlide({ slide, store, products, theme, addToCart }: {
+  slide: HeroSlide; store: Store; products: Product[]; theme: Theme;
+  addToCart: (productId: string, qty?: number, variantId?: string) => void;
+}) {
+  const c = useCopy();
+  const product = products.find((p) => p.id === slide.productId);
+  if (!product) {
+    return (
+      <section className="flex min-h-[60vh] items-center justify-center bg-[var(--c-surface)] sm:min-h-[72vh]">
+        <p className="text-sm font-medium opacity-40">Product not found</p>
+      </section>
+    );
+  }
+  const range = productPriceRange(product);
+  return (
+    <section className="relative overflow-hidden bg-[var(--c-surface)]">
+      <div aria-hidden className="pointer-events-none absolute -top-32 -end-32 h-96 w-96 rounded-full bg-[var(--c-primary)] opacity-[0.07] blur-3xl" />
+      <div className="relative mx-auto grid max-w-7xl items-center gap-10 px-4 py-14 sm:px-6 sm:py-20 lg:min-h-[72vh] lg:grid-cols-[1.1fr_0.9fr] lg:gap-16 lg:px-8">
+        <Reveal className="z-10 flex flex-col justify-center">
+          <span className="mb-6 inline-flex w-fit items-center gap-2 rounded-full bg-[var(--c-bg)] px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.2em] border border-[var(--c-line)]/40">
+            <span className="h-1.5 w-1.5 rounded-full bg-[var(--c-primary)]" />
+            {product.category || store.category}
+          </span>
+          <h2 className="text-[2.5rem] font-black leading-[1.02] tracking-tighter sm:text-5xl lg:text-6xl" style={{ fontFamily: theme.hero }}>
+            {product.name}
+          </h2>
+          {product.description && (
+            <p className="mt-4 max-w-sm text-base font-medium leading-relaxed opacity-55 line-clamp-3">{product.description}</p>
+          )}
+          <p className="mt-4 text-2xl font-black">
+            {money(range.min, store.currency)}
+            {range.max > range.min && <span className="ms-1 text-base font-bold opacity-40">– {money(range.max, store.currency)}</span>}
+          </p>
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <button type="button" onClick={() => addToCart(product.id)} className={cn(getCtaClass(buttonStyleOf(store)), 'w-auto px-8 h-12')}>
+              {c.addToCart}
+            </button>
+            <Link to={`/s/${store.slug}/p/${product.id}`} className="inline-flex h-12 items-center gap-2 px-4 text-[11px] font-black uppercase tracking-[0.12em] opacity-50 hover:opacity-100 transition-opacity">
+              View product <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
+            </Link>
+          </div>
+        </Reveal>
+        <Reveal delay={0.12} className="relative lg:justify-self-end lg:w-full lg:max-w-md">
+          <HeroFeaturedCard store={store} product={product} />
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
+function CustomSlide({ slide, store, theme }: { slide: HeroSlide; store: Store; theme: Theme }) {
+  return (
+    <section
+      className="relative overflow-hidden min-h-[60vh] flex items-center sm:min-h-[72vh]"
+      style={slide.bgColor ? { backgroundColor: slide.bgColor } : { backgroundColor: 'var(--c-surface)' }}
+    >
+      <div aria-hidden className="pointer-events-none absolute -top-32 -end-32 h-96 w-96 rounded-full bg-[var(--c-primary)] opacity-[0.06] blur-3xl" />
+      <div className="relative z-10 mx-auto max-w-7xl w-full px-5 py-16 sm:px-8 sm:py-20 lg:px-12 lg:py-24">
+        <Reveal className="flex flex-col gap-6 max-w-2xl">
+          {slide.title && (
+            <h2 className="text-[2.5rem] font-black leading-[1.02] tracking-tighter sm:text-6xl lg:text-7xl" style={{ fontFamily: theme.hero }}>
+              {slide.title}
+            </h2>
+          )}
+          {slide.subtitle && (
+            <p className="text-base font-medium leading-relaxed opacity-60 max-w-md">{slide.subtitle}</p>
+          )}
+          {slide.ctaLabel && (
+            <div className="mt-2">
+              {slide.ctaUrl ? (
+                <a href={slide.ctaUrl} target={slide.ctaUrl.startsWith('http') ? '_blank' : undefined} rel="noopener noreferrer" className={cn(getCtaClass(buttonStyleOf(store)), 'w-auto px-8 h-12 inline-flex items-center gap-2')}>
+                  {slide.ctaLabel} <ArrowRight className="h-4 w-4 rtl:rotate-180" />
+                </a>
+              ) : (
+                <button type="button" onClick={scrollToProducts} className={cn(getCtaClass(buttonStyleOf(store)), 'w-auto px-8 h-12')}>
+                  {slide.ctaLabel} <ArrowRight className="h-4 w-4 rtl:rotate-180" />
+                </button>
+              )}
+            </div>
+          )}
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
+function HeroCarousel({ slides, store, products, discounts, theme, addToCart }: {
+  slides: HeroSlide[]; store: Store; products: Product[]; discounts: Discount[]; theme: Theme;
+  addToCart: (productId: string, qty?: number, variantId?: string) => void;
+}) {
+  const [idx, setIdx] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const touchX = useRef<number | null>(null);
+  const reduce = useReducedMotion();
+
+  useEffect(() => {
+    if (paused || slides.length <= 1) return;
+    const id = setInterval(() => setIdx((c) => (c + 1) % slides.length), 5000);
+    return () => clearInterval(id);
+  }, [paused, slides.length]);
+
+  const go = (delta: number) => setIdx((c) => (c + delta + slides.length) % slides.length);
+  const slide = slides[Math.min(idx, slides.length - 1)];
+
+  return (
+    <div
+      className="relative overflow-hidden border-b border-[var(--c-line)]/20"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onTouchStart={(e) => { touchX.current = e.touches[0].clientX; }}
+      onTouchEnd={(e) => {
+        if (touchX.current === null) return;
+        const diff = touchX.current - e.changedTouches[0].clientX;
+        if (Math.abs(diff) > 40) go(diff > 0 ? 1 : -1);
+        touchX.current = null;
+      }}
+    >
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={idx}
+          initial={reduce ? false : { opacity: 0, x: 28 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={reduce ? undefined : { opacity: 0, x: -28 }}
+          transition={{ duration: 0.32, ease: 'easeOut' }}
+        >
+          {slide.type === 'offer' && <OfferSlide slide={slide} store={store} discounts={discounts} theme={theme} />}
+          {slide.type === 'product' && <ProductSlide slide={slide} store={store} products={products} theme={theme} addToCart={addToCart} />}
+          {slide.type === 'custom' && <CustomSlide slide={slide} store={store} theme={theme} />}
+        </motion.div>
+      </AnimatePresence>
+
+      {slides.length > 1 && (
+        <>
+          <div className="absolute bottom-5 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2">
+            {slides.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setIdx(i)}
+                aria-label={`Go to slide ${i + 1}`}
+                className={cn('h-1.5 rounded-full transition-all duration-300', i === idx ? 'w-8 bg-[var(--c-text)]/55' : 'w-1.5 bg-[var(--c-text)]/20 hover:bg-[var(--c-text)]/40')}
+              />
+            ))}
+          </div>
+          <button type="button" onClick={() => go(-1)} aria-label="Previous slide" className="absolute start-3 top-1/2 z-20 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-[var(--c-bg)]/80 backdrop-blur-sm border border-[var(--c-line)]/30 shadow-sm hover:bg-[var(--c-bg)] transition-all">
+            <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
+          </button>
+          <button type="button" onClick={() => go(1)} aria-label="Next slide" className="absolute end-3 top-1/2 z-20 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-[var(--c-bg)]/80 backdrop-blur-sm border border-[var(--c-line)]/30 shadow-sm hover:bg-[var(--c-bg)] transition-all">
+            <ArrowRight className="h-4 w-4 rtl:rotate-180" />
+          </button>
+        </>
+      )}
+    </div>
   );
 }
 

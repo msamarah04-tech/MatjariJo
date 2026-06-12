@@ -219,6 +219,20 @@ export const productDetailsSchema = productDetailsObject.superRefine((details, c
 
 const hexColorSchema = z.string().trim().regex(/^#[0-9A-Fa-f]{6}$/, 'Use a 6-digit hex color.');
 const radiusSchema = z.string().trim().regex(/^(0|[1-9]\d?)(px)$/, 'Use a pixel radius from 0px to 99px.');
+const heroSlideSchema = z.object({
+  id: z.string().max(80),
+  type: z.enum(['offer', 'product', 'custom']),
+  enabled: z.boolean(),
+  discountCode: z.string().trim().max(80).optional(),
+  productId: z.string().trim().max(80).optional(),
+  title: z.string().trim().max(200).optional(),
+  subtitle: z.string().trim().max(400).optional(),
+  ctaLabel: z.string().trim().max(80).optional(),
+  ctaUrl: z.string().trim().max(500).optional(),
+  bgColor: z.string().trim().max(20).optional(),
+  imageUrl: z.string().trim().max(2000).optional(),
+});
+
 export const themeOverridesSchema = z.object({
   bg: hexColorSchema.optional(),
   surface: hexColorSchema.optional(),
@@ -233,6 +247,7 @@ export const themeOverridesSchema = z.object({
   instagram: z.string().trim().max(200).optional(),
   whatsapp: z.string().trim().max(200).optional(),
   tiktok: z.string().trim().max(200).optional(),
+  heroSlides: z.array(heroSlideSchema).max(20).optional(),
 }).strict();
 
 // Subdomains that can never be claimed as a store address (kept in sync with

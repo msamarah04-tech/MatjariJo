@@ -1,8 +1,9 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { ExternalLink, Image as ImageIcon, Instagram, LayoutTemplate, Palette, RotateCcw, Type } from 'lucide-react';
+import { ChevronDown, ChevronUp, ExternalLink, Image as ImageIcon, Instagram, LayoutTemplate, Palette, RotateCcw, Trash2, Type } from 'lucide-react';
+import type { HeroSlide } from '@shared/contract';
 import { useStore } from '@/lib/store';
 import { storefrontUrl } from '@/lib/tenant';
 import { HEADING_FONTS, STOREFRONT_TEMPLATES, THEMES, resolveStoreTheme, type ThemeOverrides } from '@/lib/themes';
@@ -94,7 +95,11 @@ export default function Appearance() {
   const products = useStore((s) => s.products);
   const updateStore = useStore((s) => s.updateStore);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const existingOverrides = store.themeOverrides as Record<string, string> | null | undefined;
+  const existingOverrides = store.themeOverrides as Record<string, unknown> | null | undefined;
+  const [heroSlides, setHeroSlides] = useState<HeroSlide[]>(() =>
+    (existingOverrides?.heroSlides as HeroSlide[] | undefined) ?? []
+  );
+  const [slideSaving, setSlideSaving] = useState(false);
 
   const defaults: FormValues = {
     name: store.name,
@@ -110,10 +115,10 @@ export default function Appearance() {
     storefrontTemplate: store.storefrontTemplate || 'editorial',
     paletteMode: store.themeOverrides ? 'custom' : 'preset',
     buttonStyle: (existingOverrides?.buttonStyle as 'solid' | 'outline' | 'pill') || 'solid',
-    headingFont: existingOverrides?.headingFont || '',
-    instagram: existingOverrides?.instagram || '',
-    whatsapp: existingOverrides?.whatsapp || '',
-    tiktok: existingOverrides?.tiktok || '',
+    headingFont: (existingOverrides?.headingFont as string) || '',
+    instagram: (existingOverrides?.instagram as string) || '',
+    whatsapp: (existingOverrides?.whatsapp as string) || '',
+    tiktok: (existingOverrides?.tiktok as string) || '',
     ...colorDefaultsFor(store.themeId, store.themeOverrides),
   };
 
@@ -175,7 +180,7 @@ export default function Appearance() {
       flatCents: shippingType === 'PICKUP' ? 0 : shippingFlatText ? Math.round(parseFloat(shippingFlatText) * 100) : 0,
       freeOverCents: shippingType === 'FREE_OVER' && shippingFreeOverText ? Math.round(parseFloat(shippingFreeOverText) * 100) : undefined,
     };
-    const themeOverrides = overridesFromValues(data);
+    const themeOverrides = { ...overridesFromValues(data), ...(heroSlides.length > 0 ? { heroSlides } : {}) };
     const saved = await updateStore(store.id, {
       ...patch,
       // Send null (not undefined) so picking an emoji clears a previous image logo and vice versa.
@@ -206,6 +211,24 @@ export default function Appearance() {
     Object.entries(next).forEach(([key, value]) => {
       setValue(key as keyof FormValues, value as never, { shouldDirty: true });
     });
+  };
+
+  const saveHeroSlides = async () => {
+    setSlideSaving(true);
+    const currentOverrides = (store.themeOverrides || {}) as Record<string, unknown>;
+    const saved = await updateStore(store.id, {
+      themeOverrides: {
+        ...currentOverrides,
+        ...overridesFromValues(values),
+        heroSlides: heroSlides.length > 0 ? heroSlides : undefined,
+      },
+    });
+    setSlideSaving(false);
+    if (!saved) {
+      toast({ title: 'Could not save hero', description: useStore.getState().apiError || 'Please try again.', type: 'error' });
+      return;
+    }
+    toast({ title: 'Hero slides saved', type: 'success' });
   };
 
   const previewOverrides = overridesFromValues(values);
@@ -296,6 +319,20 @@ export default function Appearance() {
                 </button>
               ))}
             </div>
+          </Section>
+
+          {/* Hero slides */}
+          <Section title="Hero slides">
+            <p className="mb-4 text-sm text-muted">
+              Add slides to replace the default hero with a full-width carousel — offers, featured products, or custom banners. If no slides are enabled, the template's default hero is shown.
+            </p>
+            <HeroSlidesEditor
+              slides={heroSlides}
+              products={storeProducts}
+              onChange={setHeroSlides}
+              onSave={saveHeroSlides}
+              saving={slideSaving}
+            />
           </Section>
 
           {/* Theme presets */}
@@ -609,6 +646,237 @@ function TemplateDiagram({ id }: { id: FormValues['storefrontTemplate'] }) {
       <div className={cn(block, 'h-1.5 w-full rounded-full')} />
       <div className="grid grid-cols-4 gap-1">
         {Array.from({ length: 4 }).map((_, i) => <span key={i} className={cn(block, 'h-7')} />)}
+      </div>
+    </div>
+  );
+}
+
+function HeroSlidesEditor({
+  slides,
+  products,
+  onChange,
+  onSave,
+  saving,
+}: {
+  slides: HeroSlide[];
+  products: Array<{ id: string; name: string }>;
+  onChange: (slides: HeroSlide[]) => void;
+  onSave: () => void;
+  saving: boolean;
+}) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const addSlide = (type: HeroSlide['type']) => {
+    const newSlide: HeroSlide = { id: crypto.randomUUID(), type, enabled: true };
+    onChange([...slides, newSlide]);
+    setExpandedId(newSlide.id);
+  };
+
+  const updateSlide = (id: string, patch: Partial<HeroSlide>) => {
+    onChange(slides.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+  };
+
+  const removeSlide = (id: string) => {
+    onChange(slides.filter((s) => s.id !== id));
+    if (expandedId === id) setExpandedId(null);
+  };
+
+  const moveSlide = (id: string, delta: -1 | 1) => {
+    const i = slides.findIndex((s) => s.id === id);
+    if (i < 0) return;
+    const next = [...slides];
+    const j = i + delta;
+    if (j < 0 || j >= next.length) return;
+    [next[i], next[j]] = [next[j], next[i]];
+    onChange(next);
+  };
+
+  const slideTypeEmoji = (type: HeroSlide['type']) =>
+    type === 'offer' ? '🎁' : type === 'product' ? '📦' : '✏️';
+  const slideTypeLabel = (type: HeroSlide['type']) =>
+    type === 'offer' ? 'Offer slide' : type === 'product' ? 'Product slide' : 'Custom slide';
+  const slideDescription = (slide: HeroSlide) => {
+    if (slide.type === 'offer') return slide.discountCode ? `Code: ${slide.discountCode}` : 'No code set';
+    if (slide.type === 'product') {
+      const p = products.find((item) => item.id === slide.productId);
+      return p ? p.name : 'No product selected';
+    }
+    return slide.title || 'No title set';
+  };
+
+  return (
+    <div>
+      <div className="space-y-3">
+        {slides.length === 0 && (
+          <div className="rounded-xl border border-dashed border-line bg-paper/50 p-8 text-center">
+            <p className="text-sm font-semibold text-muted">No hero slides yet.</p>
+            <p className="mt-1 text-xs text-muted">Use the buttons below to add offer, product, or custom slides.</p>
+          </div>
+        )}
+        {slides.map((slide, i) => (
+          <div key={slide.id} className="overflow-hidden rounded-xl border border-line bg-paper">
+            <div className="flex items-center gap-3 p-3.5">
+              <button
+                type="button"
+                onClick={() => setExpandedId(expandedId === slide.id ? null : slide.id)}
+                className="flex min-w-0 flex-1 items-center gap-3 text-left"
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-sm">
+                  {slideTypeEmoji(slide.type)}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold text-ink">{slideTypeLabel(slide.type)}</p>
+                  <p className="truncate text-xs text-muted">{slideDescription(slide)}</p>
+                </div>
+              </button>
+              <div className="flex shrink-0 items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => updateSlide(slide.id, { enabled: !slide.enabled })}
+                  aria-label={slide.enabled ? 'Disable slide' : 'Enable slide'}
+                  className={cn('relative h-6 w-11 rounded-full border-2 transition-all', slide.enabled ? 'border-accent bg-accent' : 'border-line bg-line/30')}
+                >
+                  <span className={cn('absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all', slide.enabled ? 'start-[1.375rem]' : 'start-0.5')} />
+                </button>
+                <button type="button" onClick={() => moveSlide(slide.id, -1)} disabled={i === 0} className="flex h-7 w-7 items-center justify-center rounded text-muted hover:bg-line/50 disabled:opacity-25">
+                  <ChevronUp className="h-4 w-4" />
+                </button>
+                <button type="button" onClick={() => moveSlide(slide.id, 1)} disabled={i === slides.length - 1} className="flex h-7 w-7 items-center justify-center rounded text-muted hover:bg-line/50 disabled:opacity-25">
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+                <button type="button" onClick={() => removeSlide(slide.id)} className="flex h-7 w-7 items-center justify-center rounded text-red-400 hover:bg-red-50 hover:text-red-600">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            {expandedId === slide.id && (
+              <div className="space-y-4 border-t border-line bg-surface/40 p-4">
+                {slide.type === 'offer' && (
+                  <>
+                    <FormField label="Discount code">
+                      <input
+                        className={inputCls}
+                        value={slide.discountCode || ''}
+                        onChange={(e) => updateSlide(slide.id, { discountCode: e.target.value.toUpperCase() })}
+                        placeholder="e.g. SAVE10"
+                      />
+                    </FormField>
+                    <FormField label="Headline (optional — overrides offer name)">
+                      <input
+                        className={inputCls}
+                        value={slide.title || ''}
+                        onChange={(e) => updateSlide(slide.id, { title: e.target.value })}
+                        placeholder="e.g. Weekend Flash Sale"
+                      />
+                    </FormField>
+                    <FormField label="Subtext (optional)">
+                      <input
+                        className={inputCls}
+                        value={slide.subtitle || ''}
+                        onChange={(e) => updateSlide(slide.id, { subtitle: e.target.value })}
+                        placeholder="e.g. Use code at checkout · ends Sunday"
+                      />
+                    </FormField>
+                  </>
+                )}
+                {slide.type === 'product' && (
+                  <FormField label="Featured product">
+                    <select
+                      className={inputCls}
+                      value={slide.productId || ''}
+                      onChange={(e) => updateSlide(slide.id, { productId: e.target.value })}
+                    >
+                      <option value="">— Select a product —</option>
+                      {products.map((p) => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                  </FormField>
+                )}
+                {slide.type === 'custom' && (
+                  <>
+                    <FormField label="Headline">
+                      <input
+                        className={inputCls}
+                        value={slide.title || ''}
+                        onChange={(e) => updateSlide(slide.id, { title: e.target.value })}
+                        placeholder="e.g. New Collection Arrived"
+                      />
+                    </FormField>
+                    <FormField label="Subtitle (optional)">
+                      <input
+                        className={inputCls}
+                        value={slide.subtitle || ''}
+                        onChange={(e) => updateSlide(slide.id, { subtitle: e.target.value })}
+                        placeholder="e.g. Explore the latest styles"
+                      />
+                    </FormField>
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField label="Button label (optional)">
+                        <input
+                          className={inputCls}
+                          value={slide.ctaLabel || ''}
+                          onChange={(e) => updateSlide(slide.id, { ctaLabel: e.target.value })}
+                          placeholder="e.g. Shop Now"
+                        />
+                      </FormField>
+                      <FormField label="Button link (optional)">
+                        <input
+                          className={inputCls}
+                          value={slide.ctaUrl || ''}
+                          onChange={(e) => updateSlide(slide.id, { ctaUrl: e.target.value })}
+                          placeholder="/about or https://…"
+                        />
+                      </FormField>
+                    </div>
+                    <FormField label="Background color (optional)">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={slide.bgColor || '#ffffff'}
+                          onChange={(e) => updateSlide(slide.id, { bgColor: e.target.value })}
+                          className="h-10 w-14 cursor-pointer rounded border border-line bg-transparent"
+                        />
+                        <input
+                          className={cn(inputCls, 'flex-1 font-mono text-xs')}
+                          value={slide.bgColor || ''}
+                          onChange={(e) => updateSlide(slide.id, { bgColor: e.target.value || undefined })}
+                          placeholder="#f5f5f5"
+                        />
+                        {slide.bgColor && (
+                          <button type="button" onClick={() => updateSlide(slide.id, { bgColor: undefined })} className="text-xs font-semibold text-muted hover:text-red-500">
+                            Clear
+                          </button>
+                        )}
+                      </div>
+                    </FormField>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {(['offer', 'product', 'custom'] as const).map((type) => (
+          <button
+            key={type}
+            type="button"
+            onClick={() => addSlide(type)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-paper px-3 py-2 text-xs font-bold text-ink hover:border-ink/40 hover:bg-surface transition-all"
+          >
+            + {type.charAt(0).toUpperCase() + type.slice(1)} slide
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-5 flex items-center justify-between gap-4">
+        <p className="text-xs text-muted">Toggle slides on/off without deleting them. Save to publish changes.</p>
+        <Button type="button" variant="accent" onClick={onSave} className="h-9 shrink-0 px-5">
+          {saving ? 'Saving…' : 'Save hero'}
+        </Button>
       </div>
     </div>
   );

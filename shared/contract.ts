@@ -52,6 +52,20 @@ export type PlanStatus = z.infer<typeof planStatusEnum>;
 export type PaymentMethod = z.infer<typeof paymentMethodEnum>;
 export type StorefrontTemplate = z.infer<typeof storefrontTemplateEnum>;
 
+export interface HeroSlide {
+  id: string;
+  type: 'offer' | 'product' | 'custom';
+  enabled: boolean;
+  discountCode?: string;
+  productId?: string;
+  title?: string;
+  subtitle?: string;
+  ctaLabel?: string;
+  ctaUrl?: string;
+  bgColor?: string;
+  imageUrl?: string;
+}
+
 export interface ThemeOverrides {
   bg?: string;
   surface?: string;
@@ -61,6 +75,7 @@ export interface ThemeOverrides {
   soft?: string;
   line?: string;
   radius?: string;
+  heroSlides?: HeroSlide[];
 }
 
 export interface User {

@@ -22,12 +22,15 @@ export type StorefrontTemplate = {
   description: string;
 };
 
+export type { HeroSlide } from '@shared/contract';
+
 export type ThemeOverrides = Partial<Pick<Theme, 'bg' | 'surface' | 'text' | 'primary' | 'accent' | 'soft' | 'line' | 'radius'>> & {
   buttonStyle?: 'solid' | 'outline' | 'pill';
   headingFont?: string;
   instagram?: string;
   whatsapp?: string;
   tiktok?: string;
+  heroSlides?: import('@shared/contract').HeroSlide[];
 };
 
 export const THEMES: Theme[] = [
