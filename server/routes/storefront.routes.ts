@@ -147,7 +147,7 @@ storefrontRouter.post('/public/stores/:slug/orders', publicWriteRateLimiter, asy
         const claimed = await tx.$executeRaw`
           UPDATE "Discount" SET "usedCount" = "usedCount" + 1
           WHERE "storeId" = ${store.id} AND "code" = ${summary.discountCode}
-            AND "active" = 1 AND ("usageLimit" IS NULL OR "usedCount" < "usageLimit")`;
+            AND "active" = TRUE AND ("usageLimit" IS NULL OR "usedCount" < "usageLimit")`;
         if (claimed === 0) throw conflict('This discount is no longer available.');
       }
 
