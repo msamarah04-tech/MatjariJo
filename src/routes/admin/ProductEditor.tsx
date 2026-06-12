@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Check, ChevronDown, ImageIcon, Info, Package, Plus,
   Sparkles, Tag, Trash2, X, BarChart2, Layers, Search,
+  Box, GitBranch, Clock, Download, UserCheck,
 } from 'lucide-react';
 import { parseMoney, toMajor } from '@shared/money';
 import { useI18n, type Lang } from '@/lib/i18n';
@@ -18,10 +19,10 @@ import type { Product, ProductCatalogStatus, Store } from '@/lib/types';
 import {
   attributeErrorMap,
   attributesToForm,
-  categorySelectOptions,
   categorySupportsVariants,
   formToAttributes,
   getProductCategorySchema,
+  groupedCategorySchemas,
   sellingTypeLabel,
   tr,
   variantOptionTemplates,
@@ -199,7 +200,7 @@ export default function ProductEditor() {
   const attributeErrors = useMemo(() => attributeErrorMap(state.categoryKey, attributesNormalized), [state.categoryKey, attributesNormalized]);
   const supportsVariants = categorySupportsVariants(state.categoryKey);
   const priceMinor = parseMoney(state.priceText, store.currency) ?? 0;
-  const categories = categorySelectOptions(lang as Lang);
+  const groupedCategories = useMemo(() => groupedCategorySchemas(), []);
 
   useEffect(() => {
     if (state.sellingType !== 'variants') return;
@@ -455,16 +456,40 @@ export default function ProductEditor() {
                   <select
                     className={cn(selectCls, showErrors && formErrors.categoryKey && 'border-red-400')}
                     value={state.categoryKey}
-                    onChange={(e) => set('categoryKey', e.target.value)}
+                    onChange={(e) => {
+                      const newKey = e.target.value;
+                      const newSchema = getProductCategorySchema(newKey);
+                      const firstType = newSchema?.sellingTypes[0] ?? 'simple';
+                      setState((prev) => ({ ...prev, categoryKey: newKey, sellingType: firstType, attributes: {} }));
+                    }}
                   >
-                    <option value="">Choose a category</option>
-                    {categories.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                    <option value="">Choose a category…</option>
+                    {groupedCategories.map(({ group, schemas }) => (
+                      <optgroup key={group.key} label={group.label.en}>
+                        {schemas.map((s) => (
+                          <option key={s.key} value={s.key}>{s.label.en}</option>
+                        ))}
+                      </optgroup>
+                    ))}
                   </select>
+                  {schema?.description && (
+                    <p className="mt-1 text-xs text-muted">{schema.description.en}</p>
+                  )}
                 </FormField>
                 <FormField label="Collection / grouping" hint="Optional">
                   <Input value={(editing?.collection) || ''} placeholder="e.g. Summer 2025" disabled />
                 </FormField>
               </div>
+
+              {/* Selling type radio cards — only shown when a category is chosen */}
+              {schema && (
+                <SellingTypeCards
+                  supported={schema.sellingTypes}
+                  value={state.sellingType}
+                  onChange={(t) => set('sellingType', t)}
+                  lang={lang as Lang}
+                />
+              )}
             </div>
           </Section>
 
@@ -691,6 +716,57 @@ function ImageSidebar({ state, set }: { state: EditorState; set: <K extends keyo
           Remove image
         </button>
       )}
+    </div>
+  );
+}
+
+// ─── Selling-type radio cards ────────────────────────────────────────────────
+
+const SELLING_TYPE_META: Record<SellingType, { icon: React.ElementType; label: string; hint: string }> = {
+  simple:       { icon: Box,       label: 'Simple',        hint: 'One price, one stock count.' },
+  variants:     { icon: GitBranch, label: 'Variants',      hint: 'Size, color or other options.' },
+  made_to_order:{ icon: Clock,     label: 'Made to order', hint: 'Produced after the customer buys.' },
+  digital:      { icon: Download,  label: 'Digital',       hint: 'Instant download or link delivery.' },
+  service:      { icon: UserCheck, label: 'Service',       hint: 'Bookable or deliverable service.' },
+};
+
+function SellingTypeCards({ supported, value, onChange, lang: _lang }: { supported: SellingType[]; value: SellingType; onChange: (t: SellingType) => void; lang: Lang }) {
+  if (supported.length <= 1) {
+    const meta = SELLING_TYPE_META[supported[0]];
+    const Icon = meta.icon;
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-muted">
+        <Icon className="h-4 w-4 shrink-0" />
+        <span><span className="font-semibold text-ink">{meta.label}</span> — {meta.hint}</span>
+      </div>
+    );
+  }
+  return (
+    <div>
+      <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted">Selling type</p>
+      <div className="flex flex-wrap gap-2">
+        {supported.map((type) => {
+          const meta = SELLING_TYPE_META[type];
+          const Icon = meta.icon;
+          const active = value === type;
+          return (
+            <button
+              key={type} type="button"
+              onClick={() => onChange(type)}
+              className={cn(
+                'flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors',
+                active
+                  ? 'border-ink bg-ink text-paper'
+                  : 'border-line bg-paper text-muted hover:border-ink/40 hover:text-ink',
+              )}
+            >
+              <Icon className="h-4 w-4 shrink-0" />
+              <span className="font-semibold">{meta.label}</span>
+            </button>
+          );
+        })}
+      </div>
+      {value && <p className="mt-1.5 text-xs text-muted">{SELLING_TYPE_META[value]?.hint}</p>}
     </div>
   );
 }

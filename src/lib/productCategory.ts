@@ -8,11 +8,13 @@ import type { Lang } from '@/lib/i18n';
 import {
   coerceAttributeValue,
   getProductCategorySchema,
+  groupedCategorySchemas,
   listProductCategorySchemas,
   localize,
   normalizeCategoryAttributes,
   validateCategoryAttributes,
   persistedSellingType,
+  CATEGORY_GROUPS,
   type Bilingual,
   type ProductAttributeValue,
   type ProductCategorySchema,
@@ -22,10 +24,12 @@ import {
 
 export {
   getProductCategorySchema,
+  groupedCategorySchemas,
   listProductCategorySchemas,
   normalizeCategoryAttributes,
   validateCategoryAttributes,
   persistedSellingType,
+  CATEGORY_GROUPS,
 };
 export type { ProductCategorySchema, ProductDetailFieldSchema, ProductAttributeValue, SellingType };
 
