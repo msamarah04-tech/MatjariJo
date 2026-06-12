@@ -13,7 +13,7 @@ import { z } from 'zod';
 export const roleEnum = z.enum(['PLATFORM_OWNER', 'SHOP_OWNER']);
 export const storeStatusEnum = z.enum(['ACTIVE', 'SUSPENDED']);
 export const orderStatusEnum = z.enum(['PENDING', 'APPROVED', 'REJECTED', 'FULFILLED']);
-export const discountTypeEnum = z.enum(['PERCENT', 'FIXED', 'FREE_SHIPPING']);
+export const discountTypeEnum = z.enum(['PERCENT', 'FIXED', 'FREE_SHIPPING', 'BXGY', 'TIERED']);
 export const shippingTypeEnum = z.enum(['FLAT', 'FREE_OVER', 'PICKUP']);
 export const analyticsEventTypeEnum = z.enum(['view', 'add_to_cart', 'checkout_start', 'order']);
 export const storeReviewStatusEnum = z.enum(['PENDING_REVIEW', 'APPROVED', 'NEEDS_CHANGES']);
@@ -258,9 +258,20 @@ export interface ProductDetailRow {
   sortOrder?: number;
 }
 
+/** Extra config stored as JSON in the `details` column.
+ *  BXGY: { buyQty: number; discountPct: number }
+ *  TIERED: { tiers: { minCents: number; pct: number }[] }  (sorted ascending by minCents)
+ */
+export type DiscountDetails =
+  | { buyQty: number; discountPct: number }
+  | { tiers: { minCents: number; pct: number }[] };
+
 export interface Discount {
   id: string;
   storeId: string;
+  name?: string;
+  imageUrl?: string;
+  details?: DiscountDetails;
   code: string;
   type: DiscountType;
   value: number;

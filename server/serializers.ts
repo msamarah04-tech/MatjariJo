@@ -164,9 +164,16 @@ export function serializeProductForStorefront(product: Product) {
 }
 
 export function serializeDiscount(discount: Discount) {
+  let parsedDetails: unknown = undefined;
+  if (discount.details) {
+    try { parsedDetails = JSON.parse(discount.details); } catch { /* ignore malformed */ }
+  }
   return {
     id: discount.id,
     storeId: discount.storeId,
+    name: discount.name ?? undefined,
+    imageUrl: discount.imageUrl ?? undefined,
+    details: parsedDetails,
     code: discount.code,
     type: discount.type,
     value: discount.value,

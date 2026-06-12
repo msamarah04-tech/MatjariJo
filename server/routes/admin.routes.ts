@@ -226,6 +226,9 @@ adminRouter.post('/admin/stores/:storeId/discounts', requireStoreAccess, asyncRo
   const discount = await prisma.discount.create({
     data: {
       storeId: req.params.storeId,
+      name: input.name ?? null,
+      imageUrl: input.imageUrl ?? null,
+      details: input.details ?? null,
       code: input.code,
       type: input.type,
       value: input.value,
@@ -254,6 +257,9 @@ adminRouter.patch('/admin/stores/:storeId/discounts/:discountId', requireStoreAc
   const discount = await prisma.discount.findFirst({ where: { id: params.discountId, storeId: params.storeId } });
   if (!discount) throw notFound('Discount not found in this store.');
   const validated = discountBaseSchema.parse({
+    name: input.name === undefined ? discount.name : input.name,
+    imageUrl: input.imageUrl === undefined ? discount.imageUrl : input.imageUrl,
+    details: input.details === undefined ? discount.details : input.details,
     code: input.code ?? discount.code,
     type: input.type ?? discount.type,
     value: input.value ?? discount.value,
@@ -265,6 +271,9 @@ adminRouter.patch('/admin/stores/:storeId/discounts/:discountId', requireStoreAc
   const updated = await prisma.discount.update({
     where: { id: discount.id },
     data: {
+      name: validated.name ?? null,
+      imageUrl: validated.imageUrl ?? null,
+      details: validated.details ?? null,
       code: validated.code,
       type: validated.type,
       value: validated.value,

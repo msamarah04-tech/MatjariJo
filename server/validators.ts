@@ -289,6 +289,9 @@ export const productCreateSchema = z.object({
 export const productPatchSchema = productCreateSchema.partial().strict();
 
 const discountFieldsSchema = z.object({
+  name: z.string().trim().max(80).optional().nullable(),
+  imageUrl: z.string().max(2000).optional().nullable(),
+  details: z.string().max(4000).optional().nullable(),
   code: z.string().trim().min(1).max(40).transform((value) => value.toUpperCase()),
   type: discountTypeEnum,
   value: z.number().int().min(0),
@@ -307,6 +310,19 @@ export const discountBaseSchema = discountFieldsSchema.superRefine((value, ctx) 
   }
   if (value.type === 'FREE_SHIPPING' && value.value !== 0) {
     ctx.addIssue({ code: 'custom', path: ['value'], message: 'Free shipping discounts must use value 0.' });
+  }
+  if (value.type === 'BXGY') {
+    try {
+      const d = JSON.parse(value.details ?? '{}');
+      if (!d.buyQty || d.buyQty < 2) ctx.addIssue({ code: 'custom', path: ['details'], message: 'Buy quantity must be at least 2.' });
+      if (!d.discountPct || d.discountPct < 1 || d.discountPct > 100) ctx.addIssue({ code: 'custom', path: ['details'], message: 'Discount percent must be 1–100.' });
+    } catch { ctx.addIssue({ code: 'custom', path: ['details'], message: 'Invalid BXGY configuration.' }); }
+  }
+  if (value.type === 'TIERED') {
+    try {
+      const d = JSON.parse(value.details ?? '{}');
+      if (!Array.isArray(d.tiers) || d.tiers.length === 0) ctx.addIssue({ code: 'custom', path: ['details'], message: 'At least one tier is required.' });
+    } catch { ctx.addIssue({ code: 'custom', path: ['details'], message: 'Invalid TIERED configuration.' }); }
   }
 });
 

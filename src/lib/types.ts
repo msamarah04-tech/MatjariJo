@@ -38,6 +38,7 @@ export type {
   Store,
   Product,
   Discount,
+  DiscountDetails,
   OrderItem,
   Order,
   AnalyticsEvent,

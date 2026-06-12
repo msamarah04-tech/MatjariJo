@@ -182,6 +182,9 @@ model Discount {
   id               String    @id @default(cuid())
   storeId          String
   store            Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  name             String?
+  imageUrl         String?
+  details          String?
   code             String
   type             String
   value            Int

@@ -23,10 +23,24 @@ export function discountIsValid(discount: Discount | undefined | null, subtotalC
   return true;
 }
 
-export function computeDiscountCents(discount: Discount | undefined, subtotalCents: number) {
+export function computeDiscountCents(discount: Discount | undefined, subtotalCents: number, totalQty = 0) {
   if (!discount) return 0;
   if (discount.type === 'PERCENT') return percentOf(subtotalCents, discount.value);
   if (discount.type === 'FIXED') return Math.min(subtotalCents, discount.value);
+  if (discount.type === 'BXGY' && discount.details) {
+    try {
+      const d = JSON.parse(discount.details) as { buyQty: number; discountPct: number };
+      if (totalQty >= d.buyQty) return percentOf(subtotalCents, d.discountPct);
+    } catch { /* ignore */ }
+  }
+  if (discount.type === 'TIERED' && discount.details) {
+    try {
+      const d = JSON.parse(discount.details) as { tiers: { minCents: number; pct: number }[] };
+      const sorted = [...d.tiers].sort((a, b) => b.minCents - a.minCents);
+      const tier = sorted.find((t) => subtotalCents >= t.minCents);
+      if (tier) return percentOf(subtotalCents, tier.pct);
+    } catch { /* ignore */ }
+  }
   return 0;
 }
 
@@ -95,8 +109,9 @@ export function computeOrder(
   });
 
   const subtotalCents = items.reduce((sum, item) => sum + item.lineTotalCents, 0);
+  const totalQty = items.reduce((sum, item) => sum + item.quantity, 0);
   const validDiscount = discountIsValid(discount, subtotalCents) ? discount : undefined;
-  const discountCents = computeDiscountCents(validDiscount, subtotalCents);
+  const discountCents = computeDiscountCents(validDiscount, subtotalCents, totalQty);
   const freeShipping = validDiscount?.type === 'FREE_SHIPPING';
   const shippingAmountCents = shippingCents(store, subtotalCents, freeShipping);
 
