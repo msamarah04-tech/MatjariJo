@@ -69,12 +69,12 @@ export default function Orders() {
   const doApprove = (o: Order) => { approveOrder(storeId, o.id); toast({ title: 'Order approved', type: 'success' }); };
   const doFulfill = (o: Order) => { fulfillOrder(storeId, o.id); toast({ title: 'Order fulfilled', type: 'success' }); };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (rows.length === 0) {
       toast({ title: 'No orders to export', type: 'error' });
       return;
     }
-    exportOrdersToExcel(rows, store.name, store.currency);
+    await exportOrdersToExcel(rows, store.name, store.currency);
     toast({ title: `Exported ${rows.length} order${rows.length === 1 ? '' : 's'}`, type: 'success' });
   };
 
