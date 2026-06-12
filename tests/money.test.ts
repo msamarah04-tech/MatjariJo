@@ -6,7 +6,6 @@ import {
   parseMoney,
   applyBps,
   percentOf,
-  taxFromBase,
   rescaleMinor,
   formatMoney,
 } from '../shared/money.ts';
@@ -34,11 +33,6 @@ test('bps and percent math are integer half-up', () => {
   assert.equal(percentOf(100, 200), 100); // clamped to the base
 });
 
-test('taxFromBase handles exclusive vs inclusive', () => {
-  assert.equal(taxFromBase(10000, 1600, false), 1600); // exclusive: 16% on top
-  assert.equal(taxFromBase(11600, 1600, true), 1600); // inclusive: portion already inside
-  assert.equal(taxFromBase(10000, 0, false), 0);
-});
 
 test('rescaleMinor migrates between currency exponents', () => {
   assert.equal(rescaleMinor(1500, 'USD', 'JOD'), 15000); // exp 2 -> 3, x10

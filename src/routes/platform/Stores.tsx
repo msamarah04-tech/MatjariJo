@@ -33,7 +33,6 @@ export default function Stores() {
   const ownerStatuses = useStore((s) => s.ownerStatuses);
 
   const setStoreStatus = useStore((s) => s.setStoreStatus);
-  const setStoreCommission = useStore((s) => s.setStoreCommission);
   const setStorePlan = useStore((s) => s.setStorePlan);
   const recordPlanPayment = useStore((s) => s.recordPlanPayment);
   const toggleFeatured = useStore((s) => s.toggleFeatured);

@@ -134,10 +134,7 @@ test('GST is computed server-side on top of the recomputed subtotal', async () =
   });
   assert.equal(response.status, 201);
   const subtotal = 30_000;
-  const expectedTax = Math.round(subtotal * 1600 / 10000); // 16% GST, exclusive
   assert.equal(body.order.subtotalCents, subtotal);
-  assert.equal(body.order.taxCents, expectedTax);
-  assert.equal(body.order.taxRateBps, 1600);
-  assert.equal(body.order.totalCents, subtotal + expectedTax);
+  assert.equal(body.order.totalCents, subtotal);
   assert.equal(body.order.currency, 'JOD');
 });

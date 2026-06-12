@@ -55,7 +55,7 @@ platformRouter.get('/platform/overview', asyncRoute(async (_req, res) => {
     prisma.productFlag.count({ where: { status: 'OPEN' } }),
     prisma.auditLog.findMany({ orderBy: { createdAt: 'desc' }, take: 12 }),
   ]);
-  const insights = platformInsights(30, stores, orders, events, settings);
+  const insights = platformInsights(30, stores, orders, events);
   res.json({
     ...insights,
     kpis: { ...insights.kpis, pendingShopRequests: requests, openTickets: tickets, openFlags: flags },
@@ -376,7 +376,7 @@ platformRouter.get('/platform/analytics', asyncRoute(async (req, res) => {
     prisma.analyticsEvent.findMany(),
     getSettings(),
   ]);
-  res.json(platformInsights(range, stores, orders, events, settings));
+  res.json(platformInsights(range, stores, orders, events));
 }));
 
 platformRouter.get('/platform/audit', asyncRoute(async (req, res) => {

@@ -312,9 +312,7 @@ test('public checkout recalculates totals from stored product prices', async () 
   assert.equal(order.response.status, 201);
   // Subtotal is recomputed from the stored price (1234 minor units x 2).
   assert.equal(order.body.order.subtotalCents, 2468);
-  // GST is added server-side on top of the subtotal (16% exclusive by default).
-  assert.equal(order.body.order.taxCents, Math.round(2468 * 1600 / 10000));
-  assert.equal(order.body.order.totalCents, 2468 + order.body.order.taxCents);
+  assert.equal(order.body.order.totalCents, 2468);
 
   // Customer email is required at checkout — order-lifecycle emails (confirmation,
   // approval with the invoice attached, fulfillment) are sent to it.

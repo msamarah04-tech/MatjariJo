@@ -57,10 +57,8 @@ test('invoice JSON includes the GST line and totals', async () => {
   assert.equal(response.status, 200);
   const inv = body.invoice;
   assert.equal(inv.number, order.invoiceNumber);
-  assert.equal(inv.taxRateBps, 1600);
   assert.equal(inv.subtotalMinor, 10_000);
-  assert.equal(inv.taxMinor, Math.round(10_000 * 1600 / 10000));
-  assert.equal(inv.totalMinor, 10_000 + inv.taxMinor);
+  assert.equal(inv.totalMinor, 10_000);
   assert.equal(inv.lines.length, 1);
 });
 

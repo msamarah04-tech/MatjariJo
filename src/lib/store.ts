@@ -274,8 +274,6 @@ interface AppState {
   rejectShopRequest: (id: string, reason: string) => void;
   addAuditLog: (action: string, target: string, detail?: string) => void;
 
-  // store oversight
-  setStoreCommission: (id: string, bps?: number) => void;
   // Subscription billing (manual): change tier / record an off-platform payment.
   setStorePlan: (id: string, plan: StorePlan) => Promise<boolean>;
   recordPlanPayment: (id: string) => Promise<boolean>;
@@ -900,27 +898,6 @@ export const useStore = create<AppState>()(
             action: 'Rejected website request',
             target: state.shopRequests.find((request) => request.id === id)?.storeName || id,
             detail: reason,
-            ts: Date.now(),
-          }), ...state.auditLogs].slice(0, state.platformSettings.auditCap),
-        }));
-      },
-
-      setStoreCommission: (id, bps) => {
-        const token = get().token;
-        if (token) {
-          platformApi.setStoreCommission(id, bps ?? null)
-            .then(() => get().loadBootstrap())
-            .catch((error) => set({ apiError: error instanceof Error ? error.message : 'Could not update commission.' }));
-          return;
-        }
-        set((state) => ({
-          stores: state.stores.map((store) => (store.id === id ? { ...store, commissionOverrideBps: bps } : store)),
-          auditLogs: [normalizeAuditLog({
-            id: crypto.randomUUID(),
-            actor: get().currentUser?.name || 'Website Owner',
-            action: bps === undefined ? 'Cleared store commission override' : 'Set store commission override',
-            target: state.stores.find((store) => store.id === id)?.name || id,
-            detail: bps === undefined ? 'Falls back to platform rate' : `${(bps / 100).toFixed(2)}%`,
             ts: Date.now(),
           }), ...state.auditLogs].slice(0, state.platformSettings.auditCap),
         }));

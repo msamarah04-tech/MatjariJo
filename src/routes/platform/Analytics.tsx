@@ -24,7 +24,7 @@ import { money } from '@/lib/format';
 import { PlatformRange, getPlatformInsights } from '@/lib/analytics';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Stat } from '@/components/ui/Stat';
-import { Wallet, DollarSign, ShoppingBag, Store as StoreIcon } from 'lucide-react';
+import { Wallet, ShoppingBag, Store as StoreIcon } from 'lucide-react';
 import { CHART_COLORS, ChartCard, PageHeader, SegmentedControl } from './shared';
 
 const axisTick = { fill: '#857C6E', fontSize: 12 };
@@ -34,17 +34,16 @@ export default function Analytics() {
   const stores = useStore((s) => s.stores);
   const orders = useStore((s) => s.orders);
   const events = useStore((s) => s.analyticsEvents);
-  const settings = useStore((s) => s.platformSettings);
   const [range, setRange] = useState<PlatformRange>(30);
 
-  const insights = useMemo(() => getPlatformInsights(range, stores, orders, events, settings), [range, stores, orders, events, settings]);
+  const insights = useMemo(() => getPlatformInsights(range, stores, orders, events), [range, stores, orders, events]);
   const statusData = insights.statusCounts.filter((entry) => entry.value > 0);
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Analytics"
-        subtitle="Marketplace performance across every store — GMV, commission, conversion, and mix."
+        subtitle="Marketplace performance across every store — GMV, conversion, and mix."
         action={
           <SegmentedControl<PlatformRange>
             value={range}
@@ -61,7 +60,6 @@ export default function Analytics() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label="GMV" value={money(insights.kpis.totalGmvCents)} icon={Wallet} />
-        <Stat label="Commission earned" value={money(insights.kpis.commissionCents)} icon={DollarSign} />
         <Stat label="Orders" value={insights.kpis.totalOrders} icon={ShoppingBag} />
         <Stat label="Active stores" value={insights.kpis.activeStores} icon={StoreIcon} />
       </div>
@@ -96,7 +94,7 @@ export default function Analytics() {
                 <YAxis tick={axisTick} axisLine={false} tickLine={false} tickFormatter={(value) => `$${Math.round(Number(value) / 100)}`} />
                 <Tooltip formatter={(value) => money(Number(value))} contentStyle={tooltipStyle} />
                 <Line type="monotone" dataKey="gmvCents" name="GMV" stroke={CHART_COLORS[0]} strokeWidth={3} dot={false} />
-                <Line type="monotone" dataKey="commissionCents" name="Commission" stroke={CHART_COLORS[1]} strokeWidth={3} dot={false} />
+
               </LineChart>
             </ResponsiveContainer>
           </ChartCard>
