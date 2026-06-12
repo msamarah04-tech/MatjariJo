@@ -113,7 +113,7 @@ const offerLabel = (d: Discount, currency: string) => {
   const det = d.details as (DiscountDetails & Record<string, unknown>) | undefined;
   if (d.type === 'BXGY' && det && 'buyQty' in det) {
     const bxgy = det as { buyQty: number; priceCents: number };
-    return `Buy ${bxgy.buyQty}+, ${money(bxgy.priceCents, currency)} / unit`;
+    return `Buy ${bxgy.buyQty}+, pay ${money(bxgy.priceCents, currency)} total`;
   }
   if (d.type === 'TIERED' && det && 'tiers' in det) {
     const t = (det.tiers as { minCents: number; pct: number }[]);
@@ -618,7 +618,7 @@ function OfferDrawer({ open, onClose, editing, storeDiscounts, storeProducts, cu
                   <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted">items</span>
                 </div>
               </Field>
-              <Field label="Price per unit" required error={errors.bxgyPrice} hint="Each item sold at this price when qty is met">
+              <Field label="Bundle total price" required error={errors.bxgyPrice} hint={`Total price customer pays for all ${form.buyQty || 'N'} items (e.g. 5 T-shirts for JOD 20)`}>
                 <div className="relative">
                   <span className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted">{currency}</span>
                   <Input type="number" step="0.001" min="0" value={form.bxgyPrice}

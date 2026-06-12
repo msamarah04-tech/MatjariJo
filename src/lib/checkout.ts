@@ -93,7 +93,8 @@ export function getDiscountCents(
   if (discount.type === 'BXGY' && discount.details) {
     const d = discount.details as { buyQty: number; priceCents: number };
     if (totalQty >= d.buyQty && scopedItems) {
-      return scopedItems.reduce((sum, item) => sum + Math.max(0, item.priceCents - d.priceCents) * item.quantity, 0);
+      const scopedTotal = scopedItems.reduce((sum, item) => sum + item.priceCents * item.quantity, 0);
+      return Math.max(0, scopedTotal - d.priceCents);
     }
   }
   if (discount.type === 'TIERED' && discount.details) {

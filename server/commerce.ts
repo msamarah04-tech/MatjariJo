@@ -42,7 +42,8 @@ export function computeDiscountCents(
     try {
       const d = JSON.parse(discount.details) as { buyQty: number; priceCents: number };
       if (totalQty >= d.buyQty && scopedItems) {
-        return scopedItems.reduce((sum, item) => sum + Math.max(0, item.unitPriceCents - d.priceCents) * item.quantity, 0);
+        const scopedTotal = scopedItems.reduce((sum, item) => sum + item.unitPriceCents * item.quantity, 0);
+        return Math.max(0, scopedTotal - d.priceCents);
       }
     } catch { /* ignore */ }
   }
