@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, ClipboardList, ExternalLink, XCircle } from 'lucide-react';
+import { CheckCircle2, ClipboardList, Download, ExternalLink, XCircle } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { money, timeAgo } from '@/lib/format';
 import { Order, OrderStatus } from '@/lib/types';
@@ -12,6 +12,7 @@ import { PageHeader, SegmentedControl } from '@/components/ui/dashboard';
 import { ResourceTable, Column } from '@/components/ui/ResourceTable';
 import { useFocusParam } from '@/lib/useFocusParam';
 import { useAdminContext, useStoreOrders } from './shared';
+import { exportOrdersToExcel } from '@/lib/exportOrders';
 
 type StatusFilter = 'ALL' | OrderStatus;
 
@@ -68,9 +69,27 @@ export default function Orders() {
   const doApprove = (o: Order) => { approveOrder(storeId, o.id); toast({ title: 'Order approved', type: 'success' }); };
   const doFulfill = (o: Order) => { fulfillOrder(storeId, o.id); toast({ title: 'Order fulfilled', type: 'success' }); };
 
+  const handleExport = () => {
+    if (rows.length === 0) {
+      toast({ title: 'No orders to export', type: 'error' });
+      return;
+    }
+    exportOrdersToExcel(rows, store.name, store.currency);
+    toast({ title: `Exported ${rows.length} order${rows.length === 1 ? '' : 's'}`, type: 'success' });
+  };
+
   return (
     <div className="space-y-6">
-      <PageHeader title="Orders" subtitle="Review, approve, and fulfill customer orders." />
+      <PageHeader
+        title="Orders"
+        subtitle="Review, approve, and fulfill customer orders."
+        action={
+          <Button variant="ghost" className="gap-2 border border-line" onClick={handleExport}>
+            <Download className="h-4 w-4" />
+            Export{rows.length > 0 ? ` (${rows.length})` : ''}
+          </Button>
+        }
+      />
 
       <ResourceTable
         rows={rows}
