@@ -561,16 +561,20 @@ function StorefrontFrame({ store, products, discounts }: { store: Store; product
       // Give a type-specific hint so the customer knows what to do.
       if (discount.type === 'BXGY' && discount.details) {
         const d = discount.details as { buyQty: number; priceCents: number };
-        const totalQty = (discount.productIds?.length
+        const qualifyingItems = discount.productIds?.length
           ? previewSummary.items.filter((i) => discount.productIds!.includes(i.productId))
-          : previewSummary.items
-        ).reduce((s, i) => s + i.quantity, 0);
+          : previewSummary.items;
+        const totalQty = qualifyingItems.reduce((s, i) => s + i.quantity, 0);
         const need = d.buyQty - totalQty;
         if (need > 0) {
           setAppliedCode(undefined);
           setPromoMessage(`Add ${need} more item${need !== 1 ? 's' : ''} to unlock this deal.`);
           return;
         }
+        // Qty threshold met but set price >= product price — no actual saving
+        setAppliedCode(undefined);
+        setPromoMessage('Items are already at or below the deal price.');
+        return;
       }
       setAppliedCode(undefined);
       setPromoMessage('This code does not apply to the items in your cart.');
