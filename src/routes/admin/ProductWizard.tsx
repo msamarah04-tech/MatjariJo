@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, ChevronLeft, ChevronRight, ImageIcon, Plus, Sparkles, Trash2, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronLeft, ChevronRight, ImageIcon, Plus, Sparkles, Trash2, X } from 'lucide-react';
 import { parseMoney, toMajor } from '@shared/money';
 import { useI18n, type Lang } from '@/lib/i18n';
 import { cn } from '@/lib/cn';
@@ -14,10 +14,10 @@ import type { Product, ProductCatalogStatus, Store } from '@/lib/types';
 import {
   attributeErrorMap,
   attributesToForm,
-  categorySelectOptions,
   categorySupportsVariants,
   formToAttributes,
   getProductCategorySchema,
+  groupedCategorySchemas,
   sellingTypeLabel,
   tr,
   variantOptionTemplates,
@@ -27,62 +27,75 @@ import {
 } from '@/lib/productCategory';
 
 // ---------------------------------------------------------------------------
-// Local bilingual copy (matches the storefront's local-dictionary pattern rather
-// than overloading the global, intentionally-partial admin i18n dictionary).
+// Local bilingual copy.
 // ---------------------------------------------------------------------------
 const COPY = {
   en: {
-    steps: ['Basics', 'Pricing & inventory', 'Category details', 'Variants', 'Images', 'Review'],
-    stepHint: ['Tell customers what this is.', 'Set the price and stock.', 'Fields tailored to this category.', 'Sizes, colours and other options.', 'Main image and gallery.', 'Preview and publish.'],
+    steps: ['What are you selling?', 'Price & Stock', 'Details & Options', 'Publish'],
+    stepHint: [
+      'Give your product a name, pick a category, and add an image.',
+      'Set your price and stock. Advanced fields are optional.',
+      'Describe your product and fill in any category-specific details.',
+      'Review and choose how to publish.',
+    ],
     back: 'Back', next: 'Next', create: 'Create product', save: 'Save changes',
     step: 'Step', of: 'of',
     name: 'Product name', shortDescription: 'Short summary', description: 'Full description',
-    category: 'Category', selectCategory: 'Choose a category', status: 'Status', featured: 'Feature on storefront',
+    category: 'Category', selectCategory: 'Choose a category…', status: 'Status', featured: 'Feature on storefront',
     statusDraft: 'Draft', statusActive: 'Active', statusArchived: 'Archived',
-    price: 'Selling price', compareAt: 'Compare-at price', costPrice: 'Cost price (private)',
+    price: 'Selling price', compareAt: 'Compare-at price (was)', costPrice: 'Cost price (private)',
     sku: 'SKU', barcode: 'Barcode / GTIN', brand: 'Brand', stock: 'Stock quantity',
-    lowStock: 'Low-stock threshold', tags: 'Tags', weight: 'Shipping weight (g)', dimensions: 'Dimensions',
+    lowStock: 'Low-stock alert', tags: 'Tags', weight: 'Shipping weight (g)', dimensions: 'Dimensions',
     returnPolicy: 'Return eligibility', warranty: 'Warranty',
-    sellingType: 'How is this sold?', noVariantsForCategory: 'This category does not use variants.',
-    variantsHint: 'Turn this on so customers can pick a size, color, etc. on the product page. Each combination gets its own stock — values are prefilled from the details you entered.',
+    moreDetails: 'More details (optional)',
+    sellingType: 'Selling type', noVariantsForCategory: 'This category does not support variants.',
+    variantsHint: 'Let customers pick a size, color, etc. Each combination gets its own stock.',
     optionName: 'Option name', optionValues: 'Values (comma separated)', addOption: 'Add option',
-    generate: 'Generate combinations', variant: 'Variant', vPrice: 'Price', vStock: 'Stock', vSku: 'SKU', vImage: 'Image URL', vActive: 'Active',
+    generate: 'Sync combinations', variant: 'variant', vPrice: 'Price', vStock: 'Stock', vSku: 'SKU', vImage: 'Image URL', vActive: 'Active',
     noVariantsYet: 'Add option values above — the combinations appear here automatically.',
-    mainImage: 'Main image', gallery: 'Gallery images', upload: 'Upload', addImage: 'Add gallery image', imageUrl: 'Image URL', altText: 'Alt text',
-    seoTitle: 'SEO title', seoDescription: 'SEO description', slug: 'URL slug', seo: 'Search & SEO',
-    preview: 'Storefront preview', productDetails: 'Product details', fixErrors: 'Please fix the highlighted fields before saving.',
-    required: 'required', optionalHint: 'Optional but recommended for better listings.',
+    mainImage: 'Product image', upload: 'Upload photo', addImage: 'Add gallery image', imageUrl: 'Image URL', altText: 'Alt text',
+    gallery: 'Gallery images',
+    slug: 'URL slug', preview: 'Preview',
+    productDetails: 'Specifications', fixErrors: 'Please fix the highlighted fields before saving.',
+    required: 'required', optionalHint: 'Optional.',
     priceRequired: 'Enter a price greater than 0.', nameRequired: 'Product name is required.', categoryRequired: 'Choose a category.',
     yes: 'Yes', no: 'No',
   },
   ar: {
-    steps: ['الأساسيات', 'السعر والمخزون', 'تفاصيل الفئة', 'المتغيّرات', 'الصور', 'المراجعة'],
-    stepHint: ['عرّف العملاء بالمنتج.', 'حدّد السعر والمخزون.', 'حقول مخصّصة لهذه الفئة.', 'المقاسات والألوان وخيارات أخرى.', 'الصورة الرئيسية والمعرض.', 'المعاينة والنشر.'],
+    steps: ['ماذا تبيع؟', 'السعر والمخزون', 'التفاصيل والخيارات', 'النشر'],
+    stepHint: [
+      'أعطِ منتجك اسمًا، واختر الفئة، وأضف صورة.',
+      'حدّد السعر والمخزون. الحقول الإضافية اختيارية.',
+      'صف منتجك وأكمل تفاصيل الفئة.',
+      'راجع واختر طريقة النشر.',
+    ],
     back: 'رجوع', next: 'التالي', create: 'إنشاء المنتج', save: 'حفظ التغييرات',
     step: 'الخطوة', of: 'من',
     name: 'اسم المنتج', shortDescription: 'وصف مختصر', description: 'الوصف الكامل',
-    category: 'الفئة', selectCategory: 'اختر فئة', status: 'الحالة', featured: 'إبراز في المتجر',
+    category: 'الفئة', selectCategory: 'اختر فئة…', status: 'الحالة', featured: 'إبراز في المتجر',
     statusDraft: 'مسودة', statusActive: 'فعّال', statusArchived: 'مؤرشف',
     price: 'سعر البيع', compareAt: 'السعر قبل الخصم', costPrice: 'سعر التكلفة (خاص)',
     sku: 'رمز SKU', barcode: 'الباركود / GTIN', brand: 'العلامة التجارية', stock: 'كمية المخزون',
-    lowStock: 'حد المخزون المنخفض', tags: 'الوسوم', weight: 'وزن الشحن (غم)', dimensions: 'الأبعاد',
+    lowStock: 'تنبيه المخزون المنخفض', tags: 'الوسوم', weight: 'وزن الشحن (غم)', dimensions: 'الأبعاد',
     returnPolicy: 'سياسة الإرجاع', warranty: 'الضمان',
-    sellingType: 'كيف يُباع المنتج؟', noVariantsForCategory: 'هذه الفئة لا تستخدم المتغيّرات.',
-    variantsHint: 'فعّل هذا ليتمكن العملاء من اختيار المقاس واللون وغيرها في صفحة المنتج. لكل تركيبة مخزونها الخاص، والقيم مُعبّأة مسبقًا من التفاصيل التي أدخلتها.',
+    moreDetails: 'تفاصيل إضافية (اختياري)',
+    sellingType: 'طريقة البيع', noVariantsForCategory: 'هذه الفئة لا تدعم المتغيّرات.',
+    variantsHint: 'اسمح للعملاء باختيار المقاس واللون وغيرها. لكل تركيبة مخزونها الخاص.',
     optionName: 'اسم الخيار', optionValues: 'القيم (مفصولة بفواصل)', addOption: 'إضافة خيار',
-    generate: 'توليد التركيبات', variant: 'متغيّر', vPrice: 'السعر', vStock: 'المخزون', vSku: 'SKU', vImage: 'رابط الصورة', vActive: 'مفعّل',
+    generate: 'مزامنة التركيبات', variant: 'متغيّر', vPrice: 'السعر', vStock: 'المخزون', vSku: 'SKU', vImage: 'رابط الصورة', vActive: 'مفعّل',
     noVariantsYet: 'أضف قيم الخيارات بالأعلى وستظهر التركيبات هنا تلقائيًا.',
-    mainImage: 'الصورة الرئيسية', gallery: 'صور المعرض', upload: 'رفع', addImage: 'إضافة صورة', imageUrl: 'رابط الصورة', altText: 'النص البديل',
-    seoTitle: 'عنوان SEO', seoDescription: 'وصف SEO', slug: 'رابط الصفحة', seo: 'البحث و SEO',
-    preview: 'معاينة المتجر', productDetails: 'تفاصيل المنتج', fixErrors: 'يرجى تصحيح الحقول المظلّلة قبل الحفظ.',
-    required: 'مطلوب', optionalHint: 'اختياري لكنه يحسّن عرض المنتج.',
+    mainImage: 'صورة المنتج', upload: 'رفع صورة', addImage: 'إضافة صورة', imageUrl: 'رابط الصورة', altText: 'النص البديل',
+    gallery: 'صور المعرض',
+    slug: 'رابط الصفحة', preview: 'معاينة',
+    productDetails: 'المواصفات', fixErrors: 'يرجى تصحيح الحقول المظلّلة قبل الحفظ.',
+    required: 'مطلوب', optionalHint: 'اختياري.',
     priceRequired: 'أدخل سعرًا أكبر من صفر.', nameRequired: 'اسم المنتج مطلوب.', categoryRequired: 'اختر فئة.',
     yes: 'نعم', no: 'لا',
   },
 };
 
 const PRODUCT_EMOJIS = ['📦', '🛍️', '🪴', '☕', '🖼️', '💎', '🕯️', '🍪', '👕', '✨'];
-const STEP_COUNT = 6;
+const STEP_COUNT = 4;
 
 // ---------------------------------------------------------------------------
 // Wizard form state.
@@ -135,7 +148,6 @@ const stableId = (prefix: string) => `${prefix}-${crypto.randomUUID().slice(0, 8
 const splitCsv = (value: string) => value.split(',').map((item) => item.trim()).filter(Boolean);
 const cartesian = <T,>(sets: T[][]): T[][] => sets.reduce<T[][]>((acc, set) => acc.flatMap((prefix) => set.map((item) => [...prefix, item])), [[]]);
 
-/** Parse the option drafts into clean { name, values } pairs (hex codes stripped from values). */
 const parseOptionDrafts = (options: OptionDraft[]) =>
   options
     .map((option) => ({
@@ -144,11 +156,6 @@ const parseOptionDrafts = (options: OptionDraft[]) =>
     }))
     .filter((option) => option.name && option.values.length > 0);
 
-/**
- * Build the variant grid (cartesian product of option values). New combinations
- * default to the base price and base stock so they're immediately purchasable;
- * edits the owner already made (price/stock/sku/active per title) are preserved.
- */
 const buildVariantDrafts = (options: OptionDraft[], priceText: string, defaultStockText: string, existing: VariantDraft[]): VariantDraft[] => {
   const parsed = parseOptionDrafts(options);
   if (parsed.length === 0) return [];
@@ -161,8 +168,6 @@ const buildVariantDrafts = (options: OptionDraft[], priceText: string, defaultSt
   });
 };
 
-// Prefill a variant option's values from the category attribute that likely holds them
-// (e.g. the clothing "Size" option ← the `availableSizes` attribute the owner entered).
 const TEMPLATE_ATTRIBUTE_KEYS: Record<string, string[]> = {
   size: ['availableSizes'],
   color: ['color'],
@@ -173,15 +178,11 @@ const TEMPLATE_ATTRIBUTE_KEYS: Record<string, string[]> = {
 const valuesFromAttributes = (templateKey: string, attributes: Record<string, AttributeFormValue>): string => {
   for (const attrKey of TEMPLATE_ATTRIBUTE_KEYS[templateKey] ?? []) {
     const value = attributes[attrKey];
-    // Only multi-value attributes (e.g. "available sizes") represent a real choice; a
-    // single value like storage "128GB" describes the product, it isn't an option.
     if (Array.isArray(value) && value.length >= 2) return value.join(', ');
   }
   return '';
 };
 
-/** Seed all of a category's variant option templates as draft rows, prefilled from any
- *  multi-value attributes the owner entered. Returns [] for non-variant categories. */
 const seedOptionDrafts = (templates: { key: string; label: string }[], attributes: Record<string, AttributeFormValue>): OptionDraft[] =>
   templates.map((template) => ({ name: template.label, valuesText: valuesFromAttributes(template.key, attributes) }));
 
@@ -253,7 +254,6 @@ export interface ProductWizardProps {
   onClose: () => void;
   store: Store;
   editing: Product | null;
-  /** Build is done here; the caller persists and surfaces errors (throw → stay open). */
   onSubmit: (payload: Record<string, unknown>) => Promise<void>;
 }
 
@@ -280,8 +280,6 @@ export function ProductWizard({ open, onClose, store, editing, onSubmit }: Produ
   const supportsVariants = categorySupportsVariants(state.categoryKey);
   const priceMinor = parseMoney(state.priceText, store.currency) ?? 0;
 
-  // Keep the variant grid in sync with option values as they're typed, so customers
-  // get size/color selectors without the owner having to press a separate button.
   useEffect(() => {
     if (state.sellingType !== 'variants') return;
     const next = buildVariantDrafts(state.options, state.priceText, state.stockText, state.variants);
@@ -290,7 +288,6 @@ export function ProductWizard({ open, onClose, store, editing, onSubmit }: Produ
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.sellingType, state.options]);
 
-  // Per-step validation gates. Returns an error message map for the current step.
   const stepErrors = useMemo<Record<string, string>>(() => {
     const errors: Record<string, string> = {};
     if (step === 0) {
@@ -315,23 +312,14 @@ export function ProductWizard({ open, onClose, store, editing, onSubmit }: Produ
 
   const buildPayload = (): Record<string, unknown> => {
     const currency = store.currency;
-    // Resolve the options to persist. When the owner explicitly manages variants we use
-    // their rows; otherwise, for ANY category, we derive options from the multi-value
-    // attributes they entered (e.g. "available sizes") so customers can choose. This is
-    // what makes "fill the available options → selectable on the storefront" work
-    // uniformly across every category, not just clothing.
     const optionDrafts = state.sellingType === 'variants'
       ? state.options
       : seedOptionDrafts(variantOptionTemplates(state.categoryKey, lang), state.attributes).filter((option) => splitCsv(option.valuesText).length >= 2);
 
-    // Materialize variants from the option values even if the owner never pressed
-    // "generate" — otherwise a variant product would silently save as simple.
     const variantDrafts = state.sellingType === 'variants' && state.variants.length
       ? state.variants
       : buildVariantDrafts(optionDrafts, state.priceText, state.stockText, []);
     const useVariants = variantDrafts.length > 0;
-    // The persisted type follows whether real variants resulted, so derived options also
-    // mark the product VARIABLE (which is what the storefront checks to show selectors).
     const persistedType = useVariants ? 'VARIABLE' : 'SIMPLE';
 
     const builtOptions = optionDrafts
@@ -365,7 +353,6 @@ export function ProductWizard({ open, onClose, store, editing, onSubmit }: Produ
     const costMinor = parseMoney(state.costPriceText, currency);
     const stock = useVariants ? builtVariants.reduce((sum, v) => sum + v.stock, 0) : Math.max(0, Math.floor(Number(state.stockText) || 0));
 
-    // Merge into the existing details blob so legacy/advanced fields aren't lost on edit.
     const existingDetails = (editing?.details ?? {}) as Record<string, unknown>;
     const details: Record<string, unknown> = {
       ...existingDetails,
@@ -411,7 +398,6 @@ export function ProductWizard({ open, onClose, store, editing, onSubmit }: Produ
   const submit = async () => {
     if (Object.keys(attributeErrors).length > 0 || priceMinor <= 0 || !state.name.trim() || !state.categoryKey) {
       setShowErrors(true);
-      // Jump to the earliest step with an error.
       if (!state.name.trim() || !state.categoryKey) setStep(0);
       else if (priceMinor <= 0) setStep(1);
       else setStep(2);
@@ -422,7 +408,7 @@ export function ProductWizard({ open, onClose, store, editing, onSubmit }: Produ
       await onSubmit(buildPayload());
       onClose();
     } catch {
-      // The caller toasts the error; keep the wizard open for a retry.
+      // caller toasts the error; keep wizard open for retry
     } finally {
       setSubmitting(false);
     }
@@ -441,7 +427,7 @@ export function ProductWizard({ open, onClose, store, editing, onSubmit }: Produ
         <div className="flex items-center gap-2">
           <Button type="button" variant="ghost" className="border border-line" onClick={step === 0 ? onClose : goBack}>
             {step === 0 ? <X className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-            <span className="ms-1">{step === 0 ? c.back : c.back}</span>
+            <span className="ms-1">{c.back}</span>
           </Button>
           <div className="flex-1" />
           {isLast ? (
@@ -460,19 +446,44 @@ export function ProductWizard({ open, onClose, store, editing, onSubmit }: Produ
         <StepIndicator steps={c.steps} current={step} onJump={(target) => target < step && setStep(target)} />
         <p className="text-sm text-muted">{c.stepHint[step]}</p>
 
-        {step === 0 && <BasicsStep c={c} lang={lang as Lang} state={state} set={set} errors={showErrors ? stepErrors : {}} />}
-        {step === 1 && <PricingStep c={c} state={state} set={set} currency={store.currency} errors={showErrors ? stepErrors : {}} />}
-        {step === 2 && <CategoryStep c={c} lang={lang as Lang} state={state} setAttr={(key, value) => set('attributes', { ...state.attributes, [key]: value })} errors={showErrors ? attributeErrors : {}} />}
-        {step === 3 && <VariantsStep c={c} lang={lang as Lang} state={state} set={set} supportsVariants={supportsVariants} />}
-        {step === 4 && <ImagesStep c={c} state={state} set={set} />}
-        {step === 5 && <ReviewStep c={c} lang={lang as Lang} state={state} store={store} priceMinor={priceMinor} attributes={attributesNormalized} errors={attributeErrors} />}
+        {step === 0 && (
+          <BasicsStep
+            c={c} lang={lang as Lang} state={state}
+            set={set}
+            setState={setState}
+            errors={showErrors ? stepErrors : {}}
+          />
+        )}
+        {step === 1 && (
+          <PricingStep
+            c={c} state={state} set={set}
+            currency={store.currency}
+            errors={showErrors ? stepErrors : {}}
+          />
+        )}
+        {step === 2 && (
+          <DetailsStep
+            c={c} lang={lang as Lang} state={state} set={set}
+            setAttr={(key, value) => set('attributes', { ...state.attributes, [key]: value })}
+            supportsVariants={supportsVariants}
+            attributeErrors={showErrors ? attributeErrors : {}}
+          />
+        )}
+        {step === 3 && (
+          <PublishStep
+            c={c} lang={lang as Lang} state={state} set={set}
+            store={store} priceMinor={priceMinor}
+            attributes={attributesNormalized}
+            attributeErrors={attributeErrors}
+          />
+        )}
       </div>
     </Drawer>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Shared field chrome.
+// Shared primitives.
 // ---------------------------------------------------------------------------
 function Field({ label, required, hint, error, children }: { label: string; required?: boolean; hint?: string; error?: string; children: React.ReactNode }) {
   return (
@@ -487,9 +498,9 @@ function Field({ label, required, hint, error, children }: { label: string; requ
   );
 }
 
-function Card({ title, children }: { title?: string; children: React.ReactNode }) {
+function Card({ title, children, className }: { title?: string; className?: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
+    <section className={cn('rounded-2xl border border-line bg-surface p-4 shadow-sm', className)}>
       {title && <h3 className="mb-3 text-sm font-black text-ink">{title}</h3>}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">{children}</div>
     </section>
@@ -508,7 +519,7 @@ function StepIndicator({ steps, current, onJump }: { steps: readonly string[]; c
           onClick={() => onJump(index)}
           className={cn(
             'flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold transition-colors',
-            index === current ? 'bg-ink text-surface' : index < current ? 'bg-accent-soft text-accent' : 'bg-paper text-muted ring-1 ring-line',
+            index === current ? 'bg-ink text-surface' : index < current ? 'bg-accent-soft text-accent cursor-pointer' : 'bg-paper text-muted ring-1 ring-line',
           )}
         >
           <span className={cn('grid h-4 w-4 place-items-center rounded-full text-[9px]', index < current ? 'bg-accent text-white' : index === current ? 'bg-surface text-ink' : 'bg-line text-muted')}>
@@ -521,57 +532,6 @@ function StepIndicator({ steps, current, onJump }: { steps: readonly string[]; c
   );
 }
 
-// ---------------------------------------------------------------------------
-// Step 1 — basics.
-// ---------------------------------------------------------------------------
-type Copy = (typeof COPY)['en'];
-type Setter = <K extends keyof WizardState>(key: K, value: WizardState[K]) => void;
-
-function BasicsStep({ c, lang, state, set, errors }: { c: Copy; lang: Lang; state: WizardState; set: Setter; errors: Record<string, string> }) {
-  const categories = categorySelectOptions(lang);
-  return (
-    <Card>
-      <div className="md:col-span-2">
-        <Field label={c.name} required error={errors.name}>
-          <Input value={state.name} onChange={(e) => set('name', e.target.value)} placeholder="e.g. Linen Shirt" />
-        </Field>
-      </div>
-      <div className="md:col-span-2">
-        <Field label={c.shortDescription} hint={c.optionalHint}>
-          <Input value={state.shortDescription} onChange={(e) => set('shortDescription', e.target.value)} />
-        </Field>
-      </div>
-      <div className="md:col-span-2">
-        <Field label={c.description}>
-          <Textarea rows={3} value={state.description} onChange={(e) => set('description', e.target.value)} />
-        </Field>
-      </div>
-      <Field label={c.category} required error={errors.categoryKey}>
-        <select className={selectCls} value={state.categoryKey} onChange={(e) => set('categoryKey', e.target.value)}>
-          <option value="">{c.selectCategory}</option>
-          {categories.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-        </select>
-      </Field>
-      <Field label={c.status}>
-        <select className={selectCls} value={state.status} onChange={(e) => set('status', e.target.value as ProductCatalogStatus)}>
-          <option value="DRAFT">{c.statusDraft}</option>
-          <option value="ACTIVE">{c.statusActive}</option>
-          <option value="ARCHIVED">{c.statusArchived}</option>
-        </select>
-      </Field>
-      <div className="md:col-span-2">
-        <label className="flex items-center gap-3 rounded-xl border border-line bg-paper p-3 cursor-pointer hover:bg-line/20">
-          <input type="checkbox" checked={state.isFeatured} onChange={(e) => set('isFeatured', e.target.checked)} className="h-4 w-4 accent-accent" />
-          <span className="text-sm font-bold text-ink">{c.featured}</span>
-        </label>
-      </div>
-    </Card>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Step 2 — pricing & inventory.
-// ---------------------------------------------------------------------------
 function MoneyInput({ value, onChange, currency, placeholder }: { value: string; onChange: (v: string) => void; currency: string; placeholder?: string }) {
   return (
     <div className="relative">
@@ -581,85 +541,427 @@ function MoneyInput({ value, onChange, currency, placeholder }: { value: string;
   );
 }
 
-function PricingStep({ c, state, set, currency, errors }: { c: Copy; state: WizardState; set: Setter; currency: string; errors: Record<string, string> }) {
-  const variantsActive = state.sellingType === 'variants' && state.variants.length > 0;
+// ---------------------------------------------------------------------------
+// Step 1 — What are you selling?
+// ---------------------------------------------------------------------------
+type Copy = (typeof COPY)['en'];
+type Setter = <K extends keyof WizardState>(key: K, value: WizardState[K]) => void;
+
+function BasicsStep({ c, lang, state, set, setState, errors }: { c: Copy; lang: Lang; state: WizardState; set: Setter; setState: React.Dispatch<React.SetStateAction<WizardState>>; errors: Record<string, string> }) {
+  const groupedCategories = useMemo(() => groupedCategorySchemas(), []);
+  const schema = getProductCategorySchema(state.categoryKey);
+
+  const onUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const dataUrl = await prepareImageDataUrl(file, { maxDimension: 1000, maxBytes: 450_000 });
+      set('image', { url: dataUrl, emoji: undefined });
+      toast({ title: 'Image ready', type: 'success' });
+    } catch (error) {
+      toast({ title: 'Could not use image', description: error instanceof Error ? error.message : undefined, type: 'error' });
+    } finally {
+      event.target.value = '';
+    }
+  };
+
   return (
-    <Card>
-      <Field label={c.price} required error={errors.price}>
-        <MoneyInput value={state.priceText} onChange={(v) => set('priceText', v)} currency={currency} />
-      </Field>
-      <Field label={c.compareAt}>
-        <MoneyInput value={state.compareAtText} onChange={(v) => set('compareAtText', v)} currency={currency} />
-      </Field>
-      <Field label={c.costPrice} hint={c.optionalHint}>
-        <MoneyInput value={state.costPriceText} onChange={(v) => set('costPriceText', v)} currency={currency} />
-      </Field>
-      <Field label={c.brand}>
-        <Input value={state.brand} onChange={(e) => set('brand', e.target.value)} />
-      </Field>
-      <Field label={c.sku}>
-        <Input value={state.sku} onChange={(e) => set('sku', e.target.value)} />
-      </Field>
-      <Field label={c.barcode}>
-        <Input value={state.barcode} onChange={(e) => set('barcode', e.target.value)} />
-      </Field>
-      <Field label={c.stock} hint={variantsActive ? 'Managed per variant.' : undefined}>
-        <Input type="number" min="0" value={state.stockText} onChange={(e) => set('stockText', e.target.value)} disabled={variantsActive} />
-      </Field>
-      <Field label={c.lowStock}>
-        <Input type="number" min="0" value={state.lowStockText} onChange={(e) => set('lowStockText', e.target.value)} />
-      </Field>
-      <div className="md:col-span-2">
-        <Field label={c.tags} hint="Comma separated.">
-          <Input value={state.tagsText} onChange={(e) => set('tagsText', e.target.value)} placeholder="cotton, summer, gift" />
-        </Field>
-      </div>
-      <Field label={c.weight}>
-        <Input type="number" min="0" value={state.weightText} onChange={(e) => set('weightText', e.target.value)} />
-      </Field>
-      <Field label={c.dimensions}>
-        <Input value={state.dimensions} onChange={(e) => set('dimensions', e.target.value)} placeholder="30 × 20 × 8 cm" />
-      </Field>
-      <div className="md:col-span-2">
-        <Field label={c.warranty}>
-          <Input value={state.warranty} onChange={(e) => set('warranty', e.target.value)} />
-        </Field>
-      </div>
-      <div className="md:col-span-2">
-        <Field label={c.returnPolicy}>
-          <Input value={state.returnPolicy} onChange={(e) => set('returnPolicy', e.target.value)} />
-        </Field>
-      </div>
-    </Card>
+    <div className="space-y-4">
+      {/* Image picker — compact row at the top */}
+      <Card title={c.mainImage}>
+        <div className="md:col-span-2 flex items-center gap-4">
+          <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-xl border border-line bg-paper text-3xl">
+            {state.image.url ? <img src={state.image.url} alt="" className="h-full w-full object-cover" /> : (state.image.emoji || '📦')}
+          </div>
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap gap-1.5">
+              {PRODUCT_EMOJIS.map((emoji) => (
+                <button key={emoji} type="button" onClick={() => set('image', { emoji, url: undefined })}
+                  className={cn('grid h-8 w-8 place-items-center rounded-lg border bg-paper text-base', state.image.emoji === emoji && !state.image.url ? 'border-ink bg-line/50' : 'border-line hover:border-ink/30')}>
+                  {emoji}
+                </button>
+              ))}
+            </div>
+            <label className="inline-flex w-fit cursor-pointer items-center gap-1.5 rounded-md border border-line px-2 py-1 text-xs font-bold text-ink hover:bg-paper">
+              <ImageIcon className="h-3 w-3" /> {c.upload}
+              <input type="file" accept="image/*" className="hidden" onChange={onUpload} />
+            </label>
+          </div>
+        </div>
+      </Card>
+
+      {/* Core identity */}
+      <Card>
+        <div className="md:col-span-2">
+          <Field label={c.name} required error={errors.name}>
+            <Input value={state.name} onChange={(e) => set('name', e.target.value)} placeholder="e.g. Linen Shirt" autoFocus />
+          </Field>
+        </div>
+        <div className="md:col-span-2">
+          <Field label={c.shortDescription} hint={c.optionalHint}>
+            <Input value={state.shortDescription} onChange={(e) => set('shortDescription', e.target.value)} placeholder="One line that appears under the product name" />
+          </Field>
+        </div>
+        <div className="md:col-span-2">
+          <Field label={c.category} required error={errors.categoryKey}>
+            <select
+              className={cn(selectCls, errors.categoryKey && 'border-red-400')}
+              value={state.categoryKey}
+              onChange={(e) => {
+                const newKey = e.target.value;
+                const newSchema = getProductCategorySchema(newKey);
+                const firstType = newSchema?.sellingTypes[0] ?? 'simple';
+                setState((prev) => ({ ...prev, categoryKey: newKey, sellingType: firstType, attributes: {} }));
+              }}
+            >
+              <option value="">{c.selectCategory}</option>
+              {groupedCategories.map(({ group, schemas }) => (
+                <optgroup key={group.key} label={group.label[lang as Lang] ?? group.label.en}>
+                  {schemas.map((s) => (
+                    <option key={s.key} value={s.key}>{tr(s.label, lang as Lang)}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+            {schema?.description && (
+              <p className="mt-1 text-xs text-muted">{tr(schema.description, lang as Lang)}</p>
+            )}
+          </Field>
+        </div>
+      </Card>
+    </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Step 3 — dynamic category attributes.
+// Step 2 — Price & Stock.
 // ---------------------------------------------------------------------------
-function CategoryStep({ c, lang, state, setAttr, errors }: { c: Copy; lang: Lang; state: WizardState; setAttr: (key: string, value: AttributeFormValue) => void; errors: Record<string, string> }) {
-  const schema = getProductCategorySchema(state.categoryKey);
-  if (!schema) return <p className="text-sm text-muted">{c.categoryRequired}</p>;
-  const publicFields = schema.fields.filter((f) => !f.adminOnly);
-  const adminFields = schema.fields.filter((f) => f.adminOnly);
+function PricingStep({ c, state, set, currency, errors }: { c: Copy; state: WizardState; set: Setter; currency: string; errors: Record<string, string> }) {
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const variantsActive = state.sellingType === 'variants' && state.variants.length > 0;
+
+  const hasAdvancedValues = state.sku || state.barcode || state.costPriceText || state.lowStockText || state.tagsText || state.weightText || state.dimensions || state.warranty || state.returnPolicy;
+
   return (
     <div className="space-y-4">
-      <Card title={tr(schema.label, lang)}>
-        {publicFields.map((field) => (
-          <AttributeField key={field.key} field={field} lang={lang} value={state.attributes[field.key]} onChange={(v) => setAttr(field.key, v)} error={errors[field.key]} />
-        ))}
+      {/* Essential pricing */}
+      <Card>
+        <Field label={c.price} required error={errors.price}>
+          <MoneyInput value={state.priceText} onChange={(v) => set('priceText', v)} currency={currency} />
+        </Field>
+        <Field label={c.stock} hint={variantsActive ? 'Managed per variant.' : undefined}>
+          <Input type="number" min="0" value={state.stockText} onChange={(e) => set('stockText', e.target.value)} disabled={variantsActive} />
+        </Field>
+        <Field label={c.compareAt} hint={c.optionalHint}>
+          <MoneyInput value={state.compareAtText} onChange={(v) => set('compareAtText', v)} currency={currency} />
+        </Field>
+        <Field label={c.brand} hint={c.optionalHint}>
+          <Input value={state.brand} onChange={(e) => set('brand', e.target.value)} placeholder="e.g. Nike" />
+        </Field>
       </Card>
-      {adminFields.length > 0 && (
-        <Card title={lang === 'ar' ? 'حقول داخلية' : 'Internal (private)'}>
-          {adminFields.map((field) => (
-            <AttributeField key={field.key} field={field} lang={lang} value={state.attributes[field.key]} onChange={(v) => setAttr(field.key, v)} error={errors[field.key]} />
-          ))}
+
+      {/* Collapsible advanced section */}
+      <button
+        type="button"
+        onClick={() => setShowAdvanced((v) => !v)}
+        className="flex w-full items-center justify-between rounded-xl border border-line bg-paper px-4 py-3 text-sm font-bold text-muted hover:text-ink transition-colors"
+      >
+        <span>{c.moreDetails} {hasAdvancedValues && <span className="ms-1 inline-block h-2 w-2 rounded-full bg-accent" />}</span>
+        <ChevronDown className={cn('h-4 w-4 transition-transform', showAdvanced && 'rotate-180')} />
+      </button>
+
+      {showAdvanced && (
+        <Card>
+          <Field label={c.sku}>
+            <Input value={state.sku} onChange={(e) => set('sku', e.target.value)} />
+          </Field>
+          <Field label={c.barcode}>
+            <Input value={state.barcode} onChange={(e) => set('barcode', e.target.value)} />
+          </Field>
+          <Field label={c.costPrice} hint={c.optionalHint}>
+            <MoneyInput value={state.costPriceText} onChange={(v) => set('costPriceText', v)} currency={currency} />
+          </Field>
+          <Field label={c.lowStock}>
+            <Input type="number" min="0" value={state.lowStockText} onChange={(e) => set('lowStockText', e.target.value)} />
+          </Field>
+          <div className="md:col-span-2">
+            <Field label={c.tags} hint="Comma separated.">
+              <Input value={state.tagsText} onChange={(e) => set('tagsText', e.target.value)} placeholder="cotton, summer, gift" />
+            </Field>
+          </div>
+          <Field label={c.weight}>
+            <Input type="number" min="0" value={state.weightText} onChange={(e) => set('weightText', e.target.value)} />
+          </Field>
+          <Field label={c.dimensions}>
+            <Input value={state.dimensions} onChange={(e) => set('dimensions', e.target.value)} placeholder="30 × 20 × 8 cm" />
+          </Field>
+          <div className="md:col-span-2">
+            <Field label={c.warranty}>
+              <Input value={state.warranty} onChange={(e) => set('warranty', e.target.value)} />
+            </Field>
+          </div>
+          <div className="md:col-span-2">
+            <Field label={c.returnPolicy}>
+              <Input value={state.returnPolicy} onChange={(e) => set('returnPolicy', e.target.value)} />
+            </Field>
+          </div>
         </Card>
       )}
     </div>
   );
 }
 
+// ---------------------------------------------------------------------------
+// Step 3 — Details & Options (category fields + variants, combined).
+// ---------------------------------------------------------------------------
+function DetailsStep({ c, lang, state, set, setAttr, supportsVariants, attributeErrors }: {
+  c: Copy; lang: Lang; state: WizardState; set: Setter;
+  setAttr: (key: string, value: AttributeFormValue) => void;
+  supportsVariants: boolean;
+  attributeErrors: Record<string, string>;
+}) {
+  const schema = getProductCategorySchema(state.categoryKey);
+  const publicFields = schema?.fields.filter((f) => !f.adminOnly) ?? [];
+  const adminFields = schema?.fields.filter((f) => f.adminOnly) ?? [];
+
+  return (
+    <div className="space-y-4">
+      {/* Description */}
+      <Card>
+        <div className="md:col-span-2">
+          <Field label={c.description} hint={c.optionalHint}>
+            <Textarea rows={4} value={state.description} onChange={(e) => set('description', e.target.value)} />
+          </Field>
+        </div>
+      </Card>
+
+      {/* Category-specific fields */}
+      {schema && publicFields.length > 0 && (
+        <Card title={tr(schema.label, lang)}>
+          {publicFields.map((field) => (
+            <AttributeField key={field.key} field={field} lang={lang} value={state.attributes[field.key]} onChange={(v) => setAttr(field.key, v)} error={attributeErrors[field.key]} />
+          ))}
+        </Card>
+      )}
+      {adminFields.length > 0 && (
+        <Card title={lang === 'ar' ? 'حقول داخلية' : 'Internal (private)'}>
+          {adminFields.map((field) => (
+            <AttributeField key={field.key} field={field} lang={lang} value={state.attributes[field.key]} onChange={(v) => setAttr(field.key, v)} error={attributeErrors[field.key]} />
+          ))}
+        </Card>
+      )}
+
+      {/* Variants — shown inline only if category supports them */}
+      {supportsVariants && (
+        <VariantsInline c={c} lang={lang} state={state} set={set} />
+      )}
+    </div>
+  );
+}
+
+function VariantsInline({ c, lang, state, set }: { c: Copy; lang: Lang; state: WizardState; set: Setter }) {
+  const templates = variantOptionTemplates(state.categoryKey, lang);
+  const enabled = state.sellingType === 'variants';
+
+  const enableVariants = (on: boolean) => {
+    if (on) {
+      set('sellingType', 'variants');
+      if (state.options.length === 0) set('options', seedOptionDrafts(templates, state.attributes));
+    } else {
+      set('sellingType', 'simple');
+    }
+  };
+
+  const surfaced = useRef(false);
+  useEffect(() => {
+    if (surfaced.current) return;
+    surfaced.current = true;
+    if (state.sellingType === 'simple' && state.options.length === 0) enableVariants(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const suggestedFor = (name: string) => templates.find((t) => t.label === name)?.suggestedValues ?? [];
+
+  const setOption = (index: number, patch: Partial<OptionDraft>) =>
+    set('options', state.options.map((o, i) => (i === index ? { ...o, ...patch } : o)));
+  const addOption = () => set('options', [...state.options, { name: '', valuesText: '' }].slice(0, 3));
+  const removeOption = (index: number) => set('options', state.options.filter((_, i) => i !== index));
+  const generate = () => set('variants', buildVariantDrafts(state.options, state.priceText, state.stockText, state.variants));
+  const setVariant = (id: string, patch: Partial<VariantDraft>) =>
+    set('variants', state.variants.map((v) => (v.id === id ? { ...v, ...patch } : v)));
+
+  return (
+    <div className="space-y-3">
+      {/* Toggle */}
+      <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-line bg-surface p-4 hover:bg-line/10">
+        <input type="checkbox" checked={enabled} onChange={(e) => enableVariants(e.target.checked)} className="mt-0.5 h-4 w-4 accent-accent" />
+        <span>
+          <span className="block text-sm font-bold text-ink">{c.sellingType}: {sellingTypeLabel('variants', lang)}</span>
+          <span className="mt-0.5 block text-xs text-muted">{c.variantsHint}</span>
+        </span>
+      </label>
+
+      {enabled && (
+        <>
+          <Card title={c.optionName}>
+            {state.options.map((option, index) => (
+              <div key={index} className="md:col-span-2 grid grid-cols-1 gap-3 rounded-xl border border-line bg-paper/50 p-3 md:grid-cols-[1fr_2fr_auto]">
+                <Input value={option.name} onChange={(e) => setOption(index, { name: e.target.value })} placeholder={c.optionName} />
+                <Input value={option.valuesText} onChange={(e) => setOption(index, { valuesText: e.target.value })} placeholder={suggestedFor(option.name).join(', ') || c.optionValues} />
+                <Button type="button" variant="ghost" className="border border-line" onClick={() => removeOption(index)}><Trash2 className="h-4 w-4" /></Button>
+              </div>
+            ))}
+            <div className="md:col-span-2 flex gap-2">
+              {state.options.length < 3 && (
+                <Button type="button" variant="ghost" className="border border-line" onClick={addOption}><Plus className="h-4 w-4 me-1" /> {c.addOption}</Button>
+              )}
+              <Button type="button" variant="soft" onClick={generate}><Sparkles className="h-4 w-4 me-1" /> {c.generate}</Button>
+            </div>
+          </Card>
+
+          {state.variants.length === 0 ? (
+            <p className="text-sm text-muted px-1">{c.noVariantsYet}</p>
+          ) : (
+            <div className="space-y-2">
+              {state.variants.map((variant) => (
+                <div key={variant.id} className="rounded-xl border border-line bg-surface p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-sm font-black text-ink">{variant.title}</span>
+                    <label className="flex items-center gap-1.5 text-xs font-bold text-muted cursor-pointer">
+                      <input type="checkbox" checked={variant.isActive} onChange={(e) => setVariant(variant.id, { isActive: e.target.checked })} className="h-3.5 w-3.5 accent-accent" />
+                      {c.vActive}
+                    </label>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                    <Input value={variant.priceText} onChange={(e) => setVariant(variant.id, { priceText: e.target.value })} placeholder={c.vPrice} type="number" step="0.001" />
+                    <Input value={variant.stockText} onChange={(e) => setVariant(variant.id, { stockText: e.target.value })} placeholder={c.vStock} type="number" />
+                    <Input value={variant.sku} onChange={(e) => setVariant(variant.id, { sku: e.target.value })} placeholder={c.vSku} />
+                    <Input value={variant.imageUrl} onChange={(e) => setVariant(variant.id, { imageUrl: e.target.value })} placeholder={c.vImage} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Step 4 — Publish (preview + slug + status + gallery).
+// ---------------------------------------------------------------------------
+function PublishStep({ c, lang, state, set, store, priceMinor, attributes, attributeErrors }: {
+  c: Copy; lang: Lang; state: WizardState; set: Setter;
+  store: Store; priceMinor: number;
+  attributes: Record<string, unknown>;
+  attributeErrors: Record<string, string>;
+}) {
+  const { money } = useI18n();
+  const schema = getProductCategorySchema(state.categoryKey);
+  const hasErrors = Object.keys(attributeErrors).length > 0 || priceMinor <= 0 || !state.name.trim() || !state.categoryKey;
+  const compareAtMinor = parseMoney(state.compareAtText, store.currency) ?? 0;
+
+  // Auto-fill slug when name changes and slug is still empty/auto-derived
+  useEffect(() => {
+    if (!state.name.trim()) return;
+    const derived = slugify(state.name);
+    if (!state.slug || state.slug === derived) set('slug', derived);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.name]);
+
+  const displayRows = (schema?.fields ?? [])
+    .filter((f) => !f.adminOnly && f.visibleOnProductPage !== false)
+    .map((f) => ({ label: tr(f.label, lang), value: attributes[f.key], field: f }))
+    .filter((r) => r.value !== undefined && r.value !== null && !(Array.isArray(r.value) && r.value.length === 0));
+
+  return (
+    <div className="space-y-4">
+      {hasErrors && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{c.fixErrors}</div>
+      )}
+
+      {/* Preview card */}
+      <Card title={c.preview}>
+        <div className="md:col-span-2 flex gap-4">
+          <div className="grid h-24 w-24 shrink-0 place-items-center overflow-hidden rounded-xl border border-line bg-paper text-4xl">
+            {state.image.url ? <img src={state.image.url} alt="" className="h-full w-full object-cover" /> : (state.image.emoji || '📦')}
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-widest text-muted">{schema ? tr(schema.label, lang) : ''}</p>
+            <h3 className="truncate text-xl font-black text-ink">{state.name || '—'}</h3>
+            {state.shortDescription && <p className="mt-0.5 text-sm text-muted">{state.shortDescription}</p>}
+            <p className="mt-1 flex items-baseline gap-2 text-lg font-black text-ink">
+              {compareAtMinor > priceMinor && (
+                <span className="text-sm font-bold text-muted line-through">{money(compareAtMinor, store.currency)}</span>
+              )}
+              {money(priceMinor, store.currency)}
+            </p>
+            <p className="mt-1 text-xs font-bold text-muted">
+              {state.sellingType === 'variants'
+                ? `${state.variants.filter((v) => v.isActive).length} ${c.variant}s`
+                : `${c.stock}: ${state.stockText || 0}`}
+            </p>
+          </div>
+        </div>
+      </Card>
+
+      {/* Specs summary */}
+      {displayRows.length > 0 && (
+        <Card title={c.productDetails}>
+          <dl className="md:col-span-2 divide-y divide-line">
+            {displayRows.map((row) => (
+              <div key={row.field.key} className="flex justify-between gap-4 py-2 text-sm">
+                <dt className="font-semibold text-muted">{row.label}</dt>
+                <dd className="text-end font-bold text-ink">{formatAttr(row.value, row.field, lang, c)}</dd>
+              </div>
+            ))}
+          </dl>
+        </Card>
+      )}
+
+      {/* Status, slug, featured */}
+      <Card>
+        <Field label={c.status}>
+          <select className={selectCls} value={state.status} onChange={(e) => set('status', e.target.value as ProductCatalogStatus)}>
+            <option value="DRAFT">{c.statusDraft}</option>
+            <option value="ACTIVE">{c.statusActive}</option>
+            <option value="ARCHIVED">{c.statusArchived}</option>
+          </select>
+        </Field>
+        <Field label={c.slug} hint="Auto-filled from the product name.">
+          <Input value={state.slug} onChange={(e) => set('slug', e.target.value)} placeholder={slugify(state.name || 'my-product')} />
+        </Field>
+        <div className="md:col-span-2">
+          <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-line bg-paper p-3 hover:bg-line/20">
+            <input type="checkbox" checked={state.isFeatured} onChange={(e) => set('isFeatured', e.target.checked)} className="h-4 w-4 accent-accent" />
+            <span className="text-sm font-bold text-ink">{c.featured}</span>
+          </label>
+        </div>
+      </Card>
+
+      {/* Gallery */}
+      <Card title={c.gallery}>
+        {state.gallery.map((img, index) => (
+          <div key={index} className="md:col-span-2 grid grid-cols-1 gap-2 rounded-xl border border-line bg-paper/50 p-2 md:grid-cols-[2fr_1fr_auto]">
+            <Input value={img.url} onChange={(e) => set('gallery', state.gallery.map((g, i) => i === index ? { ...g, url: e.target.value } : g))} placeholder={c.imageUrl} />
+            <Input value={img.altText} onChange={(e) => set('gallery', state.gallery.map((g, i) => i === index ? { ...g, altText: e.target.value } : g))} placeholder={c.altText} />
+            <Button type="button" variant="ghost" className="border border-line" onClick={() => set('gallery', state.gallery.filter((_, i) => i !== index))}><Trash2 className="h-4 w-4" /></Button>
+          </div>
+        ))}
+        <div className="md:col-span-2">
+          <Button type="button" variant="ghost" className="border border-line" onClick={() => set('gallery', [...state.gallery, { url: '', altText: '' }])}>
+            <Plus className="h-4 w-4 me-1" /> {c.addImage}
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Category attribute field renderer (shared across steps).
+// ---------------------------------------------------------------------------
 function AttributeField({ field, lang, value, onChange, error }: { field: ProductDetailFieldSchema; lang: Lang; value: AttributeFormValue | undefined; onChange: (v: AttributeFormValue) => void; error?: string }) {
   const label = tr(field.label, lang) + (field.unit ? ` (${field.unit})` : '');
   const placeholder = tr(field.placeholder, lang);
@@ -731,221 +1033,6 @@ function MultiSelect({ field, lang, value, onChange }: { field: ProductDetailFie
           </button>
         );
       })}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Step 4 — variants.
-// ---------------------------------------------------------------------------
-function VariantsStep({ c, lang, state, set, supportsVariants }: { c: Copy; lang: Lang; state: WizardState; set: Setter; supportsVariants: boolean }) {
-  const templates = variantOptionTemplates(state.categoryKey, lang);
-  const enabled = state.sellingType === 'variants';
-
-  const enableVariants = (on: boolean) => {
-    if (on) {
-      set('sellingType', 'variants');
-      // Seed every option this category offers (Size/Color, Storage/Color/RAM, Format…),
-      // prefilling values from any multi-value attributes the owner already entered.
-      if (state.options.length === 0) set('options', seedOptionDrafts(templates, state.attributes));
-    } else {
-      set('sellingType', 'simple');
-    }
-  };
-
-  // On reaching this step, surface the category's options ready to fill — for every
-  // variant-supporting category. Empty options just save as a simple product, so this
-  // is safe for single-config items, and the owner can still toggle variants off.
-  const surfaced = useRef(false);
-  useEffect(() => {
-    if (surfaced.current || !supportsVariants) return;
-    surfaced.current = true;
-    if (state.sellingType === 'simple' && state.options.length === 0) enableVariants(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const suggestedFor = (name: string) => templates.find((template) => template.label === name)?.suggestedValues ?? [];
-
-  const setOption = (index: number, patch: Partial<OptionDraft>) =>
-    set('options', state.options.map((option, i) => (i === index ? { ...option, ...patch } : option)));
-  const addOption = () => set('options', [...state.options, { name: '', valuesText: '' }].slice(0, 3));
-  const removeOption = (index: number) => set('options', state.options.filter((_, i) => i !== index));
-
-  const generate = () => set('variants', buildVariantDrafts(state.options, state.priceText, state.stockText, state.variants));
-
-  const setVariant = (id: string, patch: Partial<VariantDraft>) =>
-    set('variants', state.variants.map((variant) => (variant.id === id ? { ...variant, ...patch } : variant)));
-
-  if (!supportsVariants) {
-    return (
-      <Card>
-        <p className="md:col-span-2 text-sm text-muted">{c.noVariantsForCategory}</p>
-      </Card>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      <Card>
-        <div className="md:col-span-2">
-          <label className="flex items-start gap-3 rounded-xl border border-line bg-paper p-3 cursor-pointer hover:bg-line/20">
-            <input type="checkbox" checked={enabled} onChange={(e) => enableVariants(e.target.checked)} className="mt-0.5 h-4 w-4 accent-accent" />
-            <span>
-              <span className="block text-sm font-bold text-ink">{c.sellingType}: {sellingTypeLabel('variants', lang)}</span>
-              <span className="mt-0.5 block text-xs text-muted">{c.variantsHint}</span>
-            </span>
-          </label>
-        </div>
-      </Card>
-
-      {enabled && (
-        <>
-          <Card title={c.optionName}>
-            {state.options.map((option, index) => (
-              <div key={index} className="md:col-span-2 grid grid-cols-1 gap-3 rounded-xl border border-line bg-paper/50 p-3 md:grid-cols-[1fr_2fr_auto]">
-                <Input value={option.name} onChange={(e) => setOption(index, { name: e.target.value })} placeholder={c.optionName} />
-                <Input value={option.valuesText} onChange={(e) => setOption(index, { valuesText: e.target.value })} placeholder={suggestedFor(option.name).join(', ') || c.optionValues} />
-                <Button type="button" variant="ghost" className="border border-line" onClick={() => removeOption(index)}><Trash2 className="h-4 w-4" /></Button>
-              </div>
-            ))}
-            <div className="md:col-span-2 flex gap-2">
-              {state.options.length < 3 && <Button type="button" variant="ghost" className="border border-line" onClick={addOption}><Plus className="h-4 w-4 me-1" /> {c.addOption}</Button>}
-              <Button type="button" variant="soft" onClick={generate}><Sparkles className="h-4 w-4 me-1" /> {c.generate}</Button>
-            </div>
-          </Card>
-
-          {state.variants.length === 0 ? (
-            <p className="text-sm text-muted">{c.noVariantsYet}</p>
-          ) : (
-            <div className="space-y-2">
-              {state.variants.map((variant) => (
-                <div key={variant.id} className="rounded-xl border border-line bg-surface p-3">
-                  <div className="mb-2 flex items-center justify-between">
-                    <span className="text-sm font-black text-ink">{variant.title}</span>
-                    <label className="flex items-center gap-1.5 text-xs font-bold text-muted">
-                      <input type="checkbox" checked={variant.isActive} onChange={(e) => setVariant(variant.id, { isActive: e.target.checked })} className="h-3.5 w-3.5 accent-accent" />
-                      {c.vActive}
-                    </label>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-                    <Input value={variant.priceText} onChange={(e) => setVariant(variant.id, { priceText: e.target.value })} placeholder={c.vPrice} type="number" step="0.001" />
-                    <Input value={variant.stockText} onChange={(e) => setVariant(variant.id, { stockText: e.target.value })} placeholder={c.vStock} type="number" />
-                    <Input value={variant.sku} onChange={(e) => setVariant(variant.id, { sku: e.target.value })} placeholder={c.vSku} />
-                    <Input value={variant.imageUrl} onChange={(e) => setVariant(variant.id, { imageUrl: e.target.value })} placeholder={c.vImage} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Step 5 — images.
-// ---------------------------------------------------------------------------
-function ImagesStep({ c, state, set }: { c: Copy; state: WizardState; set: Setter }) {
-  const onUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    try {
-      const dataUrl = await prepareImageDataUrl(file, { maxDimension: 1000, maxBytes: 450_000 });
-      set('image', { url: dataUrl, emoji: undefined });
-      toast({ title: 'Image ready', type: 'success' });
-    } catch (error) {
-      toast({ title: 'Could not use image', description: error instanceof Error ? error.message : undefined, type: 'error' });
-    } finally {
-      event.target.value = '';
-    }
-  };
-  const setGallery = (index: number, patch: Partial<ImageAsset>) => set('gallery', state.gallery.map((img, i) => (i === index ? { ...img, ...patch } : img)));
-
-  return (
-    <div className="space-y-4">
-      <Card title={c.mainImage}>
-        <div className="md:col-span-2 flex items-center gap-4">
-          <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-xl border border-line bg-paper text-3xl">
-            {state.image.url ? <img src={state.image.url} alt="" className="h-full w-full object-cover" /> : (state.image.emoji || '📦')}
-          </div>
-          <div className="flex flex-col gap-2">
-            <div className="flex flex-wrap gap-1.5">
-              {PRODUCT_EMOJIS.map((emoji) => (
-                <button key={emoji} type="button" onClick={() => set('image', { emoji, url: undefined })} className={cn('grid h-8 w-8 place-items-center rounded-lg border bg-paper', state.image.emoji === emoji && !state.image.url ? 'border-ink bg-line/50' : 'border-line hover:border-ink/30')}>{emoji}</button>
-              ))}
-            </div>
-            <label className="inline-flex w-fit cursor-pointer items-center gap-1.5 rounded-md border border-line px-2 py-1 text-xs font-bold text-ink hover:bg-paper">
-              <ImageIcon className="h-3 w-3" /> {c.upload}
-              <input type="file" accept="image/*" className="hidden" onChange={onUpload} />
-            </label>
-          </div>
-        </div>
-      </Card>
-      <Card title={c.gallery}>
-        {state.gallery.map((img, index) => (
-          <div key={index} className="md:col-span-2 grid grid-cols-1 gap-2 rounded-xl border border-line bg-paper/50 p-2 md:grid-cols-[2fr_1fr_auto]">
-            <Input value={img.url} onChange={(e) => setGallery(index, { url: e.target.value })} placeholder={c.imageUrl} />
-            <Input value={img.altText} onChange={(e) => setGallery(index, { altText: e.target.value })} placeholder={c.altText} />
-            <Button type="button" variant="ghost" className="border border-line" onClick={() => set('gallery', state.gallery.filter((_, i) => i !== index))}><Trash2 className="h-4 w-4" /></Button>
-          </div>
-        ))}
-        <div className="md:col-span-2">
-          <Button type="button" variant="ghost" className="border border-line" onClick={() => set('gallery', [...state.gallery, { url: '', altText: '' }])}><Plus className="h-4 w-4 me-1" /> {c.addImage}</Button>
-        </div>
-      </Card>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Step 6 — review & preview.
-// ---------------------------------------------------------------------------
-function ReviewStep({ c, lang, state, store, priceMinor, attributes, errors }: { c: Copy; lang: Lang; state: WizardState; store: Store; priceMinor: number; attributes: Record<string, unknown>; errors: Record<string, string> }) {
-  const { money } = useI18n();
-  const schema = getProductCategorySchema(state.categoryKey);
-  const hasErrors = Object.keys(errors).length > 0 || priceMinor <= 0 || !state.name.trim() || !state.categoryKey;
-  const displayRows = (schema?.fields ?? [])
-    .filter((field) => !field.adminOnly && field.visibleOnProductPage !== false)
-    .map((field) => ({ label: tr(field.label, lang), value: attributes[field.key], field }))
-    .filter((row) => row.value !== undefined && row.value !== null && !(Array.isArray(row.value) && row.value.length === 0));
-
-  return (
-    <div className="space-y-4">
-      {hasErrors && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{c.fixErrors}</div>
-      )}
-      <Card title={c.preview}>
-        <div className="md:col-span-2 flex gap-4">
-          <div className="grid h-28 w-28 shrink-0 place-items-center overflow-hidden rounded-xl border border-line bg-paper text-5xl">
-            {state.image.url ? <img src={state.image.url} alt="" className="h-full w-full object-cover" /> : (state.image.emoji || '📦')}
-          </div>
-          <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-widest text-muted">{schema ? tr(schema.label, lang) : ''}</p>
-            <h3 className="truncate text-xl font-black text-ink">{state.name || '—'}</h3>
-            {state.shortDescription && <p className="text-sm text-muted">{state.shortDescription}</p>}
-            <p className="mt-1 flex items-baseline gap-2 text-lg font-black text-ink">
-              {parseMoney(state.compareAtText, store.currency) && (parseMoney(state.compareAtText, store.currency) ?? 0) > priceMinor && (
-                <span className="text-sm font-bold text-muted line-through">{money(parseMoney(state.compareAtText, store.currency) ?? 0, store.currency)}</span>
-              )}
-              {money(priceMinor, store.currency)}
-            </p>
-            <p className="mt-1 text-xs font-bold text-muted">{state.sellingType === 'variants' ? `${state.variants.filter((v) => v.isActive).length} ${c.variant}` : `${c.stock}: ${state.stockText || 0}`}</p>
-          </div>
-        </div>
-      </Card>
-      {displayRows.length > 0 && (
-        <Card title={c.productDetails}>
-          <dl className="md:col-span-2 divide-y divide-line">
-            {displayRows.map((row) => (
-              <div key={row.field.key} className="flex justify-between gap-4 py-2 text-sm">
-                <dt className="font-semibold text-muted">{row.label}</dt>
-                <dd className="text-end font-bold text-ink">{formatAttr(row.value, row.field, lang, c)}</dd>
-              </div>
-            ))}
-          </dl>
-        </Card>
-      )}
     </div>
   );
 }
