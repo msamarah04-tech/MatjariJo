@@ -609,6 +609,7 @@ function StorefrontFrame({ store, products, discounts }: { store: Store; product
     try {
       const orderId = await placeOrder({
         storeId: store.id,
+        slug: store.slug,
         customerName: values.customerName,
         customerEmail: values.customerEmail,
         customerPhone: normalizedPhone,

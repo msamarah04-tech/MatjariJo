@@ -292,7 +292,7 @@ interface AppState {
   markNotificationsSeen: () => void;
 
   // orders
-  placeOrder: (o: { storeId: string; customerName: string; customerEmail?: string; customerPhone?: string; shippingAddress?: string; items?: CartItem[]; discountCode?: string; note?: string; idempotencyKey?: string }) => Promise<string>;
+  placeOrder: (o: { storeId: string; slug?: string; customerName: string; customerEmail?: string; customerPhone?: string; shippingAddress?: string; items?: CartItem[]; discountCode?: string; note?: string; idempotencyKey?: string }) => Promise<string>;
   approveOrder: (storeId: string, id: string) => void;
   rejectOrder: (storeId: string, id: string) => void;
   fulfillOrder: (storeId: string, id: string) => void;
@@ -1079,10 +1079,10 @@ export const useStore = create<AppState>()(
       clearShopCredentials: () => set({ shopCredentials: null }),
 
       placeOrder: async (o) => {
-        const store = get().stores.find((s) => s.id === o.storeId);
-        if (store) {
+        const storeSlug = o.slug ?? get().stores.find((s) => s.id === o.storeId)?.slug;
+        if (storeSlug) {
           const cartItems = o.items ?? get().carts[o.storeId] ?? [];
-          const { order } = await placePublicOrder(store.slug, {
+          const { order } = await placePublicOrder(storeSlug, {
             customerName: o.customerName,
             customerEmail: o.customerEmail,
             customerPhone: o.customerPhone,
