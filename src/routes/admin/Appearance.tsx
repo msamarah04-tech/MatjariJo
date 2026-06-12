@@ -15,7 +15,8 @@ import { toast } from '@/components/ui/Toast';
 import { PageHeader } from '@/components/ui/dashboard';
 import { cn } from '@/lib/cn';
 import { prepareImageDataUrl } from '@/lib/images';
-import { useAdminContext } from './shared';
+import { useAdminContext, useStoreDiscounts } from './shared';
+import type { Discount } from '@/lib/types';
 
 const schema = z.object({
   name: z.string().min(2, 'Name is required'),
@@ -131,6 +132,7 @@ export default function Appearance() {
   const shippingType = watch('shippingType');
   const paletteMode = watch('paletteMode');
   const storeProducts = products.filter((p) => p.storeId === storeId);
+  const storeDiscounts = useStoreDiscounts(storeId);
 
   useEffect(() => {
     if (!isDirty) return;
@@ -329,6 +331,7 @@ export default function Appearance() {
             <HeroSlidesEditor
               slides={heroSlides}
               products={storeProducts}
+              discounts={storeDiscounts}
               onChange={setHeroSlides}
               onSave={saveHeroSlides}
               saving={slideSaving}
@@ -654,12 +657,14 @@ function TemplateDiagram({ id }: { id: FormValues['storefrontTemplate'] }) {
 function HeroSlidesEditor({
   slides,
   products,
+  discounts,
   onChange,
   onSave,
   saving,
 }: {
   slides: HeroSlide[];
   products: Array<{ id: string; name: string }>;
+  discounts: Discount[];
   onChange: (slides: HeroSlide[]) => void;
   onSave: () => void;
   saving: boolean;
@@ -754,13 +759,31 @@ function HeroSlidesEditor({
               <div className="space-y-4 border-t border-line bg-surface/40 p-4">
                 {slide.type === 'offer' && (
                   <>
-                    <FormField label="Discount code">
-                      <input
-                        className={inputCls}
-                        value={slide.discountCode || ''}
-                        onChange={(e) => updateSlide(slide.id, { discountCode: e.target.value.toUpperCase() })}
-                        placeholder="e.g. SAVE10"
-                      />
+                    <FormField label="Offer">
+                      {discounts.length === 0 ? (
+                        <p className="rounded-lg border border-dashed border-line bg-paper/50 px-3 py-2.5 text-xs text-muted">
+                          No offers found. <a href="#" onClick={(e) => { e.preventDefault(); window.location.href = window.location.href.replace('/appearance', '/offers'); }} className="font-semibold underline">Create one first →</a>
+                        </p>
+                      ) : (
+                        <select
+                          className={inputCls}
+                          value={slide.discountCode || ''}
+                          onChange={(e) => {
+                            const chosen = discounts.find((d) => d.code === e.target.value);
+                            updateSlide(slide.id, {
+                              discountCode: e.target.value || undefined,
+                              title: slide.title || chosen?.name || undefined,
+                            });
+                          }}
+                        >
+                          <option value="">— Select an offer —</option>
+                          {discounts.map((d) => (
+                            <option key={d.id} value={d.code}>
+                              {d.name} ({d.code})
+                            </option>
+                          ))}
+                        </select>
+                      )}
                     </FormField>
                     <FormField label="Headline (optional — overrides offer name)">
                       <input
