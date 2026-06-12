@@ -1,18 +1,9 @@
 import type { Discount, Product, Store } from '@prisma/client';
 import { badRequest } from './errors.js';
-import { applyBps, percentOf, taxFromBase } from '../shared/money.js';
+import { percentOf } from '../shared/money.js';
 import { productPubliclyActive, resolveMerchandiseLine } from './productDetails.js';
 
 export type CartLine = { productId: string; variantId?: string; quantity: number };
-
-export type TaxContext = {
-  /** Effective GST rate in basis points (store override or platform default). */
-  taxRateBps: number;
-  /** Whether listed prices already include tax. */
-  pricesIncludeTax: boolean;
-  /** Effective platform commission rate in basis points. */
-  commissionBps: number;
-};
 
 export function discountIsValid(discount: Discount | undefined | null, subtotalCents: number, now = new Date()): discount is Discount {
   if (!discount) return false;
@@ -32,7 +23,6 @@ export function computeDiscountCents(
   if (!discount) return 0;
   if (discount.type === 'PERCENT') return percentOf(subtotalCents, discount.value);
   if (discount.type === 'FIXED') {
-    // "Set price" — each scoped unit is sold at `value` cents; discount = price reduction per unit × qty
     if (scopedItems) {
       return scopedItems.reduce((sum, item) => sum + Math.max(0, item.unitPriceCents - discount.value) * item.quantity, 0);
     }
@@ -83,23 +73,14 @@ export type OrderComputation = {
   currency: string;
   subtotalCents: number;
   discountCents: number;
-  taxCents: number;
-  taxRateBps: number;
-  pricesIncludeTax: boolean;
   shippingCents: number;
   totalCents: number;
-  commissionCents: number;
   discountCode?: string;
 };
 
 /**
  * Server-authoritative order math, all in integer minor units of the store's
- * currency. Order of operations: subtotal -> discount -> GST -> shipping -> total.
- *
- *  - exclusive pricing: tax is added on top of (subtotal - discount).
- *  - inclusive pricing: tax is the portion already inside (subtotal - discount).
- *
- * Commission is taken on the net merchandise value (excluding tax and shipping).
+ * currency. Order of operations: subtotal -> discount -> shipping -> total.
  * Stock is NOT enforced here — the conditional UPDATE at checkout is the authority;
  * this pre-check only yields a friendlier error.
  */
@@ -108,7 +89,6 @@ export function computeOrder(
   products: Product[],
   cartLines: CartLine[],
   discount: Discount | undefined,
-  tax: TaxContext,
 ): OrderComputation {
   const items = cartLines.map((line) => {
     const product = products.find((item) => item.id === line.productId);
@@ -123,7 +103,6 @@ export function computeOrder(
   });
 
   const subtotalCents = items.reduce((sum, item) => sum + item.lineTotalCents, 0);
-  // Scoped to specific products if productIds is set
   let scopedProductIds: string[] | undefined;
   if (discount?.productIds) {
     try { scopedProductIds = JSON.parse(discount.productIds); } catch { /* ignore */ }
@@ -137,26 +116,15 @@ export function computeOrder(
   const discountCents = computeDiscountCents(validDiscount, scopedSubtotal, totalQty, scopedItems);
   const freeShipping = validDiscount?.type === 'FREE_SHIPPING';
   const shippingAmountCents = shippingCents(store, subtotalCents, freeShipping);
-
-  const taxableBase = Math.max(0, subtotalCents - discountCents);
-  const taxCents = taxFromBase(taxableBase, tax.taxRateBps, tax.pricesIncludeTax);
-  const netMerchandise = tax.pricesIncludeTax ? taxableBase - taxCents : taxableBase;
-  const totalCents = tax.pricesIncludeTax
-    ? taxableBase + shippingAmountCents
-    : taxableBase + taxCents + shippingAmountCents;
-  const commissionCents = applyBps(netMerchandise, tax.commissionBps);
+  const totalCents = Math.max(0, subtotalCents - discountCents + shippingAmountCents);
 
   return {
     items,
     currency: store.currency,
     subtotalCents,
     discountCents,
-    taxCents,
-    taxRateBps: tax.taxRateBps,
-    pricesIncludeTax: tax.pricesIncludeTax,
     shippingCents: shippingAmountCents,
-    totalCents: Math.max(0, totalCents),
-    commissionCents,
+    totalCents,
     discountCode: validDiscount?.code,
   };
 }

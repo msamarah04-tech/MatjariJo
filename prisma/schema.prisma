@@ -68,7 +68,6 @@ model Store {
   suspensionReason      String   @default("")
   internalNote          String   @default("")
   isFeatured            Boolean  @default(false)
-  commissionOverrideBps Int?
   // Subscription billing (manual): plan tier, stored status (TRIAL | ACTIVE — PAST_DUE
   // is derived on read from planPaidUntil), and the paid-until / trial-end date.
   plan                  String    @default("STARTER")
@@ -77,10 +76,6 @@ model Store {
   shippingType          String   @default("FLAT")
   shippingFlatCents     Int?
   freeOverCents         Int?
-  // Jordan tax + invoicing (GST). taxRateBpsOverride falls back to the platform default.
-  taxRateBpsOverride    Int?
-  pricesIncludeTax      Boolean  @default(false)
-  taxRegistrationNumber String?
   contactPhone          String?
   address               String?
   // Monotonic per-store counter that backs sequential internal tax-invoice numbers.
@@ -141,14 +136,8 @@ model Order {
   currency        String   @default("JOD")
   subtotalCents   Int
   discountCents   Int      @default(0)
-  // GST applied at checkout (minor units) plus the rate/inclusive flag actually used.
-  taxCents        Int      @default(0)
-  taxRateBps      Int      @default(0)
-  pricesIncludeTax Boolean @default(false)
   shippingCents   Int      @default(0)
   totalCents      Int
-  // Platform commission captured at order time for internal settlement reporting.
-  commissionCents Int      @default(0)
   // Cash on Delivery is the only method for now; the column keeps the seam for gateways.
   paymentMethod   String   @default("COD")
   discountCode    String?
@@ -333,7 +322,6 @@ model AuditLog {
 model PlatformSettings {
   id                      String    @id @default("platform")
   platformName            String    @default("Matjari Jordan")
-  commissionRateBps       Int       @default(0)
   defaultCurrency         String    @default("JOD")
   categories              String    @default("[\"Apparel\",\"Home\",\"Beauty\",\"Food\",\"Electronics\"]")
   globalAnnouncement      String    @default("")
@@ -341,10 +329,6 @@ model PlatformSettings {
   supportEmail            String    @default("support@example.com")
   auditCap                Int       @default(500)
   autoFlagThreshold       Int       @default(3)
-  // Jordan GST defaults. Stores may override the rate; prices are exclusive by default.
-  taxRateBps              Int       @default(1600)
-  pricesIncludeTax        Boolean   @default(false)
-  taxLabel                String    @default("GST")
   lastSeenNotificationsAt DateTime?
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt

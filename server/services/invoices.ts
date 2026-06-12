@@ -1,14 +1,11 @@
 import { prisma, withTransaction } from '../db.js';
-import { getSettings } from '../audit.js';
-import { badRequest, notFound } from '../errors.js';
+import { notFound, badRequest } from '../errors.js';
 import { formatMoney } from '../../shared/money.js';
 import { formatJordanMobile } from '../../shared/phone.js';
 
 /**
- * Internal GST tax invoices. Self-contained — no JoFotara/tax-authority transmission
- * (that lives behind the deferred InvoiceClearance adapter). Invoice numbers are
- * sequential PER STORE via the Store.nextInvoiceSeq counter, assigned once when an
- * order is approved.
+ * Order invoices. Invoice numbers are sequential per store via the
+ * Store.nextInvoiceSeq counter, assigned once when an order is approved.
  */
 
 export const AMMAN_TZ = 'Asia/Amman';
@@ -24,7 +21,7 @@ export async function assignInvoiceNumber(orderId: string): Promise<string> {
       data: { nextInvoiceSeq: { increment: 1 } },
       select: { nextInvoiceSeq: true, slug: true },
     });
-    const seq = store.nextInvoiceSeq - 1; // value before this increment
+    const seq = store.nextInvoiceSeq - 1;
     const prefix = store.slug.replace(/[^a-z0-9]/gi, '').toUpperCase().slice(0, 8) || 'INV';
     const number = `${prefix}-${String(seq).padStart(5, '0')}`;
     await tx.order.update({ where: { id: orderId }, data: { invoiceNumber: number } });
@@ -36,15 +33,11 @@ export type InvoiceModel = {
   number: string;
   issuedAt: string;
   currency: string;
-  taxLabel: string;
-  taxRateBps: number;
-  pricesIncludeTax: boolean;
-  seller: { name: string; address?: string; phone?: string; taxRegistrationNumber?: string };
+  seller: { name: string; address?: string; phone?: string };
   buyer: { name: string; email: string; phone?: string; address?: string };
   lines: { name: string; quantity: number; unitPriceMinor: number; lineTotalMinor: number }[];
   subtotalMinor: number;
   discountMinor: number;
-  taxMinor: number;
   shippingMinor: number;
   totalMinor: number;
 };
@@ -55,21 +48,16 @@ export async function buildInvoiceModel(orderId: string): Promise<InvoiceModel> 
   if (order.status === 'PENDING' || order.status === 'REJECTED') {
     throw badRequest('An invoice is only available once the order is approved.');
   }
-  const settings = await getSettings();
   const number = order.invoiceNumber ?? (await assignInvoiceNumber(order.id));
 
   return {
     number,
     issuedAt: order.createdAt.toISOString(),
     currency: order.currency,
-    taxLabel: settings.taxLabel,
-    taxRateBps: order.taxRateBps,
-    pricesIncludeTax: order.pricesIncludeTax,
     seller: {
       name: order.store.name,
       address: order.store.address ?? undefined,
       phone: order.store.contactPhone ?? undefined,
-      taxRegistrationNumber: order.store.taxRegistrationNumber ?? undefined,
     },
     buyer: {
       name: order.customerName,
@@ -85,7 +73,6 @@ export async function buildInvoiceModel(orderId: string): Promise<InvoiceModel> 
     })),
     subtotalMinor: order.subtotalCents,
     discountMinor: order.discountCents,
-    taxMinor: order.taxCents,
     shippingMinor: order.shippingCents,
     totalMinor: order.totalCents,
   };
@@ -94,17 +81,13 @@ export async function buildInvoiceModel(orderId: string): Promise<InvoiceModel> 
 const escapeHtml = (value: string) =>
   value.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 
-/**
- * Printable tax invoice HTML. `lang` selects English (LTR, Western numerals) or
- * Arabic (RTL, Arabic-Indic numerals via the ar-JO locale). Dates render in Asia/Amman.
- */
+/** Printable invoice HTML. `lang` selects English (LTR) or Arabic (RTL, ar-JO locale). */
 export function renderInvoiceHtml(model: InvoiceModel, lang: 'en' | 'ar' = 'en'): string {
   const locale = lang === 'ar' ? 'ar-JO' : 'en-JO';
   const dir = lang === 'ar' ? 'rtl' : 'ltr';
   const t = lang === 'ar' ? AR : EN;
   const fmt = (minor: number) => formatMoney(minor, model.currency, locale);
   const issued = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short', timeZone: AMMAN_TZ }).format(new Date(model.issuedAt));
-  const ratePct = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(model.taxRateBps / 100);
 
   const rows = model.lines.map((line) => `
     <tr>
@@ -114,7 +97,7 @@ export function renderInvoiceHtml(model: InvoiceModel, lang: 'en' | 'ar' = 'en')
       <td class="num">${fmt(line.lineTotalMinor)}</td>
     </tr>`).join('');
 
-  const sellerLine = [model.seller.address, model.seller.phone && formatJordanMobile(model.seller.phone), model.seller.taxRegistrationNumber && `${t.taxNo}: ${model.seller.taxRegistrationNumber}`]
+  const sellerLine = [model.seller.address, model.seller.phone && formatJordanMobile(model.seller.phone)]
     .filter(Boolean).map((x) => `<div>${escapeHtml(String(x))}</div>`).join('');
   const buyerLine = [model.buyer.email, model.buyer.phone && formatJordanMobile(model.buyer.phone), model.buyer.address]
     .filter(Boolean).map((x) => `<div>${escapeHtml(String(x))}</div>`).join('');
@@ -182,7 +165,6 @@ export function renderInvoiceHtml(model: InvoiceModel, lang: 'en' | 'ar' = 'en')
     <div class="totals">
       <div><span>${t.subtotal}</span><span>${fmt(model.subtotalMinor)}</span></div>
       ${model.discountMinor > 0 ? `<div><span>${t.discount}</span><span>-${fmt(model.discountMinor)}</span></div>` : ''}
-      <div><span>${escapeHtml(model.taxLabel)} (${ratePct}%)${model.pricesIncludeTax ? ` · ${t.inclusive}` : ''}</span><span>${fmt(model.taxMinor)}</span></div>
       ${model.shippingMinor > 0 ? `<div><span>${t.shipping}</span><span>${fmt(model.shippingMinor)}</span></div>` : ''}
       <div class="grand"><span>${t.total}</span><span>${fmt(model.totalMinor)}</span></div>
     </div>
@@ -194,15 +176,15 @@ export function renderInvoiceHtml(model: InvoiceModel, lang: 'en' | 'ar' = 'en')
 }
 
 const EN = {
-  invoice: 'Tax Invoice', number: 'Invoice No.', date: 'Date', billedTo: 'Billed to', payment: 'Payment',
+  invoice: 'Invoice', number: 'Invoice No.', date: 'Date', billedTo: 'Billed to', payment: 'Payment',
   cod: 'Cash on Delivery', item: 'Item', qty: 'Qty', unitPrice: 'Unit price', amount: 'Amount',
-  subtotal: 'Subtotal', discount: 'Discount', shipping: 'Shipping', total: 'Total', inclusive: 'inclusive',
-  taxNo: 'Tax Reg. No.', footer: 'This is a system-generated internal tax invoice.',
+  subtotal: 'Subtotal', discount: 'Discount', shipping: 'Shipping', total: 'Total',
+  footer: 'This is a system-generated invoice.',
 };
 
 const AR = {
-  invoice: 'فاتورة ضريبية', number: 'رقم الفاتورة', date: 'التاريخ', billedTo: 'فاتورة إلى', payment: 'الدفع',
+  invoice: 'فاتورة', number: 'رقم الفاتورة', date: 'التاريخ', billedTo: 'فاتورة إلى', payment: 'الدفع',
   cod: 'الدفع عند الاستلام', item: 'الصنف', qty: 'الكمية', unitPrice: 'سعر الوحدة', amount: 'المبلغ',
-  subtotal: 'المجموع الفرعي', discount: 'الخصم', shipping: 'الشحن', total: 'الإجمالي', inclusive: 'شامل الضريبة',
-  taxNo: 'الرقم الضريبي', footer: 'هذه فاتورة ضريبية داخلية تم إنشاؤها آليًا.',
+  subtotal: 'المجموع الفرعي', discount: 'الخصم', shipping: 'الشحن', total: 'الإجمالي',
+  footer: 'هذه فاتورة تم إنشاؤها آليًا.',
 };

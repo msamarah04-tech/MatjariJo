@@ -6,7 +6,6 @@ import { storefrontUrl } from '@/lib/tenant';
 import { money } from '@/lib/format';
 import { Order, OwnerStatus, PlanStatus, Store, StorePlan, StoreStatus } from '@/lib/types';
 import { PLAN_DEFS, PLAN_ORDER } from '@shared/plans';
-import { effectiveCommissionBps } from '@/lib/analytics';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Drawer } from '@/components/ui/Drawer';
@@ -69,7 +68,6 @@ export default function Stores() {
         pending: storeOrders.filter((o) => o.status === 'PENDING').length,
         gmvCents: revenueOrders.reduce((sum, o) => sum + o.totalCents, 0),
         productCount: products.filter((p) => p.storeId === store.id).length,
-        commissionBps: effectiveCommissionBps(store, settings),
       };
     });
   }, [stores, orders, products, settings]);
@@ -128,7 +126,7 @@ export default function Stores() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Stores" subtitle="Every store on the marketplace. Open one to manage status, commission, and its owner." />
+      <PageHeader title="Stores" subtitle="Every store on the marketplace. Open one to manage status, plan, and its owner." />
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <SegmentedControl<StatusFilter>
@@ -255,8 +253,7 @@ export default function Stores() {
             onReactivate={() => { setStoreStatus(activeRow.store.id, 'ACTIVE'); toast({ title: 'Store reactivated', type: 'success' }); }}
             onSuspend={() => setConfirm({ kind: 'suspend', store: activeRow.store })}
             onToggleFeatured={() => { toggleFeatured(activeRow.store.id); toast({ title: activeRow.store.isFeatured ? 'Store unfeatured' : 'Store featured', type: 'success' }); }}
-            onSetCommission={(bps) => { setStoreCommission(activeRow.store.id, bps); toast({ title: bps === undefined ? 'Override cleared' : 'Commission updated', type: 'success' }); }}
-            onSetPlan={async (plan) => {
+                      onSetPlan={async (plan) => {
               const ok = await setStorePlan(activeRow.store.id, plan);
               toast(ok ? { title: `Plan changed to ${plan}`, type: 'success' } : { title: 'Could not change plan', type: 'error' });
             }}
@@ -329,7 +326,7 @@ export default function Stores() {
   );
 }
 
-type StoreRow = { store: Store; orderCount: number; pending: number; gmvCents: number; productCount: number; commissionBps: number };
+type StoreRow = { store: Store; orderCount: number; pending: number; gmvCents: number; productCount: number };
 
 function StoreDetail({
   row,
@@ -337,7 +334,6 @@ function StoreDetail({
   onReactivate,
   onSuspend,
   onToggleFeatured,
-  onSetCommission,
   onSetPlan,
   onRecordPayment,
   onOwner,
@@ -349,7 +345,6 @@ function StoreDetail({
   onReactivate: () => void;
   onSuspend: () => void;
   onToggleFeatured: () => void;
-  onSetCommission: (bps?: number) => void;
   onSetPlan: (plan: StorePlan) => void;
   onRecordPayment: () => void;
   onOwner: (next: OwnerStatus) => void;
@@ -357,8 +352,6 @@ function StoreDetail({
   onDelete: () => void;
 }) {
   const { store } = row;
-  const hasOverride = store.commissionOverrideBps !== undefined;
-  const [commission, setCommission] = useState((row.commissionBps / 100).toString());
 
   return (
     <div className="space-y-6">
@@ -414,25 +407,6 @@ function StoreDetail({
         <Button variant="accent" className="w-full" onClick={onRecordPayment}>Record payment (+1 month)</Button>
       </div>
 
-      {/* Commission override */}
-      <div className="rounded-xl border border-line bg-paper p-4">
-        <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-muted">Commission override</p>
-        <p className="mb-3 text-xs text-muted">{hasOverride ? 'Using a per-store rate.' : 'Currently using the platform default rate.'}</p>
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <input
-              value={commission}
-              onChange={(event) => setCommission(event.target.value)}
-              type="number"
-              step="0.1"
-              className="h-10 w-full rounded-lg border border-line bg-surface px-3 pr-7 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-accent"
-            />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted">%</span>
-          </div>
-          <Button variant="accent" onClick={() => onSetCommission(Math.round(parseFloat(commission || '0') * 100))}>Set</Button>
-          {hasOverride && <Button variant="ghost" className="border border-line" onClick={() => onSetCommission(undefined)}>Clear</Button>}
-        </div>
-      </div>
 
       {/* Store actions */}
       <div className="space-y-2">

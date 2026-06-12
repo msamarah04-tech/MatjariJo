@@ -87,7 +87,6 @@ export const seedStores: Store[] = [
 
 export const seedPlatformSettings: PlatformSettings = {
   platformName: 'Matjari Jordan',
-  commissionRateBps: 800,
   defaultCurrency: 'USD',
   categories: ['Home & Garden', 'Food & Drink', 'Fashion', 'Beauty', 'Art', 'Books'],
   globalAnnouncement: '',

@@ -76,16 +76,12 @@ export function serializeStore(store: Store) {
     storefrontTemplate: store.storefrontTemplate,
     themeOverrides: parseThemeOverrides(store.themeOverrides),
     currency: store.currency,
-    taxRateBpsOverride: store.taxRateBpsOverride ?? undefined,
-    pricesIncludeTax: store.pricesIncludeTax,
-    taxRegistrationNumber: store.taxRegistrationNumber ?? undefined,
     contactPhone: store.contactPhone ?? undefined,
     address: store.address ?? undefined,
     status: store.status,
     reviewStatus: store.reviewStatus,
     suspensionReason: store.suspensionReason,
     internalNote: store.internalNote,
-    commissionOverrideBps: store.commissionOverrideBps ?? undefined,
     plan: store.plan,
     planStatus: derivePlanStatus(store.planStatus as PlanStatus, ms(store.planPaidUntil)),
     planPaidUntil: ms(store.planPaidUntil),
@@ -100,7 +96,6 @@ export function serializePublicStore(store: Store) {
   const {
     internalNote: _internalNote,
     suspensionReason: _suspensionReason,
-    commissionOverrideBps: _commissionOverrideBps,
     ownerId: _ownerId,
     // Billing data never reaches the public storefront payload.
     plan: _plan,
@@ -218,11 +213,7 @@ export function serializeOrder(order: OrderWithItems) {
     currency: order.currency,
     subtotalCents: order.subtotalCents,
     discountCents: order.discountCents,
-    taxCents: order.taxCents,
-    taxRateBps: order.taxRateBps,
-    pricesIncludeTax: order.pricesIncludeTax,
     shippingCents: order.shippingCents,
-    commissionCents: order.commissionCents,
     paymentMethod: order.paymentMethod,
     discountCode: order.discountCode ?? undefined,
     invoiceNumber: order.invoiceNumber ?? undefined,
@@ -322,7 +313,6 @@ export function serializePlatformSettings(settings: PlatformSettings) {
   const categories = Array.isArray(parsedCategories) ? parsedCategories : [];
   return {
     platformName: settings.platformName,
-    commissionRateBps: settings.commissionRateBps,
     defaultCurrency: settings.defaultCurrency,
     categories: categories.filter((item): item is string => typeof item === 'string'),
     globalAnnouncement: settings.globalAnnouncement,
@@ -330,9 +320,6 @@ export function serializePlatformSettings(settings: PlatformSettings) {
     supportEmail: settings.supportEmail,
     auditCap: settings.auditCap,
     autoFlagThreshold: settings.autoFlagThreshold,
-    taxRateBps: settings.taxRateBps,
-    pricesIncludeTax: settings.pricesIncludeTax,
-    taxLabel: settings.taxLabel,
     lastSeenNotificationsAt: ms(settings.lastSeenNotificationsAt) ?? 0,
   };
 }

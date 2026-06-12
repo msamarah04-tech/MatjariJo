@@ -12,7 +12,6 @@ import { PageHeader } from './shared';
 const schema = z.object({
   platformName: z.string().min(1, 'Platform name is required').max(40),
   defaultCurrency: z.string().min(3, 'Use a 3-letter code').max(4),
-  commissionRatePct: z.coerce.number().min(0, 'Min 0%').max(100, 'Max 100%'),
   supportEmail: z.string().email('Enter a valid email'),
   globalAnnouncement: z.string().max(200).optional(),
   autoFlagThreshold: z.coerce.number().int().min(1, 'Min 1').max(50, 'Max 50'),
@@ -31,7 +30,6 @@ export default function Settings() {
   const defaults: FormValues = {
     platformName: settings.platformName,
     defaultCurrency: settings.defaultCurrency,
-    commissionRatePct: settings.commissionRateBps / 100,
     supportEmail: settings.supportEmail,
     globalAnnouncement: settings.globalAnnouncement || '',
     autoFlagThreshold: settings.autoFlagThreshold,
@@ -73,7 +71,6 @@ export default function Settings() {
     updatePlatformSettings({
       platformName: values.platformName,
       defaultCurrency: values.defaultCurrency.toUpperCase(),
-      commissionRateBps: Math.round(Number(values.commissionRatePct) * 100),
       supportEmail: values.supportEmail,
       globalAnnouncement: values.globalAnnouncement,
       autoFlagThreshold: Number(values.autoFlagThreshold),
@@ -142,19 +139,6 @@ export default function Settings() {
         </div>
       </Section>
 
-      <Section title="Marketplace" subtitle="Commission applies everywhere earnings are shown.">
-        <Grid>
-          <FormField label="Commission rate (%)" error={errors.commissionRatePct?.message}>
-            <input {...register('commissionRatePct')} type="number" step="0.1" className={inputCls} />
-          </FormField>
-          <FormField label="Payout schedule">
-            <input value="Weekly (with backend)" disabled className={cn(inputCls, 'cursor-not-allowed opacity-60')} />
-          </FormField>
-          <FormField label="Payout provider">
-            <input value="Connect a provider — coming soon" disabled className={cn(inputCls, 'cursor-not-allowed opacity-60')} />
-          </FormField>
-        </Grid>
-      </Section>
 
       <Section title="Content" subtitle="Operational toggles for the whole marketplace.">
         <label className="flex items-center gap-3 rounded-xl border border-line bg-paper p-4">

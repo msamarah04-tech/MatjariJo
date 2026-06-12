@@ -120,7 +120,6 @@ const text = {
     emptyCartHint: 'Browse the shop and add something you love.',
     subtotal: 'Subtotal',
     discount: 'Discount',
-    gst: 'GST',
     shipping: 'Shipping',
     total: 'Total',
     free: 'Free',
@@ -193,7 +192,6 @@ const text = {
     emptyCartHint: 'تصفح المتجر وأضف ما يعجبك.',
     subtotal: 'المجموع الفرعي',
     discount: 'الخصم',
-    gst: 'ضريبة المبيعات',
     shipping: 'الشحن',
     total: 'الإجمالي',
     free: 'مجاني',
@@ -1897,7 +1895,6 @@ function OrderConfirmation({ store }: { store: Store }) {
             <p className="text-[11px] font-black uppercase tracking-[0.2em] text-neutral-400">{c.invoice}</p>
             <h2 className="mt-2 text-2xl font-black tracking-tight">{store.name}</h2>
             <p className="mt-1.5 text-sm text-neutral-500">{store.address}</p>
-            {store.taxRegistrationNumber && <p className="mt-1 text-sm text-neutral-500">Tax No. {store.taxRegistrationNumber}</p>}
           </div>
           <div className="text-start sm:text-end">
             <p className="font-mono text-sm font-bold text-neutral-800">{invoiceNumber}</p>
@@ -1934,7 +1931,6 @@ function OrderConfirmation({ store }: { store: Store }) {
         <div className="ms-auto mt-7 max-w-sm space-y-2.5 text-sm rounded-2xl bg-neutral-50 p-5">
           <InvoiceRow label={c.subtotal} value={money(order.subtotalCents, order.currency || store.currency)} />
           {(order.discountCents ?? 0) > 0 && <InvoiceRow label={c.discount} value={`-${money(order.discountCents ?? 0, order.currency || store.currency)}`} />}
-          <InvoiceRow label={c.gst} value={money(order.taxCents ?? 0, order.currency || store.currency)} />
           <InvoiceRow label={c.shipping} value={money(order.shippingCents ?? 0, order.currency || store.currency)} />
           <div className="border-t border-neutral-200 pt-4 mt-2">
             <InvoiceRow label={c.total} value={money(order.totalCents, order.currency || store.currency)} strong />
@@ -2194,7 +2190,6 @@ export function SummaryRows({ store, summary, activeDiscount }: { store: Store; 
       <SummaryRow label={c.subtotal} value={money(summary.subtotalCents, store.currency)} />
       {isBxgy && <SummaryRow label={`Bundle price${summary.discountCode ? ` (${summary.discountCode})` : ''}`} value={money(bundleTotal, store.currency)} highlight />}
       {!isBxgy && summary.discountCents > 0 && <SummaryRow label={`${c.discount}${summary.discountCode ? ` (${summary.discountCode})` : ''}`} value={`-${money(summary.discountCents, store.currency)}`} />}
-      <SummaryRow label={c.gst} value={money(summary.taxCents, store.currency)} />
       <SummaryRow label={c.shipping} value={summary.shippingCents === 0 ? c.free : money(summary.shippingCents, store.currency)} />
       <div className="border-t border-[var(--c-line)]/20 pt-3 mt-1">
         <SummaryRow label={c.total} value={money(summary.totalCents, store.currency)} strong />

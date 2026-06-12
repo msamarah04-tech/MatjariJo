@@ -107,19 +107,12 @@ export interface Store {
   storefrontTemplate?: StorefrontTemplate;
   themeOverrides?: ThemeOverrides | null;
   currency: string;
-  // Jordan tax / invoice seller details.
-  taxRateBpsOverride?: number;
-  // Effective GST rate, included only in the public storefront payload for tax preview.
-  taxRateBps?: number;
-  pricesIncludeTax?: boolean;
-  taxRegistrationNumber?: string;
   contactPhone?: string;
   address?: string;
   status: StoreStatus;
   reviewStatus?: StoreReviewStatus;
   suspensionReason?: string;
   internalNote?: string;
-  commissionOverrideBps?: number;
   // Subscription plan (admin/platform payloads only — stripped from public storefront).
   plan?: StorePlan;
   planStatus?: PlanStatus;
@@ -320,11 +313,7 @@ export interface Order {
   currency?: string;
   subtotalCents: number;
   discountCents?: number;
-  taxCents?: number;
-  taxRateBps?: number;
-  pricesIncludeTax?: boolean;
   shippingCents?: number;
-  commissionCents?: number;
   paymentMethod?: string;
   discountCode?: string;
   invoiceNumber?: string;
@@ -344,7 +333,6 @@ export interface AnalyticsEvent {
 
 export interface PlatformSettings {
   platformName: string;
-  commissionRateBps: number;
   defaultCurrency: string;
   categories: string[];
   globalAnnouncement?: string;
@@ -352,9 +340,6 @@ export interface PlatformSettings {
   supportEmail: string;
   auditCap: number;
   autoFlagThreshold: number;
-  taxRateBps?: number;
-  pricesIncludeTax?: boolean;
-  taxLabel?: string;
 }
 
 export interface TicketMessage {

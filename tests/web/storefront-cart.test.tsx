@@ -13,8 +13,6 @@ const store: Store = {
   category: 'Home',
   themeId: 'mono',
   currency: 'JOD',
-  taxRateBps: 1600,
-  pricesIncludeTax: false,
   shipping: { type: 'FLAT', flatCents: 1500 },
   status: 'ACTIVE',
   ownerId: 'owner-1',

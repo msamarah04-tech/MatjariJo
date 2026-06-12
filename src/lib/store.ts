@@ -25,8 +25,6 @@ const normalizeStore = (store: Store): Store => ({
   storefrontTemplate: store.storefrontTemplate ?? 'editorial',
   themeOverrides: store.themeOverrides ?? undefined,
   isFeatured: store.isFeatured ?? false,
-  // commissionOverrideBps stays undefined unless explicitly set (falls back to platform rate).
-  commissionOverrideBps: store.commissionOverrideBps,
   plan: store.plan ?? 'STARTER',
   planStatus: store.planStatus ?? 'TRIAL',
 });
@@ -70,7 +68,6 @@ const normalizeAnalyticsEvent = (event: AnalyticsEvent): AnalyticsEvent => ({
 
 const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   platformName: 'Matjari Jordan',
-  commissionRateBps: 800,
   defaultCurrency: 'USD',
   categories: ['Apparel', 'Home', 'Beauty', 'Food', 'Electronics'],
   globalAnnouncement: '',
@@ -82,7 +79,6 @@ const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
 
 const normalizePlatformSettings = (settings?: Partial<PlatformSettings>): PlatformSettings => ({
   platformName: settings?.platformName ?? DEFAULT_PLATFORM_SETTINGS.platformName,
-  commissionRateBps: settings?.commissionRateBps ?? DEFAULT_PLATFORM_SETTINGS.commissionRateBps,
   defaultCurrency: settings?.defaultCurrency ?? DEFAULT_PLATFORM_SETTINGS.defaultCurrency,
   categories: settings?.categories ?? DEFAULT_PLATFORM_SETTINGS.categories,
   globalAnnouncement: settings?.globalAnnouncement ?? '',
@@ -150,20 +146,18 @@ const canManage = (currentUser: User | null, stores: Store[], storeId: string) =
 };
 
 /** Keys a shop owner must never change through an admin store edit (scope / ownership / platform-controlled). */
-const PROTECTED_STORE_KEYS = ['id', 'ownerId', 'createdAt', 'status', 'reviewStatus', 'suspensionReason', 'internalNote', 'commissionOverrideBps', 'isFeatured'];
+const PROTECTED_STORE_KEYS = ['id', 'ownerId', 'createdAt', 'status', 'reviewStatus', 'suspensionReason', 'internalNote', 'isFeatured'];
 
 /**
  * Store update payload. The listed fields accept null meaning "clear the stored
  * value" — undefined keys are dropped from JSON, so null is the only way to
  * erase a previously saved value through the PATCH API.
  */
-export type StorePatch = Omit<Partial<Store>, 'logoUrl' | 'logoEmoji' | 'contactPhone' | 'address' | 'taxRegistrationNumber' | 'taxRateBpsOverride'> & {
+export type StorePatch = Omit<Partial<Store>, 'logoUrl' | 'logoEmoji' | 'contactPhone' | 'address'> & {
   logoUrl?: string | null;
   logoEmoji?: string | null;
   contactPhone?: string | null;
   address?: string | null;
-  taxRegistrationNumber?: string | null;
-  taxRateBpsOverride?: number | null;
 };
 
 export type ShopApprovalSetup = {

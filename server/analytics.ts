@@ -1,4 +1,4 @@
-import type { AnalyticsEvent, Discount, Order, OrderItem, PlatformSettings, Product, Store } from '@prisma/client';
+import type { AnalyticsEvent, Discount, Order, OrderItem, Product, Store } from '@prisma/client';
 
 type Range = 7 | 30 | 90 | 'all';
 type OrderWithItems = Order & { items: OrderItem[] };
@@ -45,20 +45,13 @@ function buildSeries(start: Date, orders: Order[], events: AnalyticsEvent[]) {
   return Array.from(buckets.values());
 }
 
-export function effectiveCommissionBps(store: Store, settings: PlatformSettings) {
-  return store.commissionOverrideBps ?? settings.commissionRateBps;
-}
 
-export function platformInsights(range: Range, stores: Store[], orders: Order[], events: AnalyticsEvent[], settings: PlatformSettings) {
+export function platformInsights(range: Range, stores: Store[], orders: Order[], events: AnalyticsEvent[]) {
   const start = rangeStart(range, [...orders.map((o) => o.createdAt), ...events.map((e) => e.createdAt), ...stores.map((s) => s.createdAt)]);
   const scopedOrders = orders.filter((order) => order.createdAt >= start);
   const scopedEvents = events.filter((event) => event.createdAt >= start);
   const storeById = new Map(stores.map((store) => [store.id, store]));
   const gmvCents = scopedOrders.reduce((sum, order) => sum + order.totalCents, 0);
-  const commissionCents = scopedOrders.reduce((sum, order) => {
-    const store = storeById.get(order.storeId);
-    return sum + Math.round(order.totalCents * (store ? effectiveCommissionBps(store, settings) : settings.commissionRateBps) / 10000);
-  }, 0);
   const views = scopedEvents.filter((event) => event.type === 'view').length;
   const checkout = scopedEvents.filter((event) => event.type === 'checkout_start').length;
   const cart = scopedEvents.filter((event) => event.type === 'add_to_cart').length;
@@ -86,18 +79,13 @@ export function platformInsights(range: Range, stores: Store[], orders: Order[],
   return {
     kpis: {
       gmvCents,
-      commissionCents,
-      netToStoresCents: gmvCents - commissionCents,
       activeStores: stores.filter((store) => store.status === 'ACTIVE').length,
       totalOrders: scopedOrders.length,
       pendingOrders: scopedOrders.filter((order) => order.status === 'PENDING').length,
       conversionRate: views ? scopedOrders.length / views : 0,
     },
     series: buildSeries(start, scopedOrders, scopedEvents),
-    revenueSeries: buildSeries(start, scopedOrders, scopedEvents).map((row) => ({
-      ...row,
-      commissionCents: Math.round(row.gmvCents * (settings.commissionRateBps / 10000)),
-    })),
+    revenueSeries: buildSeries(start, scopedOrders, scopedEvents),
     ordersByStore,
     categoryMix,
     statusCounts: ['PENDING', 'APPROVED', 'REJECTED', 'FULFILLED'].map((status) => ({

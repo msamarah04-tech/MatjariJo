@@ -38,12 +38,9 @@ storefrontRouter.get('/public/stores/:slug', asyncRoute(async (req, res) => {
     },
   });
   if (!store) throw notFound('Store not found.');
-  const settings = await getSettings();
-  // Expose the EFFECTIVE GST rate so the storefront can preview tax matching checkout.
-  const publicStore = { ...serializePublicStore(store), taxRateBps: store.taxRateBpsOverride ?? settings.taxRateBps };
   const isActive = store.status === 'ACTIVE';
   res.json({
-    store: publicStore,
+    store: serializePublicStore(store),
     products: isActive ? store.products.filter(productPubliclyActive).map(serializeProductForStorefront) : [],
     discounts: isActive ? store.discounts.map(serializeDiscount) : [],
   });
@@ -94,13 +91,6 @@ storefrontRouter.post('/public/stores/:slug/orders', publicWriteRateLimiter, asy
     if (existing) return res.status(200).json({ order: serializeOrder(existing), idempotent: true });
   }
 
-  const settings = await getSettings();
-  const taxContext = {
-    taxRateBps: store.taxRateBpsOverride ?? settings.taxRateBps,
-    pricesIncludeTax: store.pricesIncludeTax,
-    commissionBps: store.commissionOverrideBps ?? settings.commissionRateBps,
-  };
-
   try {
     const order = await withTransaction(async (tx) => {
       const productIds = [...new Set(input.items.map((item) => item.productId))];
@@ -110,8 +100,8 @@ storefrontRouter.post('/public/stores/:slug/orders', publicWriteRateLimiter, asy
         ? await tx.discount.findUnique({ where: { storeId_code: { storeId: store.id, code: discountCode } } })
         : undefined;
 
-      // Server-authoritative recompute (subtotal -> discount -> GST -> shipping -> total).
-      const summary = computeOrder(store, products, input.items, discount ?? undefined, taxContext);
+      // Server-authoritative recompute (subtotal -> discount -> shipping -> total).
+      const summary = computeOrder(store, products, input.items, discount ?? undefined);
 
       // Atomic conditional stock decrement: only succeeds if enough stock remains and
       // the product is still active. count === 0 means another order won the race.
@@ -162,12 +152,8 @@ storefrontRouter.post('/public/stores/:slug/orders', publicWriteRateLimiter, asy
           currency: summary.currency,
           subtotalCents: summary.subtotalCents,
           discountCents: summary.discountCents,
-          taxCents: summary.taxCents,
-          taxRateBps: summary.taxRateBps,
-          pricesIncludeTax: summary.pricesIncludeTax,
           shippingCents: summary.shippingCents,
           totalCents: summary.totalCents,
-          commissionCents: summary.commissionCents,
           paymentMethod: 'COD',
           discountCode: summary.discountCode,
           idempotencyKey,

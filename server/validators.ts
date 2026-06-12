@@ -286,10 +286,6 @@ export const adminStorePatchSchema = z.object({
   themeOverrides: themeOverridesSchema.optional().nullable(),
   currency: z.string().trim().min(3).max(3).optional(),
   shipping: shippingSchema.optional(),
-  // Jordan tax / invoice seller details.
-  taxRateBpsOverride: z.number().int().min(0).max(10000).optional().nullable(),
-  pricesIncludeTax: z.boolean().optional(),
-  taxRegistrationNumber: z.string().trim().max(60).optional().nullable(),
   contactPhone: jordanPhoneSchema.optional().nullable(),
   address: z.string().trim().max(300).optional().nullable(),
 }).strict();
@@ -401,10 +397,6 @@ export const rejectSchema = z.object({
   reason: z.string().trim().min(1).max(1000),
 });
 
-export const commissionSchema = z.object({
-  commissionOverrideBps: z.number().int().min(0).max(10000).nullable().optional(),
-});
-
 export const ownerStatusSchema = z.object({
   ownerStatus: ownerStatusEnum,
 });
@@ -415,12 +407,10 @@ export const platformStorePatchSchema = z.object({
   suspensionReason: z.string().trim().max(1000).optional(),
   internalNote: z.string().trim().max(2000).optional(),
   isFeatured: z.boolean().optional(),
-  commissionOverrideBps: z.number().int().min(0).max(10000).nullable().optional(),
 }).strict();
 
 export const platformSettingsPatchSchema = z.object({
   platformName: z.string().trim().min(1).max(120).optional(),
-  commissionRateBps: z.number().int().min(0).max(10000).optional(),
   defaultCurrency: z.string().trim().min(3).max(3).optional(),
   categories: z.array(z.string().trim().min(1).max(80)).min(1).max(100).optional(),
   globalAnnouncement: z.string().trim().max(300).optional(),
@@ -428,10 +418,6 @@ export const platformSettingsPatchSchema = z.object({
   supportEmail: emailSchema.optional(),
   auditCap: z.number().int().min(50).max(10000).optional(),
   autoFlagThreshold: z.number().int().min(1).max(100).optional(),
-  // Jordan GST defaults (0–100% in basis points).
-  taxRateBps: z.number().int().min(0).max(10000).optional(),
-  pricesIncludeTax: z.boolean().optional(),
-  taxLabel: z.string().trim().min(1).max(20).optional(),
 }).strict();
 
 export const rangeSchema = z.object({

@@ -30,7 +30,6 @@ async function main() {
     create: {
       id: 'platform',
       platformName: 'Matjari Jordan',
-      commissionRateBps: 0,
       defaultCurrency: 'USD',
       categories: JSON.stringify(['Apparel', 'Home', 'Beauty', 'Food', 'Electronics']),
       supportEmail: 'support@example.com',

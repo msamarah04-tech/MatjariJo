@@ -1,5 +1,4 @@
 import { Discount, Product, Store } from './types';
-import { taxFromBase } from '@shared/money';
 import { findCartVariant, lineMaxQuantity, lineUnitPrice, isVariableProduct } from './productOptions';
 
 export interface CartLine {
@@ -23,7 +22,6 @@ export interface SummaryResult {
   items: OrderLine[];
   subtotalCents: number;
   discountCents: number;
-  taxCents: number;
   shippingCents: number;
   totalCents: number;
   discountCode?: string;
@@ -118,18 +116,12 @@ export function computeOrderSummary(store: Store, products: Product[], cartItems
   const discountCents = getDiscountCents(validDiscount, scopedSubtotal, totalQty, scopedItems);
   const freeShipping = validDiscount?.type === 'FREE_SHIPPING';
   const shippingCents = getShippingCents(store, subtotalCents, freeShipping);
-  // Mirror the server's GST math so the cart preview matches the final order/invoice.
   const taxableBase = Math.max(0, subtotalCents - discountCents);
-  const pricesIncludeTax = store.pricesIncludeTax ?? false;
-  const taxCents = taxFromBase(taxableBase, store.taxRateBps ?? 0, pricesIncludeTax);
-  const totalCents = pricesIncludeTax
-    ? taxableBase + shippingCents
-    : taxableBase + taxCents + shippingCents;
+  const totalCents = taxableBase + shippingCents;
   return {
     items,
     subtotalCents,
     discountCents,
-    taxCents,
     shippingCents,
     totalCents: Math.max(0, totalCents),
     discountCode: validDiscount?.code,

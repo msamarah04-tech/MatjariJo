@@ -121,7 +121,6 @@ export async function exportOrdersToExcel(orders: Order[], storeName: string, cu
     { header: `Subtotal`,           key: 'subtotal',  width: 14 },
     { header: `Discount`,           key: 'discount',  width: 14 },
     { header: 'Code',               key: 'code',      width: 12 },
-    { header: `Tax`,                key: 'tax',       width: 12 },
     { header: `Shipping`,           key: 'shipping',  width: 12 },
     { header: `Total (${curr})`,    key: 'total',     width: 16 },
     { header: 'Payment',            key: 'payment',   width: 18 },
@@ -146,7 +145,7 @@ export async function exportOrdersToExcel(orders: Order[], storeName: string, cu
   headerRow.eachCell((cell) => applyHeader(cell));
 
   // Data rows
-  const currencyColIdxs = [10, 11, 13, 14, 15]; // subtotal, discount, tax, shipping, total (1-based)
+  const currencyColIdxs = [10, 11, 13, 14]; // subtotal, discount, shipping, total (1-based)
   const rejected = (o: Order) => o.status === 'REJECTED';
 
   orders.forEach((order, idx) => {
@@ -166,7 +165,6 @@ export async function exportOrdersToExcel(orders: Order[], storeName: string, cu
       toCurrency(order.subtotalCents, curr),
       toCurrency(order.discountCents ?? 0, curr),
       order.discountCode ?? '',
-      toCurrency(order.taxCents ?? 0, curr),
       toCurrency(order.shippingCents ?? 0, curr),
       toCurrency(order.totalCents, curr),
       paymentLabel(order.paymentMethod),
@@ -186,7 +184,7 @@ export async function exportOrdersToExcel(orders: Order[], storeName: string, cu
 
     // Status badge colors
     if (!isRejected) {
-      const statusCell = row.getCell(17);
+      const statusCell = row.getCell(16);
       const colors: Record<string, [string, string]> = {
         FULFILLED: [C.fulfilledBg, C.fulfilledFg],
         APPROVED:  [C.approvedBg,  C.approvedFg],
@@ -205,7 +203,7 @@ export async function exportOrdersToExcel(orders: Order[], storeName: string, cu
 
     // Qty center-align
     row.getCell(9).alignment = { horizontal: 'center', vertical: 'middle' };
-    row.getCell(17).alignment = { horizontal: 'center', vertical: 'middle' };
+    row.getCell(16).alignment = { horizontal: 'center', vertical: 'middle' };
   });
 
   // ── TOTAL ROW ─────────────────────────────────────────────────────────────
@@ -216,7 +214,6 @@ export async function exportOrdersToExcel(orders: Order[], storeName: string, cu
     toCurrency(countableOrders.reduce((n, o) => n + o.subtotalCents, 0), curr),
     toCurrency(countableOrders.reduce((n, o) => n + (o.discountCents ?? 0), 0), curr),
     '',
-    toCurrency(countableOrders.reduce((n, o) => n + (o.taxCents ?? 0), 0), curr),
     toCurrency(countableOrders.reduce((n, o) => n + (o.shippingCents ?? 0), 0), curr),
     toCurrency(countableOrders.reduce((n, o) => n + o.totalCents, 0), curr),
     '', `TOTAL (${countableOrders.length} orders)`, '',
@@ -227,13 +224,13 @@ export async function exportOrdersToExcel(orders: Order[], storeName: string, cu
     totalRow.getCell(colIdx).numFmt = numFmt;
   });
   // Bold label
-  const labelCell = totalRow.getCell(17);
+  const labelCell = totalRow.getCell(16);
   labelCell.font = { bold: true, size: 11, name: 'Calibri', color: { argb: C.totalFg } };
   labelCell.alignment = { horizontal: 'center', vertical: 'middle' };
   // Rejected note
   if (orders.length !== countableOrders.length) {
     const rejected_count = orders.length - countableOrders.length;
-    const noteCell = totalRow.getCell(18);
+    const noteCell = totalRow.getCell(17);
     noteCell.value = `(${rejected_count} rejected order${rejected_count > 1 ? 's' : ''} excluded)`;
     noteCell.font = { italic: true, size: 9, color: { argb: C.rejectedFg }, name: 'Calibri' };
   }
@@ -288,7 +285,6 @@ export async function exportOrdersToExcel(orders: Order[], storeName: string, cu
     `${toCurrency(countableOrders.reduce((n, o) => n + fn(o), 0), curr).toFixed(dec)} ${curr}`;
   addSummaryRow('Gross Revenue',   rev((o) => o.subtotalCents));
   addSummaryRow('Total Discounts', rev((o) => o.discountCents ?? 0));
-  addSummaryRow('Total Tax',       rev((o) => o.taxCents ?? 0));
   addSummaryRow('Total Shipping',  rev((o) => o.shippingCents ?? 0));
 
   const netRow = ws2.addRow(['Net Revenue', `${toCurrency(countableOrders.reduce((n, o) => n + o.totalCents, 0), curr).toFixed(dec)} ${curr}`]);

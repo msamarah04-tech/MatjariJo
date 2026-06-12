@@ -7,8 +7,7 @@ import {
   CheckCircle2,
   ClipboardList,
   Clock,
-  DollarSign,
-  Landmark,
+
   LucideIcon,
   MessageSquare,
   ShoppingBag,
@@ -37,7 +36,7 @@ export default function Overview() {
   const approveOrder = useStore((s) => s.approveOrder);
   const rejectOrder = useStore((s) => s.rejectOrder);
 
-  const insights = useMemo(() => getPlatformInsights(30, stores, orders, events, settings), [stores, orders, events, settings]);
+  const insights = useMemo(() => getPlatformInsights(30, stores, orders, events), [stores, orders, events]);
 
   const openTickets = supportTickets.filter((t) => t.status !== 'RESOLVED');
   const openFlags = productFlags.filter((f) => f.status === 'OPEN');
@@ -49,13 +48,11 @@ export default function Overview() {
 
   const kpis: { label: string; value: string; icon: LucideIcon; spark?: number[]; sparkColor?: string; tone?: 'amber' | 'red' }[] = [
     { label: 'Total GMV', value: money(insights.kpis.totalGmvCents), icon: Wallet, spark: insights.gmvSpark, sparkColor: CHART_COLORS[0] },
-    { label: 'Commission', value: money(insights.kpis.commissionCents), icon: DollarSign, spark: insights.commissionSpark, sparkColor: CHART_COLORS[1] },
     { label: 'Active stores', value: `${insights.kpis.activeStores}`, icon: StoreIcon },
     { label: 'Total orders', value: `${insights.kpis.totalOrders}`, icon: ShoppingBag, spark: insights.ordersSpark, sparkColor: CHART_COLORS[3] },
     { label: 'Pending approvals', value: `${insights.kpis.pendingApprovals}`, icon: Clock, tone: insights.kpis.pendingApprovals > 0 ? 'amber' : undefined },
     { label: 'Open tickets', value: `${openTickets.length}`, icon: MessageSquare, tone: highPriorityTickets.length > 0 ? 'red' : undefined },
     { label: 'Flagged products', value: `${openFlags.length}`, icon: AlertTriangle, tone: openFlags.length > 0 ? 'amber' : undefined },
-    { label: 'Net to stores', value: money(insights.kpis.netToStoresCents), icon: Landmark },
   ];
 
   const statusData = insights.statusCounts.filter((entry) => entry.value > 0);

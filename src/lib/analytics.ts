@@ -1,4 +1,4 @@
-import { AnalyticsEvent, Order, PlatformSettings, Product, Store } from './types';
+import { AnalyticsEvent, Order, Product, Store } from './types';
 
 const DAY_MS = 86400000;
 
@@ -150,15 +150,6 @@ export type PlatformRange = 7 | 30 | 90 | 'all';
 
 const REVENUE_STATUSES: ReadonlyArray<Order['status']> = ['APPROVED', 'FULFILLED'];
 
-/** Effective commission rate for a store in basis points (per-store override beats platform default). */
-export function effectiveCommissionBps(store: Store | undefined, settings: PlatformSettings) {
-  return store?.commissionOverrideBps ?? settings.commissionRateBps;
-}
-
-export function commissionForOrder(order: Order, store: Store | undefined, settings: PlatformSettings) {
-  return Math.round(order.totalCents * (effectiveCommissionBps(store, settings) / 10000));
-}
-
 function platformRangeStart(range: PlatformRange, stores: Store[], orders: Order[]) {
   if (range !== 'all') return getRangeStart(range);
   const stamps = [...stores.map((s) => s.createdAt), ...orders.map((o) => o.createdAt)];
@@ -184,7 +175,6 @@ export function getPlatformInsights(
   stores: Store[],
   orders: Order[],
   events: AnalyticsEvent[],
-  settings: PlatformSettings,
 ) {
   const now = Date.now();
   const startTs = platformRangeStart(range, stores, orders);
@@ -196,18 +186,14 @@ export function getPlatformInsights(
   const rangeEvents = events.filter((event) => inWindow(event.ts));
 
   const totalGmvCents = revenueOrders.reduce((sum, order) => sum + order.totalCents, 0);
-  const commissionCents = revenueOrders.reduce((sum, order) => sum + commissionForOrder(order, storeById.get(order.storeId), settings), 0);
 
   const buckets = buildBuckets(startTs, now);
   const series = buckets.map((bucket) => {
     const bucketOrders = revenueOrders.filter((order) => order.createdAt >= bucket.ts && order.createdAt < bucket.end);
     const gmvCents = bucketOrders.reduce((sum, order) => sum + order.totalCents, 0);
-    const commission = bucketOrders.reduce((sum, order) => sum + commissionForOrder(order, storeById.get(order.storeId), settings), 0);
     return {
       day: bucket.day,
       gmvCents,
-      commissionCents: commission,
-      netCents: gmvCents - commission,
       orders: bucketOrders.length,
       stores: stores.filter((store) => store.createdAt >= bucket.ts && store.createdAt < bucket.end).length,
     };
@@ -250,8 +236,6 @@ export function getPlatformInsights(
     range,
     kpis: {
       totalGmvCents,
-      commissionCents,
-      netToStoresCents: totalGmvCents - commissionCents,
       totalOrders: rangeOrders.length,
       activeStores: stores.filter((store) => store.status === 'ACTIVE').length,
       totalStores: stores.length,
@@ -260,7 +244,6 @@ export function getPlatformInsights(
     series,
     gmvSpark: series.map((point) => point.gmvCents),
     ordersSpark: series.map((point) => point.orders),
-    commissionSpark: series.map((point) => point.commissionCents),
     ordersByStore,
     categoryBreakdown,
     statusCounts,

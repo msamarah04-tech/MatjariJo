@@ -18,7 +18,6 @@ import {
 import { buildStoreDataExport, eraseStoreCustomerData } from '../services/dataPrivacy.js';
 import { notifyPlanPayment, notifyShopApproved } from '../services/notifications.js';
 import {
-  commissionSchema,
   ownerStatusSchema,
   platformSettingsPatchSchema,
   platformStorePatchSchema,
@@ -197,12 +196,6 @@ platformRouter.post('/platform/stores/:storeId/unfeature', asyncRoute(async (req
   res.json({ store: serializeStore(store) });
 }));
 
-platformRouter.patch('/platform/stores/:storeId/commission', asyncRoute(async (req, res) => {
-  const input = commissionSchema.parse(req.body);
-  const store = await prisma.store.update({ where: { id: req.params.storeId }, data: { commissionOverrideBps: input.commissionOverrideBps ?? null } });
-  await audit(req.user!, 'Set store commission override', store.name, { targetType: 'Store', targetId: store.id, detail: input });
-  res.json({ store: serializeStore(store) });
-}));
 
 platformRouter.patch('/platform/stores/:storeId/plan', asyncRoute(async (req, res) => {
   const input = storePlanSchema.parse(req.body);

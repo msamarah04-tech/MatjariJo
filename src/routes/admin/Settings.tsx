@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { CreditCard, Download, Globe, KeyRound, MapPin, Receipt } from 'lucide-react';
+import { CreditCard, Download, Globe, KeyRound, MapPin } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { storefrontUrl } from '@/lib/tenant';
 import { PLAN_DEFS } from '@shared/plans';
@@ -31,12 +31,6 @@ const settingsSchema = z.object({
     .refine((value) => !RESERVED_SLUGS.has(value), 'This address is reserved.'),
   contactPhone: z.string().optional(),
   address: z.string().max(300, 'Keep it under 300 characters.').optional(),
-  taxRegistrationNumber: z.string().max(60).optional(),
-  pricesIncludeTax: z.boolean(),
-  taxRateText: z.string().optional().refine(
-    (value) => !value || (/^\d+(\.\d+)?$/.test(value) && parseFloat(value) <= 100),
-    'Enter a percentage between 0 and 100.',
-  ),
 });
 
 type SettingsValues = z.infer<typeof settingsSchema>;
@@ -73,9 +67,6 @@ export default function Settings() {
       slug: store.slug,
       contactPhone: store.contactPhone || '',
       address: store.address || '',
-      taxRegistrationNumber: store.taxRegistrationNumber || '',
-      pricesIncludeTax: store.pricesIncludeTax ?? platformSettings.pricesIncludeTax ?? true,
-      taxRateText: store.taxRateBpsOverride != null ? (store.taxRateBpsOverride / 100).toString() : '',
     },
   });
 
@@ -90,9 +81,6 @@ export default function Settings() {
       slug: data.slug,
       contactPhone: data.contactPhone?.trim() || null,
       address: data.address?.trim() || null,
-      taxRegistrationNumber: data.taxRegistrationNumber?.trim() || null,
-      pricesIncludeTax: data.pricesIncludeTax,
-      taxRateBpsOverride: data.taxRateText?.trim() ? Math.round(parseFloat(data.taxRateText) * 100) : null,
     });
     if (!saved) {
       toast({ title: 'Could not save settings', description: useStore.getState().apiError || 'Please try again.', type: 'error' });
@@ -152,28 +140,13 @@ export default function Settings() {
               </FormField>
               <div className="md:col-span-2">
                 <FormField label="Business address" error={errors.address?.message}>
-                  <Textarea {...register('address')} rows={2} placeholder="Street, city — shown on tax invoices" />
+                  <Textarea {...register('address')} rows={2} placeholder="Street, city" />
                 </FormField>
               </div>
             </div>
           </Section>
 
           <PlanSection store={store} supportEmail={platformSettings.supportEmail} />
-
-          <Section title="Tax & invoices" icon={Receipt}>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <FormField label={`Tax rate % (blank = platform default${platformSettings.taxRateBps != null ? `, ${platformSettings.taxRateBps / 100}%` : ''})`} error={errors.taxRateText?.message}>
-                <Input {...register('taxRateText')} placeholder="16" inputMode="decimal" />
-              </FormField>
-              <FormField label="Tax registration number" error={errors.taxRegistrationNumber?.message}>
-                <Input {...register('taxRegistrationNumber')} placeholder="Optional — printed on invoices" />
-              </FormField>
-            </div>
-            <label className="mt-4 flex items-center gap-2.5 text-sm font-semibold text-ink">
-              <input type="checkbox" {...register('pricesIncludeTax')} className="h-4 w-4 rounded border-line accent-[var(--c-accent,#E04E27)]" />
-              Product prices already include tax
-            </label>
-          </Section>
 
           <div className="sticky bottom-4 z-10 flex justify-end">
             <Button type="submit" disabled={!isDirty} className="shadow-lg">
