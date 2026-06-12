@@ -30,3 +30,17 @@ export const changePassword = (currentPassword: string, newPassword: string) =>
     method: 'POST',
     body: JSON.stringify({ currentPassword, newPassword }),
   });
+
+export const forgotPassword = (email: string) =>
+  apiFetch<{ ok: boolean }>('/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+    skipAuthRefresh: true,
+  });
+
+export const resetPassword = (token: string, password: string) =>
+  apiFetch<{ ok: boolean }>('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ token, password }),
+    skipAuthRefresh: true,
+  });

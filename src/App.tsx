@@ -9,6 +9,8 @@ import { RequireRole } from '@/components/layout/RequireRole';
 import { useStore } from '@/lib/store';
 import Landing from '@/routes/Landing';
 import SignIn from '@/routes/SignIn';
+import ForgotPassword from '@/routes/ForgotPassword';
+import ResetPassword from '@/routes/ResetPassword';
 import OwnerAccess from '@/routes/OwnerAccess';
 import Platform from '@/routes/platform/Platform';
 import Admin from '@/routes/admin/Admin';
@@ -76,6 +78,14 @@ const mainRouter = () => createHashRouter([
       {
         path: '/sign-in',
         element: <SignIn />,
+      },
+      {
+        path: '/forgot-password',
+        element: <ForgotPassword />,
+      },
+      {
+        path: '/reset-password',
+        element: <ResetPassword />,
       },
       {
         path: '/owner-access',

@@ -1,5 +1,5 @@
 import { FormEvent, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '@/lib/store';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -67,6 +67,12 @@ export default function SignIn() {
             <Button size="lg" variant="solid" type="submit" disabled={loading}>
               {loading ? t('signingIn') : t('signIn')}
             </Button>
+
+            <div className="text-center">
+              <Link to="/forgot-password" className="text-sm text-muted hover:text-ink font-semibold transition-colors">
+                Forgot your password?
+              </Link>
+            </div>
           </form>
 
           <div className="mt-8 rounded-xl border border-line bg-paper p-4 text-xs font-semibold leading-6 text-muted">

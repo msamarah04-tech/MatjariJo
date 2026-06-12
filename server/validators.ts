@@ -33,6 +33,15 @@ export const orderIdParamSchema = storeIdParamSchema.extend({ orderId: z.string(
 export const discountIdParamSchema = storeIdParamSchema.extend({ discountId: z.string().min(1) });
 export const ticketIdParamSchema = storeIdParamSchema.extend({ ticketId: z.string().min(1) });
 
+export const forgotPasswordSchema = z.object({
+  email: emailSchema,
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1),
+  password: z.string().min(10, 'Password must be at least 10 characters.'),
+});
+
 export const loginSchema = z.object({
   email: emailSchema.optional(),
   username: usernameSchema.optional(),

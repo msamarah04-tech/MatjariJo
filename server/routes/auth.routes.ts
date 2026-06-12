@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../db.js';
 import { env } from '../env.js';
@@ -15,10 +16,11 @@ import { ApiError, badRequest, conflict, forbidden, unauthorized } from '../erro
 import { loginRateLimiter } from '../security/rateLimit.js';
 import { isLocked, lockRetryAfterSeconds, registerFailedLogin, registerSuccessfulLogin } from '../security/lockout.js';
 import { clearRefreshCookie, readRefreshCookie, setRefreshCookie } from '../security/cookies.js';
-import { changePasswordSchema, loginSchema, registerOwnerSchema } from '../validators.js';
+import { changePasswordSchema, forgotPasswordSchema, loginSchema, registerOwnerSchema, resetPasswordSchema } from '../validators.js';
 import { serializeUser } from '../serializers.js';
 import { asyncRoute } from '../http.js';
 import { uniqueUsername } from '../services/onboarding.js';
+import { sendMail } from '../services/mail.js';
 
 export const authRouter = Router();
 
@@ -102,6 +104,87 @@ authRouter.post('/auth/logout', asyncRoute(async (req, res) => {
     if (user) await auditSecurity(user, 'Signed out', user.email, { targetType: 'User', targetId: user.id, ip: req.ip });
   }
   clearRefreshCookie(res);
+  res.json({ ok: true });
+}));
+
+// Sends a password-reset link to the given email. Always responds 200 to avoid
+// leaking whether an account exists (email enumeration protection).
+authRouter.post('/auth/forgot-password', asyncRoute(async (req, res) => {
+  const { email } = forgotPasswordSchema.parse(req.body);
+  const user = await prisma.user.findUnique({ where: { email } });
+
+  if (user) {
+    // Invalidate any existing unused tokens for this user before issuing a new one.
+    await prisma.passwordResetToken.deleteMany({ where: { userId: user.id, usedAt: null } });
+
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await prisma.passwordResetToken.create({ data: { userId: user.id, tokenHash, expiresAt } });
+
+    const origin = env.FRONTEND_ORIGIN.split(',')[0].trim().replace(/\/$/, '');
+    const resetUrl = `${origin}/#/reset-password?token=${rawToken}`;
+    const displayName = user.name ?? user.username;
+
+    sendMail({
+      to: user.email,
+      subject: 'Reset your Matjari password',
+      html: `
+        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
+          <img src="${origin}/logo.png" alt="Matjari Jordan" style="height:56px;margin-bottom:24px" />
+          <h2 style="margin:0 0 8px;font-size:20px;color:#111">Hi ${displayName},</h2>
+          <p style="color:#555;line-height:1.6;margin:0 0 24px">
+            We received a request to reset the password for your Matjari account.
+            Click the button below to choose a new one. This link expires in <strong>1 hour</strong>.
+          </p>
+          <a href="${resetUrl}" style="display:inline-block;background:#111;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px">
+            Reset my password
+          </a>
+          <p style="color:#999;font-size:13px;margin-top:24px;line-height:1.6">
+            If you didn't request this, you can safely ignore this email — your password won't change.
+          </p>
+          <hr style="border:none;border-top:1px solid #eee;margin:28px 0" />
+          <p style="color:#bbb;font-size:12px">Matjari Jordan · Password reset</p>
+        </div>
+      `,
+    });
+
+    await auditSecurity(null, 'Password reset requested', user.email, { targetType: 'User', targetId: user.id, ip: req.ip });
+  }
+
+  res.json({ ok: true });
+}));
+
+// Validates the reset token and sets the new password. Bumps tokenVersion so all
+// existing sessions are immediately revoked.
+authRouter.post('/auth/reset-password', asyncRoute(async (req, res) => {
+  const { token, password } = resetPasswordSchema.parse(req.body);
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+  const resetToken = await prisma.passwordResetToken.findUnique({
+    where: { tokenHash },
+    include: { user: true },
+  });
+
+  if (!resetToken || resetToken.usedAt || resetToken.expiresAt < new Date()) {
+    throw badRequest('This reset link is invalid or has expired. Please request a new one.');
+  }
+
+  const passwordHash = await bcrypt.hash(password, 12);
+
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: resetToken.userId },
+      data: { passwordHash, mustChangePassword: false, passwordChangedAt: new Date(), tokenVersion: { increment: 1 } },
+    }),
+    prisma.passwordResetToken.update({
+      where: { id: resetToken.id },
+      data: { usedAt: new Date() },
+    }),
+  ]);
+
+  await auditSecurity(resetToken.user, 'Password reset completed', resetToken.user.email, { targetType: 'User', targetId: resetToken.userId, ip: req.ip });
   res.json({ ok: true });
 }));
 

@@ -27,11 +27,24 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  stores          Store[]
-  assignedTickets SupportTicket[] @relation("TicketAssignee")
-  createdTickets  SupportTicket[] @relation("TicketCreator")
-  ticketMessages  TicketMessage[]
-  auditLogs       AuditLog[]
+  stores               Store[]
+  assignedTickets      SupportTicket[] @relation("TicketAssignee")
+  createdTickets       SupportTicket[] @relation("TicketCreator")
+  ticketMessages       TicketMessage[]
+  auditLogs            AuditLog[]
+  passwordResetTokens  PasswordResetToken[]
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }
 
 model Store {
