@@ -40,8 +40,10 @@ export function computeDiscountCents(
   }
   if (discount.type === 'BXGY' && discount.details) {
     try {
-      const d = JSON.parse(discount.details) as { buyQty: number; discountPct: number };
-      if (totalQty >= d.buyQty) return percentOf(subtotalCents, d.discountPct);
+      const d = JSON.parse(discount.details) as { buyQty: number; priceCents: number };
+      if (totalQty >= d.buyQty && scopedItems) {
+        return scopedItems.reduce((sum, item) => sum + Math.max(0, item.unitPriceCents - d.priceCents) * item.quantity, 0);
+      }
     } catch { /* ignore */ }
   }
   if (discount.type === 'TIERED' && discount.details) {

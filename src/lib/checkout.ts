@@ -91,8 +91,10 @@ export function getDiscountCents(
     return 0;
   }
   if (discount.type === 'BXGY' && discount.details) {
-    const d = discount.details as { buyQty: number; discountPct: number };
-    if (totalQty >= d.buyQty) return Math.min(subtotalCents, Math.round(subtotalCents * (d.discountPct / 100)));
+    const d = discount.details as { buyQty: number; priceCents: number };
+    if (totalQty >= d.buyQty && scopedItems) {
+      return scopedItems.reduce((sum, item) => sum + Math.max(0, item.priceCents - d.priceCents) * item.quantity, 0);
+    }
   }
   if (discount.type === 'TIERED' && discount.details) {
     const d = discount.details as { tiers: { minCents: number; pct: number }[] };

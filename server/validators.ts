@@ -316,7 +316,7 @@ export const discountBaseSchema = discountFieldsSchema.superRefine((value, ctx) 
     try {
       const d = JSON.parse(value.details ?? '{}');
       if (!d.buyQty || d.buyQty < 2) ctx.addIssue({ code: 'custom', path: ['details'], message: 'Buy quantity must be at least 2.' });
-      if (!d.discountPct || d.discountPct < 1 || d.discountPct > 100) ctx.addIssue({ code: 'custom', path: ['details'], message: 'Discount percent must be 1–100.' });
+      if (d.priceCents == null || d.priceCents < 0) ctx.addIssue({ code: 'custom', path: ['details'], message: 'Price per unit must be 0 or more.' });
     } catch { ctx.addIssue({ code: 'custom', path: ['details'], message: 'Invalid BXGY configuration.' }); }
   }
   if (value.type === 'TIERED') {

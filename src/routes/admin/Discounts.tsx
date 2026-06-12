@@ -35,7 +35,7 @@ const OFFER_TYPES: OfferMeta[] = [
   { type: 'PERCENT',       icon: BadgePercent, label: 'Percent off',   tagline: 'e.g. 20% off selected products',           color: 'text-violet-600 bg-violet-50 border-violet-200' },
   { type: 'FIXED',         icon: Tag,          label: 'Set price',     tagline: 'Set a fixed price per unit for products',   color: 'text-blue-600 bg-blue-50 border-blue-200' },
   { type: 'FREE_SHIPPING', icon: Truck,        label: 'Free shipping', tagline: 'Remove delivery fees at checkout',          color: 'text-emerald-600 bg-emerald-50 border-emerald-200' },
-  { type: 'BXGY',          icon: Layers,       label: 'Quantity deal', tagline: 'Buy X+ items, get Y% off the cart',        color: 'text-orange-600 bg-orange-50 border-orange-200' },
+  { type: 'BXGY',          icon: Layers,       label: 'Quantity deal', tagline: 'Buy X+ items, pay a set price per unit',   color: 'text-orange-600 bg-orange-50 border-orange-200' },
   { type: 'TIERED',        icon: Zap,          label: 'Spend tiers',   tagline: 'The more they spend, the bigger the deal', color: 'text-rose-600 bg-rose-50 border-rose-200' },
 ];
 
@@ -52,7 +52,7 @@ type FormState = {
   percent: string;
   fixedAmount: string;
   buyQty: string;
-  bxgyPct: string;
+  bxgyPrice: string;
   tiers: Tier[];
   selectedProductIds: string[];
   minSubtotal: string;
@@ -65,7 +65,7 @@ function blankForm(type: DiscountType = 'PERCENT'): FormState {
   return {
     type,
     name: '', imageDataUrl: null, code: '',
-    percent: '10', fixedAmount: '', buyQty: '3', bxgyPct: '15',
+    percent: '10', fixedAmount: '', buyQty: '3', bxgyPrice: '',
     tiers: [{ minText: '', pct: '' }],
     selectedProductIds: [],
     minSubtotal: '', usageLimit: '', expiresAt: '', active: true,
@@ -88,7 +88,7 @@ function formFromDiscount(d: Discount, currency: string): FormState {
     percent: d.type === 'PERCENT' ? String(d.value) : '10',
     fixedAmount: d.type === 'FIXED' ? String(toMajor(d.value, currency)) : '',
     buyQty: det && 'buyQty' in det ? String(det.buyQty) : '3',
-    bxgyPct: det && 'discountPct' in det ? String(det.discountPct) : '15',
+    bxgyPrice: det && 'priceCents' in det ? String(toMajor((det as { buyQty: number; priceCents: number }).priceCents, currency)) : '',
     tiers,
     selectedProductIds: d.productIds ?? [],
     minSubtotal: d.minSubtotalCents ? String(toMajor(d.minSubtotalCents, currency)) : '',
@@ -111,7 +111,10 @@ const offerLabel = (d: Discount, currency: string) => {
   if (d.type === 'FIXED') return `${money(d.value, currency)} / unit`;
   if (d.type === 'FREE_SHIPPING') return 'Free shipping';
   const det = d.details as (DiscountDetails & Record<string, unknown>) | undefined;
-  if (d.type === 'BXGY' && det && 'buyQty' in det) return `Buy ${det.buyQty}+, ${det.discountPct}% off`;
+  if (d.type === 'BXGY' && det && 'buyQty' in det) {
+    const bxgy = det as { buyQty: number; priceCents: number };
+    return `Buy ${bxgy.buyQty}+, ${money(bxgy.priceCents, currency)} / unit`;
+  }
   if (d.type === 'TIERED' && det && 'tiers' in det) {
     const t = (det.tiers as { minCents: number; pct: number }[]);
     return `${t.length} tier${t.length !== 1 ? 's' : ''}`;
@@ -455,8 +458,8 @@ function OfferDrawer({ open, onClose, editing, storeDiscounts, storeProducts, cu
     }
     if (form.type === 'BXGY') {
       if (!form.buyQty || Number(form.buyQty) < 2) e.buyQty = 'Must be at least 2';
-      const p = Number(form.bxgyPct);
-      if (!form.bxgyPct || p < 1 || p > 100) e.bxgyPct = 'Enter 1–100';
+      const p = parseMoney(form.bxgyPrice, currency);
+      if (p == null || p < 0) e.bxgyPrice = 'Enter a price (0 or more)';
     }
     if (form.type === 'TIERED') {
       const valid = form.tiers.filter((t) => t.minText && t.pct);
@@ -473,7 +476,7 @@ function OfferDrawer({ open, onClose, editing, storeDiscounts, storeProducts, cu
     if (type === 'PERCENT') value = Math.round(Number(form.percent));
     if (type === 'FIXED') value = parseMoney(form.fixedAmount, currency) ?? 0;
     if (type === 'BXGY') {
-      details = JSON.stringify({ buyQty: Math.round(Number(form.buyQty)), discountPct: Math.round(Number(form.bxgyPct)) });
+      details = JSON.stringify({ buyQty: Math.round(Number(form.buyQty)), priceCents: parseMoney(form.bxgyPrice, currency) ?? 0 });
     }
     if (type === 'TIERED') {
       const tiers = form.tiers
@@ -615,12 +618,12 @@ function OfferDrawer({ open, onClose, editing, storeDiscounts, storeProducts, cu
                   <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted">items</span>
                 </div>
               </Field>
-              <Field label="Discount applied" required error={errors.bxgyPct}>
+              <Field label="Price per unit" required error={errors.bxgyPrice} hint="Each item sold at this price when qty is met">
                 <div className="relative">
-                  <Input type="number" min="1" max="100" step="1" value={form.bxgyPct}
-                    onChange={(e) => set('bxgyPct', e.target.value)} placeholder="15"
-                    className={cn('pe-8', errors.bxgyPct && 'border-red-400')} />
-                  <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted">%</span>
+                  <span className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted">{currency}</span>
+                  <Input type="number" step="0.001" min="0" value={form.bxgyPrice}
+                    onChange={(e) => set('bxgyPrice', e.target.value)} placeholder="0.000"
+                    className={cn('ps-12', errors.bxgyPrice && 'border-red-400')} />
                 </div>
               </Field>
             </div>

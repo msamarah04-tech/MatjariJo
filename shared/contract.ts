@@ -259,11 +259,11 @@ export interface ProductDetailRow {
 }
 
 /** Extra config stored as JSON in the `details` column.
- *  BXGY: { buyQty: number; discountPct: number }
+ *  BXGY:   { buyQty: number; priceCents: number }  — buy ≥buyQty items → each scoped unit costs priceCents
  *  TIERED: { tiers: { minCents: number; pct: number }[] }  (sorted ascending by minCents)
  */
 export type DiscountDetails =
-  | { buyQty: number; discountPct: number }
+  | { buyQty: number; priceCents: number }
   | { tiers: { minCents: number; pct: number }[] };
 
 export interface Discount {
