@@ -23,10 +23,21 @@ export function discountIsValid(discount: Discount | undefined | null, subtotalC
   return true;
 }
 
-export function computeDiscountCents(discount: Discount | undefined, subtotalCents: number, totalQty = 0) {
+export function computeDiscountCents(
+  discount: Discount | undefined,
+  subtotalCents: number,
+  totalQty = 0,
+  scopedItems?: { unitPriceCents: number; quantity: number }[],
+) {
   if (!discount) return 0;
   if (discount.type === 'PERCENT') return percentOf(subtotalCents, discount.value);
-  if (discount.type === 'FIXED') return Math.min(subtotalCents, discount.value);
+  if (discount.type === 'FIXED') {
+    // "Set price" — each scoped unit is sold at `value` cents; discount = price reduction per unit × qty
+    if (scopedItems) {
+      return scopedItems.reduce((sum, item) => sum + Math.max(0, item.unitPriceCents - discount.value) * item.quantity, 0);
+    }
+    return 0;
+  }
   if (discount.type === 'BXGY' && discount.details) {
     try {
       const d = JSON.parse(discount.details) as { buyQty: number; discountPct: number };
@@ -120,7 +131,7 @@ export function computeOrder(
   const scopedSubtotal = scopedItems.reduce((sum, item) => sum + item.lineTotalCents, 0);
   const totalQty = scopedItems.reduce((sum, item) => sum + item.quantity, 0);
   const validDiscount = discountIsValid(discount, subtotalCents) ? discount : undefined;
-  const discountCents = computeDiscountCents(validDiscount, scopedSubtotal, totalQty);
+  const discountCents = computeDiscountCents(validDiscount, scopedSubtotal, totalQty, scopedItems);
   const freeShipping = validDiscount?.type === 'FREE_SHIPPING';
   const shippingAmountCents = shippingCents(store, subtotalCents, freeShipping);
 

@@ -76,10 +76,20 @@ export function getDiscountStatus(discount: Discount, subtotalCents: number, now
   return 'Valid';
 }
 
-export function getDiscountCents(discount: Discount | undefined, subtotalCents: number, totalQty = 0) {
+export function getDiscountCents(
+  discount: Discount | undefined,
+  subtotalCents: number,
+  totalQty = 0,
+  scopedItems?: { priceCents: number; quantity: number }[],
+) {
   if (!discount) return 0;
   if (discount.type === 'PERCENT') return Math.min(subtotalCents, Math.round(subtotalCents * (discount.value / 100)));
-  if (discount.type === 'FIXED') return Math.min(subtotalCents, discount.value);
+  if (discount.type === 'FIXED') {
+    if (scopedItems) {
+      return scopedItems.reduce((sum, item) => sum + Math.max(0, item.priceCents - discount.value) * item.quantity, 0);
+    }
+    return 0;
+  }
   if (discount.type === 'BXGY' && discount.details) {
     const d = discount.details as { buyQty: number; discountPct: number };
     if (totalQty >= d.buyQty) return Math.min(subtotalCents, Math.round(subtotalCents * (d.discountPct / 100)));
@@ -102,7 +112,7 @@ export function computeOrderSummary(store: Store, products: Product[], cartItems
   const scopedSubtotal = scopedItems.reduce((sum, item) => sum + item.priceCents * item.quantity, 0);
   const totalQty = scopedItems.reduce((sum, item) => sum + item.quantity, 0);
   const validDiscount = discount && getDiscountStatus(discount, subtotalCents) === 'Valid' ? discount : undefined;
-  const discountCents = getDiscountCents(validDiscount, scopedSubtotal, totalQty);
+  const discountCents = getDiscountCents(validDiscount, scopedSubtotal, totalQty, scopedItems);
   const freeShipping = validDiscount?.type === 'FREE_SHIPPING';
   const shippingCents = getShippingCents(store, subtotalCents, freeShipping);
   // Mirror the server's GST math so the cart preview matches the final order/invoice.

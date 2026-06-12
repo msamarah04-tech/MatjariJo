@@ -306,8 +306,8 @@ export const discountBaseSchema = discountFieldsSchema.superRefine((value, ctx) 
   if (value.type === 'PERCENT' && (value.value < 1 || value.value > 100)) {
     ctx.addIssue({ code: 'custom', path: ['value'], message: 'Percent discounts must be 1-100.' });
   }
-  if (value.type === 'FIXED' && value.value <= 0) {
-    ctx.addIssue({ code: 'custom', path: ['value'], message: 'Fixed discounts must be greater than 0 cents.' });
+  if (value.type === 'FIXED' && value.value < 0) {
+    ctx.addIssue({ code: 'custom', path: ['value'], message: 'Set-price offers must have a price of 0 or more.' });
   }
   if (value.type === 'FREE_SHIPPING' && value.value !== 0) {
     ctx.addIssue({ code: 'custom', path: ['value'], message: 'Free shipping discounts must use value 0.' });

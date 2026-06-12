@@ -32,11 +32,11 @@ type OfferMeta = {
 };
 
 const OFFER_TYPES: OfferMeta[] = [
-  { type: 'PERCENT',       icon: BadgePercent, label: 'Percent off',     tagline: 'e.g. 20% off the total order',             color: 'text-violet-600 bg-violet-50 border-violet-200' },
-  { type: 'FIXED',         icon: Tag,          label: 'Fixed amount',    tagline: 'e.g. JOD 5 off',                           color: 'text-blue-600 bg-blue-50 border-blue-200' },
-  { type: 'FREE_SHIPPING', icon: Truck,        label: 'Free shipping',   tagline: 'Remove delivery fees at checkout',          color: 'text-emerald-600 bg-emerald-50 border-emerald-200' },
-  { type: 'BXGY',          icon: Layers,       label: 'Quantity deal',   tagline: 'Buy X+ items, get Y% off the cart',        color: 'text-orange-600 bg-orange-50 border-orange-200' },
-  { type: 'TIERED',        icon: Zap,          label: 'Spend tiers',     tagline: 'The more they spend, the bigger the deal', color: 'text-rose-600 bg-rose-50 border-rose-200' },
+  { type: 'PERCENT',       icon: BadgePercent, label: 'Percent off',   tagline: 'e.g. 20% off selected products',           color: 'text-violet-600 bg-violet-50 border-violet-200' },
+  { type: 'FIXED',         icon: Tag,          label: 'Set price',     tagline: 'Set a fixed price per unit for products',   color: 'text-blue-600 bg-blue-50 border-blue-200' },
+  { type: 'FREE_SHIPPING', icon: Truck,        label: 'Free shipping', tagline: 'Remove delivery fees at checkout',          color: 'text-emerald-600 bg-emerald-50 border-emerald-200' },
+  { type: 'BXGY',          icon: Layers,       label: 'Quantity deal', tagline: 'Buy X+ items, get Y% off the cart',        color: 'text-orange-600 bg-orange-50 border-orange-200' },
+  { type: 'TIERED',        icon: Zap,          label: 'Spend tiers',   tagline: 'The more they spend, the bigger the deal', color: 'text-rose-600 bg-rose-50 border-rose-200' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -108,7 +108,7 @@ const statusTone = (s: string) =>
 
 const offerLabel = (d: Discount, currency: string) => {
   if (d.type === 'PERCENT') return `${d.value}% off`;
-  if (d.type === 'FIXED') return `${money(d.value, currency)} off`;
+  if (d.type === 'FIXED') return `${money(d.value, currency)} / unit`;
   if (d.type === 'FREE_SHIPPING') return 'Free shipping';
   const det = d.details as (DiscountDetails & Record<string, unknown>) | undefined;
   if (d.type === 'BXGY' && det && 'buyQty' in det) return `Buy ${det.buyQty}+, ${det.discountPct}% off`;
@@ -450,8 +450,8 @@ function OfferDrawer({ open, onClose, editing, storeDiscounts, storeProducts, cu
       if (!form.percent || v < 1 || v > 100) e.percent = 'Enter 1–100';
     }
     if (form.type === 'FIXED') {
-      const v = parseMoney(form.fixedAmount, currency) ?? 0;
-      if (v <= 0) e.fixedAmount = 'Enter an amount greater than 0';
+      const v = parseMoney(form.fixedAmount, currency);
+      if (v == null || v < 0) e.fixedAmount = 'Enter a price (0 or more)';
     }
     if (form.type === 'BXGY') {
       if (!form.buyQty || Number(form.buyQty) < 2) e.buyQty = 'Must be at least 2';
@@ -592,7 +592,13 @@ function OfferDrawer({ open, onClose, editing, storeDiscounts, storeProducts, cu
           )}
 
           {form.type === 'FIXED' && (
-            <MoneyField label="Amount off" value={form.fixedAmount} onChange={(v) => set('fixedAmount', v)} currency={currency} />
+            <MoneyField
+              label="Price per unit"
+              value={form.fixedAmount}
+              onChange={(v) => set('fixedAmount', v)}
+              currency={currency}
+              hint="Customers buy the selected products at this price per item. Leave 0 to make them free."
+            />
           )}
 
           {form.type === 'FREE_SHIPPING' && (
@@ -770,8 +776,8 @@ export default function Discounts() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Offers & Discounts"
-        subtitle="Promo codes and deals customers can apply at checkout."
+        title="Offers"
+        subtitle="Promo codes and special prices customers can apply at checkout."
         action={
           <Button variant="accent" className="gap-2" onClick={openCreate}>
             <Plus className="h-4 w-4" /> New offer
