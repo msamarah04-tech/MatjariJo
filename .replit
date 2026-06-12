@@ -18,11 +18,13 @@ PORT = "4000"
 FRONTEND_ORIGIN = "http://localhost:5000"
 REQUEST_BODY_LIMIT = "50mb"
 ALLOW_OWNER_REGISTRATION = "false"
-INITIAL_PLATFORM_EMAIL = "owner@matjari.local"
-INITIAL_PLATFORM_USERNAME = "platform-admin"
 INITIAL_PLATFORM_PASSWORD = "ChangeMe123!"
 INITIAL_PLATFORM_NAME = "Platform Owner"
 MAIL_FROM = "Matjari Jordan <onboarding@resend.dev>"
+
+[userenv.shared]
+INITIAL_PLATFORM_EMAIL = "msamarah.04@gmail.com"
+INITIAL_PLATFORM_USERNAME = "adminplatform"
 
 [workflows]
 runButton = "Project"
