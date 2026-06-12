@@ -582,7 +582,12 @@ function StorefrontFrame({ store, products, discounts }: { store: Store; product
     }
     setAppliedCode(code);
     setPromoInput(code);
-    setPromoMessage(`Applied — you save ${money(previewSummary.discountCents, store.currency)}!`);
+    if (discount.type === 'BXGY' && discount.details) {
+      const d = discount.details as { buyQty: number; priceCents: number };
+      setPromoMessage(`Applied — ${d.buyQty}+ items set at ${money(d.priceCents, store.currency)} total!`);
+    } else {
+      setPromoMessage(`Applied — you save ${money(previewSummary.discountCents, store.currency)}!`);
+    }
   };
 
   const beginCheckout = () => {
@@ -760,7 +765,7 @@ function StorefrontFrame({ store, products, discounts }: { store: Store; product
           <Route path="/" element={<HomePage store={store} products={products} addToCart={addToCart} />} />
           <Route path="/p/:productId" element={<ProductDetail store={store} products={products} addToCart={addToCart} />} />
           <Route path="/about" element={<AboutPage store={store} />} />
-          <Route path="/cart" element={<CartPage store={store} products={products} cartItems={cartItems} summary={summary} setQuantity={setQuantity} openCheckout={beginCheckout} />} />
+          <Route path="/cart" element={<CartPage store={store} products={products} cartItems={cartItems} summary={summary} activeDiscount={activeDiscount} setQuantity={setQuantity} openCheckout={beginCheckout} />} />
           <Route path="/order/:orderId" element={<OrderConfirmation store={store} />} />
         </Routes>
       </main>
@@ -831,6 +836,7 @@ function StorefrontFrame({ store, products, discounts }: { store: Store; product
         products={products}
         cartItems={cartItems}
         discounts={discounts}
+        activeDiscount={activeDiscount}
         summary={summary}
         promoInput={promoInput}
         promoMessage={promoMessage}
@@ -1582,11 +1588,12 @@ function AboutPage({ store }: { store: Store }) {
   );
 }
 
-function CartPage({ store, products, cartItems, summary, setQuantity, openCheckout }: {
+function CartPage({ store, products, cartItems, summary, activeDiscount, setQuantity, openCheckout }: {
   store: Store;
   products: Product[];
   cartItems: CartItem[];
   summary: ReturnType<typeof computeOrderSummary>;
+  activeDiscount?: Discount;
   setQuantity: (productId: string, quantity: number, variantId?: string) => void;
   openCheckout: () => void;
 }) {
@@ -1603,7 +1610,7 @@ function CartPage({ store, products, cartItems, summary, setQuantity, openChecko
           <CartLines store={store} products={products} cartItems={cartItems} setQuantity={setQuantity} />
           <div className="rounded-2xl bg-[var(--c-surface)] p-6 shadow-sm border border-[var(--c-line)]/25 h-fit lg:sticky lg:top-24">
             <FreeShippingProgress store={store} summary={summary} />
-            <SummaryRows store={store} summary={summary} />
+            <SummaryRows store={store} summary={summary} activeDiscount={activeDiscount} />
             <button
               type="button"
               onClick={openCheckout}
@@ -1744,6 +1751,7 @@ function CartDrawer(props: {
   products: Product[];
   cartItems: CartItem[];
   discounts: Discount[];
+  activeDiscount?: Discount;
   summary: ReturnType<typeof computeOrderSummary>;
   promoInput: string;
   promoMessage?: string;
@@ -1820,7 +1828,7 @@ function CartDrawer(props: {
               <div className="shrink-0 border-t border-[var(--c-line)]/30 bg-[var(--c-surface)] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] space-y-4">
                 <FreeShippingProgress store={props.store} summary={props.summary} />
                 <PromoBox {...props} />
-                <SummaryRows store={props.store} summary={props.summary} />
+                <SummaryRows store={props.store} summary={props.summary} activeDiscount={props.activeDiscount} />
                 {props.checkoutError && (
                   <p className="rounded-xl bg-red-50 p-4 text-sm font-bold text-red-700 border border-red-200">{props.checkoutError}</p>
                 )}
@@ -1941,12 +1949,15 @@ function PromoBox(props: { checkoutOpen: boolean; promoInput: string; promoMessa
   );
 }
 
-export function SummaryRows({ store, summary }: { store: Store; summary: ReturnType<typeof computeOrderSummary> }) {
+export function SummaryRows({ store, summary, activeDiscount }: { store: Store; summary: ReturnType<typeof computeOrderSummary>; activeDiscount?: Discount }) {
   const c = useCopy();
+  const isBxgy = activeDiscount?.type === 'BXGY' && summary.discountCents > 0;
+  const bundleTotal = isBxgy ? summary.subtotalCents - summary.discountCents : 0;
   return (
     <div className="space-y-2.5 text-sm">
       <SummaryRow label={c.subtotal} value={money(summary.subtotalCents, store.currency)} />
-      {summary.discountCents > 0 && <SummaryRow label={`${c.discount}${summary.discountCode ? ` (${summary.discountCode})` : ''}`} value={`-${money(summary.discountCents, store.currency)}`} />}
+      {isBxgy && <SummaryRow label={`Bundle price${summary.discountCode ? ` (${summary.discountCode})` : ''}`} value={money(bundleTotal, store.currency)} highlight />}
+      {!isBxgy && summary.discountCents > 0 && <SummaryRow label={`${c.discount}${summary.discountCode ? ` (${summary.discountCode})` : ''}`} value={`-${money(summary.discountCents, store.currency)}`} />}
       <SummaryRow label={c.gst} value={money(summary.taxCents, store.currency)} />
       <SummaryRow label={c.shipping} value={summary.shippingCents === 0 ? c.free : money(summary.shippingCents, store.currency)} />
       <div className="border-t border-[var(--c-line)]/20 pt-3 mt-1">
@@ -2169,11 +2180,11 @@ function FieldError({ form, name }: { form: UseFormReturn<CheckoutValues>; name:
   return error ? <span className="mt-1.5 block text-[11px] font-bold text-red-500">{String(error)}</span> : null;
 }
 
-function SummaryRow({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
+function SummaryRow({ label, value, strong = false, highlight = false }: { label: string; value: string; strong?: boolean; highlight?: boolean }) {
   return (
     <div className={cn('flex items-center justify-between gap-4', strong && 'text-base font-black tracking-tight')}>
-      <span className="font-medium opacity-55">{label}</span>
-      <span className={cn('font-black', !strong && 'opacity-75')}>{value}</span>
+      <span className={cn('font-medium', highlight ? 'opacity-100 text-[var(--c-accent)]' : 'opacity-55')}>{label}</span>
+      <span className={cn('font-black', highlight ? 'text-[var(--c-accent)]' : !strong && 'opacity-75')}>{value}</span>
     </div>
   );
 }
