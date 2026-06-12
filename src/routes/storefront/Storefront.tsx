@@ -547,9 +547,38 @@ function StorefrontFrame({ store, products, discounts }: { store: Store; product
       setPromoMessage(status);
       return;
     }
+    // Compute the actual discount amount with this code applied so we can give
+    // meaningful feedback (e.g. BXGY where qty threshold not yet met, FREE_SHIPPING, etc.)
+    const previewSummary = computeOrderSummary(store, products, cartItems, discount);
+    if (discount.type === 'FREE_SHIPPING') {
+      setAppliedCode(code);
+      setPromoInput(code);
+      setPromoMessage('Applied — shipping is now free!');
+      return;
+    }
+    if (previewSummary.discountCents <= 0) {
+      // Code is technically valid but yields no saving with the current cart.
+      // Give a type-specific hint so the customer knows what to do.
+      if (discount.type === 'BXGY' && discount.details) {
+        const d = discount.details as { buyQty: number; priceCents: number };
+        const totalQty = (discount.productIds?.length
+          ? previewSummary.items.filter((i) => discount.productIds!.includes(i.productId))
+          : previewSummary.items
+        ).reduce((s, i) => s + i.quantity, 0);
+        const need = d.buyQty - totalQty;
+        if (need > 0) {
+          setAppliedCode(undefined);
+          setPromoMessage(`Add ${need} more item${need !== 1 ? 's' : ''} to unlock this deal.`);
+          return;
+        }
+      }
+      setAppliedCode(undefined);
+      setPromoMessage('This code does not apply to the items in your cart.');
+      return;
+    }
     setAppliedCode(code);
     setPromoInput(code);
-    setPromoMessage('Applied.');
+    setPromoMessage(`Applied — you save ${money(previewSummary.discountCents, store.currency)}!`);
   };
 
   const beginCheckout = () => {

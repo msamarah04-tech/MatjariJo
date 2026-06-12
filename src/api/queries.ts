@@ -36,6 +36,8 @@ export function usePublicStore(slug: string | undefined) {
     queryKey: queryKeys.publicStore(slug ?? ''),
     queryFn: () => getPublicStore(slug!),
     enabled: !!slug,
+    staleTime: 10_000,
+    refetchOnWindowFocus: true,
   });
 }
 
