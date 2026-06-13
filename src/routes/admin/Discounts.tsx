@@ -513,15 +513,15 @@ function OfferDrawer({ open, onClose, editing, storeDiscounts, storeProducts, cu
     try {
       const payload = buildPayload();
       if (editing) {
-        updateDiscount(storeId, editing.id, payload as unknown as Partial<Discount>);
+        await updateDiscount(storeId, editing.id, payload as unknown as Partial<Discount>);
         toast({ title: 'Offer updated', type: 'success' });
       } else {
-        addDiscount(storeId, payload as unknown as Omit<Discount, 'id' | 'storeId' | 'createdAt' | 'usedCount'>);
+        await addDiscount(storeId, payload as unknown as Omit<Discount, 'id' | 'storeId' | 'createdAt' | 'usedCount'>);
         toast({ title: 'Offer created', type: 'success' });
       }
       onClose();
-    } catch {
-      toast({ title: 'Could not save offer', type: 'error' });
+    } catch (err) {
+      toast({ title: 'Could not save offer', description: err instanceof Error ? err.message : undefined, type: 'error' });
     } finally {
       setSubmitting(false);
     }

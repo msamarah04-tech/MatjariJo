@@ -108,7 +108,9 @@ function rowToPayload(row: ParsedRow, store: { currency: string; category: strin
     isActive: status === 'ACTIVE',
     isFeatured: false,
     details: {
-      categoryKey: categoryKey || undefined,
+      // categoryKey is intentionally omitted from bulk imports — the Excel template
+      // has no columns for required category-specific attributes (e.g. fragranceFamily),
+      // so including it would trigger validation errors on every row.
       status,
       sku: row.sku.trim() || undefined,
       barcode: row.barcode.trim() || undefined,

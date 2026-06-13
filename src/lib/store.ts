@@ -256,8 +256,8 @@ interface AppState {
   deleteProduct: (storeId: string, id: string) => void;
 
   // discount CRUD — scoped to a store
-  addDiscount: (storeId: string, discount: Omit<Discount, 'id' | 'storeId' | 'createdAt' | 'usedCount'>) => void;
-  updateDiscount: (storeId: string, id: string, patch: Partial<Discount>) => void;
+  addDiscount: (storeId: string, discount: Omit<Discount, 'id' | 'storeId' | 'createdAt' | 'usedCount'>) => Promise<void>;
+  updateDiscount: (storeId: string, id: string, patch: Partial<Discount>) => Promise<void>;
   deleteDiscount: (storeId: string, id: string) => void;
 
   // analytics
@@ -631,12 +631,11 @@ export const useStore = create<AppState>()(
         });
       },
 
-      addDiscount: (storeId, discount) => {
+      addDiscount: async (storeId, discount) => {
         const token = get().token;
         if (token) {
-          adminApi.createDiscount(storeId, discount)
-            .then(() => get().loadBootstrap())
-            .catch((error) => set({ apiError: error instanceof Error ? error.message : 'Could not add discount.' }));
+          await adminApi.createDiscount(storeId, discount);
+          await get().loadBootstrap();
           return;
         }
         if (!canManage(get().currentUser, get().stores, storeId)) return;
@@ -649,12 +648,11 @@ export const useStore = create<AppState>()(
         });
         set((state) => ({ discounts: [normalized, ...state.discounts] }));
       },
-      updateDiscount: (storeId, id, patch) => {
+      updateDiscount: async (storeId, id, patch) => {
         const token = get().token;
         if (token) {
-          adminApi.updateDiscount(storeId, id, patch)
-            .then(() => get().loadBootstrap())
-            .catch((error) => set({ apiError: error instanceof Error ? error.message : 'Could not update discount.' }));
+          await adminApi.updateDiscount(storeId, id, patch);
+          await get().loadBootstrap();
           return;
         }
         set((state) => {
