@@ -400,9 +400,12 @@ export default function StorefrontRoot() {
   const c = useCopy();
   const online = useOnlineStatus();
   const query = usePublicStore(slug);
+  const cachedTemplate = slug
+    ? (localStorage.getItem(`sf_tmpl_${slug}`) as TemplateId | null)
+    : null;
 
   if (!slug) return <Unavailable title={c.notFoundTitle} body={c.notFoundBody} />;
-  if (query.isLoading) return <StorefrontSkeleton />;
+  if (query.isLoading) return <StorefrontSkeleton templateId={cachedTemplate ?? 'editorial'} />;
   if (query.isError) {
     const message = query.error instanceof Error ? query.error.message : '';
     const isNotFound = message.toLowerCase().includes('not found');
@@ -431,6 +434,12 @@ function StorefrontFrame({ store, products, discounts }: { store: Store; product
   const { dir } = useI18n();
   const theme = resolveStoreTheme(store.themeId || 'mono', store.themeOverrides);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (store.slug && store.storefrontTemplate) {
+      localStorage.setItem(`sf_tmpl_${store.slug}`, store.storefrontTemplate);
+    }
+  }, [store.slug, store.storefrontTemplate]);
   const reduce = useReducedMotion();
   const scrolled = useScrolled();
   const carts = useStore((s) => s.carts);
@@ -2559,27 +2568,70 @@ function EmptyState({ title, body, action }: { title: string; body: string; acti
   );
 }
 
-function StorefrontSkeleton() {
+function ProductCardSkeleton({ templateId = 'editorial', featured = false }: { templateId?: TemplateId; featured?: boolean }) {
+  const aspect = featured
+    ? 'aspect-[16/9]'
+    : templateId === 'market'
+    ? 'aspect-square'
+    : templateId === 'boutique'
+    ? 'aspect-[3/4]'
+    : 'aspect-[4/5]';
+  return (
+    <div className="flex flex-col">
+      {/* Image placeholder — rounded-2xl matches ProductCard */}
+      <div className={cn('w-full rounded-2xl bg-black/[0.07]', aspect)} />
+      {/* Info placeholder — mirrors the frameless card info block */}
+      <div className={cn('space-y-1.5', templateId === 'market' ? 'pt-2' : 'pt-3')}>
+        <div className="h-2 w-1/4 rounded-full bg-black/[0.05]" />
+        <div className="h-3.5 w-3/4 rounded bg-black/[0.07]" />
+        <div className="h-3.5 w-1/3 rounded bg-black/[0.07]" />
+      </div>
+    </div>
+  );
+}
+
+function StorefrontSkeleton({ templateId = 'editorial' }: { templateId?: TemplateId }) {
+  const gridClass =
+    templateId === 'market'
+      ? 'grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 md:grid-cols-4 lg:grid-cols-5'
+      : templateId === 'boutique'
+      ? 'grid-cols-2 gap-3 gap-y-8 sm:gap-5 lg:grid-cols-3 lg:gap-6'
+      : templateId === 'lookbook'
+      ? 'grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 [&>*:first-child]:col-span-2 [&>*:first-child]:sm:col-span-2'
+      : 'grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4';
+
   return (
     <div className="min-h-screen animate-pulse bg-neutral-50">
+      {/* Nav bar */}
       <div className="h-16 bg-white border-b border-black/5" />
-      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 space-y-8">
+
+      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 space-y-10">
+        {/* Hero */}
         <div className="grid gap-8 lg:grid-cols-2">
           <div className="space-y-4 py-10">
-            <div className="h-6 w-32 rounded-full bg-black/5" />
-            <div className="h-16 w-4/5 rounded-2xl bg-black/5" />
-            <div className="h-16 w-3/5 rounded-2xl bg-black/5" />
-            <div className="h-12 w-44 rounded-full bg-black/10" />
+            <div className="h-6 w-32 rounded-full bg-black/[0.05]" />
+            <div className="h-16 w-4/5 rounded-2xl bg-black/[0.05]" />
+            <div className="h-16 w-3/5 rounded-2xl bg-black/[0.05]" />
+            <div className="h-12 w-44 rounded-full bg-black/[0.08]" />
           </div>
-          <div className="aspect-[4/5] max-h-[28rem] rounded-3xl bg-black/5" />
+          <div className="aspect-[4/5] max-h-[28rem] rounded-3xl bg-black/[0.05]" />
         </div>
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+
+        {/* Filter / category chips */}
+        <div className="flex gap-2 overflow-hidden">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="h-7 rounded-full bg-black/[0.05]" style={{ width: `${60 + i * 14}px` }} />
+          ))}
+        </div>
+
+        {/* Product grid — mirrors ProductGrid's per-template layout exactly */}
+        <div className={cn('grid', gridClass)}>
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="space-y-2">
-              <div className="aspect-[4/5] rounded-2xl bg-black/5" />
-              <div className="h-4 w-3/4 rounded bg-black/5" />
-              <div className="h-4 w-1/3 rounded bg-black/5" />
-            </div>
+            <ProductCardSkeleton
+              key={i}
+              templateId={templateId}
+              featured={templateId === 'lookbook' && i === 0}
+            />
           ))}
         </div>
       </div>
