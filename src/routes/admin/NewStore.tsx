@@ -8,6 +8,7 @@ import { toast } from '@/components/ui/Toast';
 import { ArrowLeft, ArrowRight, CheckCircle2, Eye, EyeOff, Sparkles } from 'lucide-react';
 import { PLAN_DEFS, PLAN_ORDER, TRIAL_DAYS } from '@shared/plans';
 import { cn } from '@/lib/cn';
+import { useI18n } from '@/lib/i18n';
 import { LangToggle } from '@/components/ui/LangToggle';
 
 const requestSchema = z.object({
@@ -33,29 +34,9 @@ const requestSchema = z.object({
 
 type RequestValues = z.infer<typeof requestSchema>;
 
-const STEPS = [
-  { n: 1, label: 'About you' },
-  { n: 2, label: 'Your store' },
-  { n: 3, label: 'Plan & access' },
-];
-
-const LEFT_COPY = [
-  {
-    headline: ['Tell us', 'who you are.'],
-    sub: 'We need your basic contact details so the team can reach you once your store is ready.',
-  },
-  {
-    headline: ['Describe', 'your store.'],
-    sub: 'Give us the name, vibe, and any details the team needs to set up your storefront correctly.',
-  },
-  {
-    headline: ['Choose your', 'plan & access.'],
-    sub: `Pick a subscription tier and set the credentials you'll use to manage the store after approval. Every plan starts with a ${TRIAL_DAYS}-day free trial.`,
-  },
-];
-
 export default function NewStore() {
   const submitShopRequest = useStore((s) => s.submitShopRequest);
+  const { t } = useI18n();
   const [step, setStep] = useState(1);
   const [submitted, setSubmitted] = useState(false);
   const [showPw, setShowPw] = useState(false);
@@ -65,6 +46,27 @@ export default function NewStore() {
   const initialPlan = (PLAN_ORDER as string[]).includes(planParam)
     ? (planParam as RequestValues['plan'])
     : 'STARTER';
+
+  const STEPS = [
+    { n: 1, label: t('reqStep1') },
+    { n: 2, label: t('reqStep2') },
+    { n: 3, label: t('reqStep3') },
+  ];
+
+  const LEFT_COPY = [
+    {
+      lines: [t('reqLeft1Line1'), t('reqLeft1Line2')],
+      sub: t('reqLeft1Sub'),
+    },
+    {
+      lines: [t('reqLeft2Line1'), t('reqLeft2Line2')],
+      sub: t('reqLeft2Sub'),
+    },
+    {
+      lines: [t('reqLeft3Line1'), t('reqLeft3Line2')],
+      sub: t('reqLeft3Sub').replace('{n}', String(TRIAL_DAYS)),
+    },
+  ];
 
   const form = useForm<RequestValues>({
     resolver: zodResolver(requestSchema),
@@ -94,9 +96,9 @@ export default function NewStore() {
       await submitShopRequest(payload);
       setSubmitted(true);
       form.reset();
-      toast({ title: 'Request sent!', description: 'The team will review and set up your store.', type: 'success' });
+      toast({ title: t('reqToastSentTitle'), description: t('reqToastSentDesc'), type: 'success' });
     } catch (err) {
-      toast({ title: 'Could not send request', description: err instanceof Error ? err.message : 'Try again later.', type: 'error' });
+      toast({ title: t('reqToastErrorTitle'), description: err instanceof Error ? err.message : t('reqToastErrorDesc'), type: 'error' });
     }
   };
 
@@ -131,12 +133,12 @@ export default function NewStore() {
               style={{ background: 'rgba(15,118,110,0.25)', border: '1px solid rgba(15,118,110,0.4)' }}>
               <Sparkles className="h-3 w-3 text-emerald-400" />
               <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-300">
-                Step {step} of {STEPS.length}
+                {t('reqStepOf').replace('{n}', String(step)).replace('{m}', String(STEPS.length))}
               </span>
             </div>
 
             <h1 className="text-[2.6rem] font-black leading-[1.08] tracking-tight">
-              {copy.headline.map((line, i) => (
+              {copy.lines.map((line, i) => (
                 <span key={i} className="block">
                   {i === 0
                     ? <span className="text-white">{line}</span>
@@ -169,8 +171,10 @@ export default function NewStore() {
 
           {/* Trial note */}
           <div className="rounded-2xl p-4" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.07)' }}>
-            <p className="text-sm font-black text-white">{TRIAL_DAYS}-day free trial</p>
-            <p className="mt-0.5 text-xs text-white/35">No payment needed to get started.</p>
+            <p className="text-sm font-black text-white">
+              {t('reqTrialTitle').replace('{n}', String(TRIAL_DAYS))}
+            </p>
+            <p className="mt-0.5 text-xs text-white/35">{t('reqTrialNote')}</p>
           </div>
         </div>
       </div>
@@ -194,17 +198,15 @@ export default function NewStore() {
                   style={{ background: 'rgba(15,118,110,0.1)' }}>
                   <CheckCircle2 className="h-8 w-8 text-accent" />
                 </div>
-                <h2 className="text-3xl font-black tracking-tight text-ink">Request received!</h2>
-                <p className="mt-3 max-w-sm text-sm leading-6 text-muted">
-                  Your store request is in the queue. The team will review it and send you your login credentials once the store is live.
-                </p>
+                <h2 className="text-3xl font-black tracking-tight text-ink">{t('reqSuccessTitle')}</h2>
+                <p className="mt-3 max-w-sm text-sm leading-6 text-muted">{t('reqSuccessBody')}</p>
                 <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                   <button onClick={() => { setSubmitted(false); setStep(1); }}
                     className="rounded-2xl bg-ink px-6 py-3 text-sm font-black text-white transition-opacity hover:opacity-80">
-                    Submit another
+                    {t('reqSubmitAnother')}
                   </button>
                   <Link to="/" className="inline-flex items-center justify-center rounded-2xl border border-line px-6 py-3 text-sm font-bold text-muted transition-colors hover:text-ink">
-                    Back to home
+                    {t('reqBackToHome')}
                   </Link>
                 </div>
               </div>
@@ -222,15 +224,17 @@ export default function NewStore() {
                 {step === 1 && (
                   <div className="space-y-6">
                     <div>
-                      <p className="mb-1 text-[11px] font-black uppercase tracking-[0.2em] text-muted">Step 1 of 3</p>
-                      <h2 className="text-[1.8rem] font-black leading-tight tracking-tight text-ink">About you</h2>
-                      <p className="mt-1 text-sm text-muted/80">Your contact details so we can reach you.</p>
+                      <p className="mb-1 text-[11px] font-black uppercase tracking-[0.2em] text-muted">
+                        {t('reqStepOf').replace('{n}', '1').replace('{m}', '3')}
+                      </p>
+                      <h2 className="text-[1.8rem] font-black leading-tight tracking-tight text-ink">{t('reqStep1')}</h2>
+                      <p className="mt-1 text-sm text-muted/80">{t('reqStep1Sub')}</p>
                     </div>
                     <div className="space-y-4">
-                      <FF label="Full name" error={form.formState.errors.ownerName?.message}>
-                        <FI {...form.register('ownerName')} placeholder="Sara Ahmed" autoComplete="name" />
+                      <FF label={t('reqFieldName')} error={form.formState.errors.ownerName?.message}>
+                        <FI {...form.register('ownerName')} placeholder={t('reqNamePlaceholder')} autoComplete="name" />
                       </FF>
-                      <FF label="Email address" error={form.formState.errors.ownerEmail?.message}>
+                      <FF label={t('reqFieldEmail')} error={form.formState.errors.ownerEmail?.message}>
                         <FI {...form.register('ownerEmail')} type="email" placeholder="you@example.com" autoComplete="email" />
                       </FF>
                     </div>
@@ -242,25 +246,27 @@ export default function NewStore() {
                 {step === 2 && (
                   <div className="space-y-5">
                     <div>
-                      <p className="mb-1 text-[11px] font-black uppercase tracking-[0.2em] text-muted">Step 2 of 3</p>
-                      <h2 className="text-[1.8rem] font-black leading-tight tracking-tight text-ink">Your store</h2>
-                      <p className="mt-1 text-sm text-muted/80">Tell us about the business.</p>
+                      <p className="mb-1 text-[11px] font-black uppercase tracking-[0.2em] text-muted">
+                        {t('reqStepOf').replace('{n}', '2').replace('{m}', '3')}
+                      </p>
+                      <h2 className="text-[1.8rem] font-black leading-tight tracking-tight text-ink">{t('reqStep2')}</h2>
+                      <p className="mt-1 text-sm text-muted/80">{t('reqStep2Sub')}</p>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                      <FF label="Store name" error={form.formState.errors.storeName?.message}>
-                        <FI {...form.register('storeName')} placeholder="e.g. Sultan Oud" />
+                      <FF label={t('reqFieldStoreName')} error={form.formState.errors.storeName?.message}>
+                        <FI {...form.register('storeName')} placeholder={t('reqStoreNamePlaceholder')} />
                       </FF>
-                      <FF label="Category" error={form.formState.errors.category?.message}>
-                        <FI {...form.register('category')} placeholder="e.g. Fashion, Coffee" />
+                      <FF label={t('reqFieldCategory')} error={form.formState.errors.category?.message}>
+                        <FI {...form.register('category')} placeholder={t('reqCategoryPlaceholder')} />
                       </FF>
-                      <FF label="Tagline" error={form.formState.errors.tagline?.message} className="col-span-2">
-                        <FI {...form.register('tagline')} placeholder="A short line that captures your brand" />
+                      <FF label={t('reqFieldTagline')} error={form.formState.errors.tagline?.message} className="col-span-2">
+                        <FI {...form.register('tagline')} placeholder={t('reqTaglinePlaceholder')} />
                       </FF>
-                      <FF label="Notes for the team" error={form.formState.errors.notes?.message} className="col-span-2">
+                      <FF label={t('reqFieldNotes')} error={form.formState.errors.notes?.message} className="col-span-2">
                         <textarea
                           {...form.register('notes')}
                           rows={3}
-                          placeholder="Products, style direction, delivery areas, anything else…"
+                          placeholder={t('reqNotesPlaceholder')}
                           className={cn(
                             'w-full resize-none rounded-2xl border-2 bg-[#F8F8F8] px-4 py-3 text-sm font-medium text-ink',
                             'placeholder:text-ink/25 transition-all duration-200 border-transparent hover:border-ink/10',
@@ -277,9 +283,11 @@ export default function NewStore() {
                 {step === 3 && (
                   <div className="space-y-5">
                     <div>
-                      <p className="mb-1 text-[11px] font-black uppercase tracking-[0.2em] text-muted">Step 3 of 3</p>
-                      <h2 className="text-[1.8rem] font-black leading-tight tracking-tight text-ink">Plan & access</h2>
-                      <p className="mt-1 text-sm text-muted/80">Choose a plan and set your admin login.</p>
+                      <p className="mb-1 text-[11px] font-black uppercase tracking-[0.2em] text-muted">
+                        {t('reqStepOf').replace('{n}', '3').replace('{m}', '3')}
+                      </p>
+                      <h2 className="text-[1.8rem] font-black leading-tight tracking-tight text-ink">{t('reqStep3')}</h2>
+                      <p className="mt-1 text-sm text-muted/80">{t('reqStep3Sub')}</p>
                     </div>
 
                     {/* Plan picker */}
@@ -287,6 +295,9 @@ export default function NewStore() {
                       {PLAN_ORDER.map((plan) => {
                         const def = PLAN_DEFS[plan];
                         const active = selectedPlan === plan;
+                        const productLabel = def.maxProducts === null
+                          ? t('reqUnlimited')
+                          : t('reqUpToProducts').replace('{n}', String(def.maxProducts));
                         return (
                           <button key={plan} type="button"
                             onClick={() => form.setValue('plan', plan, { shouldDirty: true })}
@@ -296,15 +307,15 @@ export default function NewStore() {
                             )}>
                             {plan === 'GROWTH' && (
                               <span className="absolute right-2.5 top-2.5 rounded-full bg-accent px-1.5 py-0.5 text-[8px] font-black uppercase tracking-widest text-white">
-                                Popular
+                                {t('reqPopular')}
                               </span>
                             )}
                             <p className="text-[9px] font-black uppercase tracking-widest text-muted">{plan}</p>
                             <p className="mt-1 text-lg font-black text-ink">
-                              JOD {def.priceMonthlyJod}<span className="text-xs font-bold text-muted">/mo</span>
+                              JOD {def.priceMonthlyJod}<span className="text-xs font-bold text-muted">{t('reqPerMonth')}</span>
                             </p>
                             <p className="mt-0.5 text-[10px] text-muted">
-                              {def.maxProducts === null ? 'Unlimited' : `Up to ${def.maxProducts}`} products
+                              {productLabel} {t('reqProducts')}
                             </p>
                           </button>
                         );
@@ -313,22 +324,22 @@ export default function NewStore() {
 
                     {/* Credentials */}
                     <div className="grid grid-cols-1 gap-3">
-                      <FF label="Username" error={form.formState.errors.username?.message}>
-                        <FI {...form.register('username')} autoComplete="username" placeholder="e.g. sultan-oud (lowercase, hyphens ok)" />
+                      <FF label={t('reqFieldUsername')} error={form.formState.errors.username?.message}>
+                        <FI {...form.register('username')} autoComplete="username" placeholder={t('reqUsernamePlaceholder')} />
                       </FF>
                       <div className="grid grid-cols-2 gap-3">
-                        <FF label="Password" error={form.formState.errors.password?.message}>
+                        <FF label={t('reqFieldPassword')} error={form.formState.errors.password?.message}>
                           <div className="relative">
-                            <FI {...form.register('password')} type={showPw ? 'text' : 'password'} autoComplete="new-password" placeholder="Min 10 chars" className="pr-10" />
+                            <FI {...form.register('password')} type={showPw ? 'text' : 'password'} autoComplete="new-password" placeholder={t('reqPasswordPlaceholder')} className="pr-10" />
                             <button type="button" tabIndex={-1} onClick={() => setShowPw((v) => !v)}
                               className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink/30 hover:text-ink/70">
                               {showPw ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                             </button>
                           </div>
                         </FF>
-                        <FF label="Confirm" error={form.formState.errors.confirmPassword?.message}>
+                        <FF label={t('reqFieldConfirm')} error={form.formState.errors.confirmPassword?.message}>
                           <div className="relative">
-                            <FI {...form.register('confirmPassword')} type={showCpw ? 'text' : 'password'} autoComplete="new-password" placeholder="Re-enter" className="pr-10" />
+                            <FI {...form.register('confirmPassword')} type={showCpw ? 'text' : 'password'} autoComplete="new-password" placeholder={t('reqConfirmPlaceholder')} className="pr-10" />
                             <button type="button" tabIndex={-1} onClick={() => setShowCpw((v) => !v)}
                               className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink/30 hover:text-ink/70">
                               {showCpw ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
@@ -340,23 +351,23 @@ export default function NewStore() {
 
                     <StepActions
                       onBack={() => setStep(2)}
-                      submitLabel="Send request"
+                      submitLabel={t('reqSendRequest')}
                       isSubmitting={form.formState.isSubmitting}
                     />
 
                     <p className="text-center text-xs text-ink/30">
-                      By submitting you agree to the{' '}
-                      <Link to="/terms" className="font-bold text-accent hover:opacity-70">Terms</Link>
+                      {t('reqAgreeTo')}{' '}
+                      <Link to="/terms" className="font-bold text-accent hover:opacity-70">{t('reqTerms')}</Link>
                       {' '}&{' '}
-                      <Link to="/privacy" className="font-bold text-accent hover:opacity-70">Privacy Policy</Link>.
+                      <Link to="/privacy" className="font-bold text-accent hover:opacity-70">{t('reqPrivacyPolicy')}</Link>.
                     </p>
                   </div>
                 )}
 
                 {/* Already have account */}
                 <p className="mt-5 text-center text-xs text-ink/30">
-                  Already have a store?{' '}
-                  <Link to="/sign-in" className="font-bold text-accent hover:opacity-70">Sign in</Link>
+                  {t('reqHaveStore')}{' '}
+                  <Link to="/sign-in" className="font-bold text-accent hover:opacity-70">{t('signIn')}</Link>
                 </p>
               </form>
             )}
@@ -396,12 +407,13 @@ function StepActions({ onBack, onNext, submitLabel, isSubmitting }: {
   submitLabel?: string;
   isSubmitting?: boolean;
 }) {
+  const { t } = useI18n();
   return (
     <div className="flex gap-3 pt-1">
       {onBack && (
         <button type="button" onClick={onBack}
           className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border-2 border-transparent bg-[#F8F8F8] text-muted transition-all hover:border-ink/10 hover:text-ink">
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
         </button>
       )}
       {onNext ? (
@@ -411,7 +423,7 @@ function StepActions({ onBack, onNext, submitLabel, isSubmitting }: {
           <span className="absolute inset-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
             style={{ background: 'linear-gradient(135deg,#0d6560 0%,#0a5550 50%,#083f3a 100%)' }} />
           <span className="relative flex items-center gap-2">
-            Continue <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+            {t('reqContinue')} <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 rtl:rotate-180" />
           </span>
         </button>
       ) : (
@@ -422,8 +434,8 @@ function StepActions({ onBack, onNext, submitLabel, isSubmitting }: {
             style={{ background: 'linear-gradient(135deg,#0d6560 0%,#0a5550 50%,#083f3a 100%)' }} />
           <span className="relative flex items-center gap-2">
             {isSubmitting
-              ? <><span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> Sending…</>
-              : <>{submitLabel ?? 'Submit'} <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" /></>
+              ? <><span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> {t('reqSending')}</>
+              : <>{submitLabel ?? t('reqSubmit')} <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 rtl:rotate-180" /></>
             }
           </span>
         </button>

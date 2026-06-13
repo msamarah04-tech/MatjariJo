@@ -25,6 +25,7 @@ import { useStore } from '@/lib/store';
 import { storefrontUrl } from '@/lib/tenant';
 import { money, timeAgo } from '@/lib/format';
 import { getStoreInsights } from '@/lib/analytics';
+import { useI18n } from '@/lib/i18n';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { StatusBadge } from '@/components/ui/Badge';
@@ -46,6 +47,7 @@ export default function Overview() {
   const rejectOrder = useStore((s) => s.rejectOrder);
   const fulfillOrder = useStore((s) => s.fulfillOrder);
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   const insights = useMemo(
     () => getStoreInsights(30, storeId, store.currency, scopedOrders, scopedProducts, events, store.createdAt),
@@ -70,23 +72,23 @@ export default function Overview() {
 
   const base = `/admin/${storeId}`;
 
-  const kpis: { label: string; value: string; sub?: string; icon: LucideIcon; tone?: 'amber' | 'green' }[] = [
-    { label: 'Revenue (30d)', value: money(insights.kpis.revenueCents, store.currency), icon: Wallet, tone: insights.kpis.revenueCents > 0 ? 'green' : undefined },
-    { label: 'Orders (30d)', value: `${insights.kpis.ordersCount}`, icon: ShoppingBag },
-    { label: 'Avg order value', value: money(insights.kpis.avgOrderValueCents, store.currency), icon: Receipt },
-    { label: 'Pending review', value: `${pendingOrders.length}`, icon: Clock, tone: pendingOrders.length > 0 ? 'amber' : undefined },
-    { label: 'Ready to fulfill', value: `${approvedOrders.length}`, icon: Package, tone: approvedOrders.length > 0 ? 'green' : undefined },
-    { label: 'Active products', value: `${insights.kpis.productCount}`, icon: PackageSearch },
+  const kpis: { label: string; value: string; icon: LucideIcon; tone?: 'amber' | 'green' }[] = [
+    { label: t('ovRevenue30d'), value: money(insights.kpis.revenueCents, store.currency), icon: Wallet, tone: insights.kpis.revenueCents > 0 ? 'green' : undefined },
+    { label: t('ovOrders30d'), value: `${insights.kpis.ordersCount}`, icon: ShoppingBag },
+    { label: t('ovAvgOrderValue'), value: money(insights.kpis.avgOrderValueCents, store.currency), icon: Receipt },
+    { label: t('ovPendingReview'), value: `${pendingOrders.length}`, icon: Clock, tone: pendingOrders.length > 0 ? 'amber' : undefined },
+    { label: t('ovReadyToFulfill'), value: `${approvedOrders.length}`, icon: Package, tone: approvedOrders.length > 0 ? 'green' : undefined },
+    { label: t('ovActiveProducts'), value: `${insights.kpis.productCount}`, icon: PackageSearch },
   ];
 
   return (
     <div className="space-y-8">
       <PageHeader
-        title="Overview"
-        subtitle={`How ${store.name} is doing — last 30 days`}
+        title={t('ovTitle')}
+        subtitle={t('ovSubtitle').replace('{store}', store.name)}
         action={
           <Button variant="ghost" className="gap-2 border border-line" onClick={() => window.open(storefrontUrl(store.slug), '_blank')}>
-            <ExternalLink className="h-4 w-4" /> View storefront
+            <ExternalLink className="h-4 w-4" /> {t('ovViewStorefront')}
           </Button>
         }
       />
@@ -98,13 +100,13 @@ export default function Overview() {
 
       {/* ── Action center ───────────────────────────────────────────── */}
       <section>
-        <SectionHeader title="Needs your attention" badge={actionTotal} badgeTone={actionTotal > 0 ? 'accent' : 'muted'} />
+        <SectionHeader title={t('ovNeedsAttention')} badge={actionTotal} badgeTone={actionTotal > 0 ? 'accent' : 'muted'} />
         {actionTotal === 0 ? (
-          <EmptyState icon={CheckCircle2} title="All caught up" description="No pending orders, low stock, or expiring discounts right now." />
+          <EmptyState icon={CheckCircle2} title={t('ovAllCaughtUp')} description={t('ovAllCaughtUpDesc')} />
         ) : (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             {pendingOrders.length > 0 && (
-              <ActionPanel icon={ShoppingBag} title="Orders to review" count={pendingOrders.length} to={`${base}/orders`}>
+              <ActionPanel icon={ShoppingBag} title={t('ovOrdersToReview')} count={pendingOrders.length} to={`${base}/orders`} viewAllLabel={t('ovViewAll')}>
                 {pendingOrders.slice(0, 5).map((order) => (
                   <div key={order.id} className="flex items-center justify-between gap-3 py-2.5">
                     <button onClick={() => navigate(`${base}/orders?focus=${order.id}`)} className="min-w-0 text-left">
@@ -112,10 +114,10 @@ export default function Overview() {
                       <p className="truncate text-xs text-muted">{timeAgo(order.createdAt)}</p>
                     </button>
                     <div className="flex shrink-0 gap-1.5">
-                      <Button size="sm" variant="accent" className="h-8 px-2.5" onClick={() => { approveOrder(storeId, order.id); toast({ title: 'Order approved', type: 'success' }); }}>
+                      <Button size="sm" variant="accent" className="h-8 px-2.5" onClick={() => { approveOrder(storeId, order.id); toast({ title: t('ovOrderApproved'), type: 'success' }); }}>
                         <CheckCircle2 className="h-4 w-4" />
                       </Button>
-                      <Button size="sm" variant="ghost" className="h-8 border border-line px-2.5" onClick={() => { rejectOrder(storeId, order.id); toast({ title: 'Order rejected' }); }}>
+                      <Button size="sm" variant="ghost" className="h-8 border border-line px-2.5" onClick={() => { rejectOrder(storeId, order.id); toast({ title: t('ovOrderRejected') }); }}>
                         <XCircle className="h-4 w-4 text-red-500" />
                       </Button>
                     </div>
@@ -125,15 +127,15 @@ export default function Overview() {
             )}
 
             {approvedOrders.length > 0 && (
-              <ActionPanel icon={CheckCircle2} title="Ready to fulfill" count={approvedOrders.length} to={`${base}/orders`}>
+              <ActionPanel icon={CheckCircle2} title={t('ovReadyToFulfillTitle')} count={approvedOrders.length} to={`${base}/orders`} viewAllLabel={t('ovViewAll')}>
                 {approvedOrders.slice(0, 5).map((order) => (
                   <div key={order.id} className="flex items-center justify-between gap-3 py-2.5">
                     <button onClick={() => navigate(`${base}/orders?focus=${order.id}`)} className="min-w-0 text-left">
                       <p className="truncate text-sm font-bold text-ink">{order.customerName} · {money(order.totalCents, store.currency)}</p>
                       <p className="truncate text-xs text-muted">{timeAgo(order.createdAt)}</p>
                     </button>
-                    <Button size="sm" variant="accent" className="h-8 shrink-0 gap-1.5 px-2.5" onClick={() => { fulfillOrder(storeId, order.id); toast({ title: 'Order fulfilled', type: 'success' }); }}>
-                      Fulfill
+                    <Button size="sm" variant="accent" className="h-8 shrink-0 gap-1.5 px-2.5" onClick={() => { fulfillOrder(storeId, order.id); toast({ title: t('ovOrderFulfilledMsg'), type: 'success' }); }}>
+                      {t('ovFulfill')}
                     </Button>
                   </div>
                 ))}
@@ -141,15 +143,17 @@ export default function Overview() {
             )}
 
             {lowStock.length > 0 && (
-              <ActionPanel icon={AlertTriangle} title="Low stock" count={lowStock.length} to={`${base}/products`}>
+              <ActionPanel icon={AlertTriangle} title={t('ovLowStock')} count={lowStock.length} to={`${base}/products`} viewAllLabel={t('ovViewAll')}>
                 {lowStock.slice(0, 5).map((product) => (
                   <div key={product.id} className="flex items-center justify-between gap-3 py-2.5">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-bold text-ink">{product.name}</p>
-                      <p className="truncate text-xs text-muted">{product.stock === 0 ? 'Out of stock' : `${product.stock} left`}</p>
+                      <p className="truncate text-xs text-muted">
+                        {product.stock === 0 ? t('outOfStock') : t('ovLeftInStock').replace('{n}', String(product.stock))}
+                      </p>
                     </div>
                     <Button size="sm" variant="ghost" className="h-8 shrink-0 gap-1 border border-line" onClick={() => navigate(`${base}/products?focus=${product.id}`)}>
-                      Restock <ArrowRight className="h-3.5 w-3.5" />
+                      {t('ovRestock')} <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
                     </Button>
                   </div>
                 ))}
@@ -157,15 +161,15 @@ export default function Overview() {
             )}
 
             {expiringDiscounts.length > 0 && (
-              <ActionPanel icon={BadgePercent} title="Expiring soon" count={expiringDiscounts.length} to={`${base}/discounts`}>
+              <ActionPanel icon={BadgePercent} title={t('ovExpiringSoon')} count={expiringDiscounts.length} to={`${base}/discounts`} viewAllLabel={t('ovViewAll')}>
                 {expiringDiscounts.slice(0, 5).map((discount) => (
                   <div key={discount.id} className="flex items-center justify-between gap-3 py-2.5">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-bold text-ink font-mono">{discount.code}</p>
-                      <p className="truncate text-xs text-muted">Expires {new Date(discount.expiresAt!).toLocaleDateString()}</p>
+                      <p className="truncate text-xs text-muted">{t('ovExpires')} {new Date(discount.expiresAt!).toLocaleDateString()}</p>
                     </div>
                     <Button size="sm" variant="ghost" className="h-8 shrink-0 gap-1 border border-line" onClick={() => navigate(`${base}/discounts?focus=${discount.id}`)}>
-                      Edit <ArrowRight className="h-3.5 w-3.5" />
+                      {t('ovEditBtn')} <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
                     </Button>
                   </div>
                 ))}
@@ -179,9 +183,9 @@ export default function Overview() {
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
         {/* Recent orders */}
         <section className="xl:col-span-3">
-          <SectionHeader title="Recent orders" to={`${base}/orders`} toLabel="All orders" />
+          <SectionHeader title={t('ovRecentOrders')} to={`${base}/orders`} toLabel={t('ovAllOrders')} />
           {storeOrders.length === 0 ? (
-            <EmptyState icon={LayoutGrid} title="No orders yet" description="Share your storefront link to start receiving orders." />
+            <EmptyState icon={LayoutGrid} title={t('ovNoOrdersYet')} description={t('ovNoOrdersDesc')} />
           ) : (
             <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
               {storeOrders.slice(0, 8).map((order, i) => (
@@ -213,9 +217,9 @@ export default function Overview() {
 
         {/* Top products */}
         <section className="xl:col-span-2">
-          <SectionHeader title="Top products" sub="Last 30 days" to={`${base}/products`} toLabel="All products" />
+          <SectionHeader title={t('ovTopProducts')} sub={t('ovLast30Days')} to={`${base}/products`} toLabel={t('ovAllProducts')} />
           {insights.topProducts.length === 0 ? (
-            <EmptyState icon={PackageSearch} title="No sales yet" description="Top products by revenue will appear here once you get orders." />
+            <EmptyState icon={PackageSearch} title={t('ovNoSalesYet')} description={t('ovNoSalesDesc')} />
           ) : (
             <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
               {[...insights.topProducts].sort((a, b) => b.revenueCents - a.revenueCents || b.units - a.units).slice(0, 5).map((product, i) => (
@@ -231,7 +235,9 @@ export default function Overview() {
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-bold text-ink">{product.product}</p>
-                    <p className="text-xs text-muted">{product.units} unit{product.units !== 1 ? 's' : ''} sold</p>
+                    <p className="text-xs text-muted">
+                      {product.units} {t(product.units !== 1 ? 'ovUnitsSold' : 'ovUnitSold')}
+                    </p>
                   </div>
                   <span className="shrink-0 text-sm font-black text-ink">{money(product.revenueCents, store.currency)}</span>
                 </div>
@@ -243,19 +249,19 @@ export default function Overview() {
 
       {/* ── Store at a glance ───────────────────────────────────────── */}
       <section>
-        <SectionHeader title="Store at a glance" />
+        <SectionHeader title={t('ovStoreAtGlance')} />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <GlanceCard icon={TrendingUp} label="All-time revenue" value={money(allTimeRevenue, store.currency)} />
-          <GlanceCard icon={ShoppingBag} label="Total orders" value={`${scopedOrders.length}`} />
-          <GlanceCard icon={Users} label="Unique customers" value={`${uniqueCustomers}`} />
-          <GlanceCard icon={MousePointerClick} label="Conversion rate" value={`${(insights.kpis.conversionRate * 100).toFixed(1)}%`} sub="Last 30 days" />
+          <GlanceCard icon={TrendingUp} label={t('ovAllTimeRevenue')} value={money(allTimeRevenue, store.currency)} />
+          <GlanceCard icon={ShoppingBag} label={t('ovTotalOrders')} value={`${scopedOrders.length}`} />
+          <GlanceCard icon={Users} label={t('ovUniqueCustomers')} value={`${uniqueCustomers}`} />
+          <GlanceCard icon={MousePointerClick} label={t('ovConversionRate')} value={`${(insights.kpis.conversionRate * 100).toFixed(1)}%`} sub={t('ovLast30Days')} />
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="flex items-center gap-3 rounded-2xl border border-line bg-surface px-5 py-4 shadow-sm">
             <Globe className="h-5 w-5 shrink-0 text-accent" />
             <div className="min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted">Storefront URL</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted">{t('ovStorefrontUrl')}</p>
               <a href={storefrontUrl(store.slug)} target="_blank" rel="noreferrer" className="truncate text-sm font-bold text-ink hover:text-accent transition-colors">
                 {storefrontUrl(store.slug).replace(/^https?:\/\//, '')}
               </a>
@@ -265,7 +271,7 @@ export default function Overview() {
           <div className="flex items-center gap-3 rounded-2xl border border-line bg-surface px-5 py-4 shadow-sm">
             <Tag className="h-5 w-5 shrink-0 text-accent" />
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted">Currency</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted">{t('ovCurrencyLabel')}</p>
               <p className="text-sm font-bold text-ink">{store.currency}</p>
             </div>
           </div>
@@ -273,7 +279,7 @@ export default function Overview() {
           <div className="flex items-center gap-3 rounded-2xl border border-line bg-surface px-5 py-4 shadow-sm">
             <Package className="h-5 w-5 shrink-0 text-accent" />
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted">Plan</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted">{t('ovPlanLabel')}</p>
               <p className="text-sm font-bold text-ink capitalize">{store.plan?.toLowerCase() ?? 'Starter'} · <span className={cn('text-xs', store.planStatus === 'PAST_DUE' ? 'text-red-500' : store.planStatus === 'TRIAL' ? 'text-amber-600' : 'text-emerald-600')}>{store.planStatus?.toLowerCase()}</span></p>
             </div>
           </div>
@@ -324,16 +330,16 @@ function SectionHeader({ title, sub, badge, badgeTone, to, toLabel }: { title: s
           </span>
         )}
       </div>
-      {to && (
+      {to && toLabel && (
         <Link to={to} className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-muted hover:text-ink">
-          {toLabel} <ArrowRight className="h-3.5 w-3.5" />
+          {toLabel} <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
         </Link>
       )}
     </div>
   );
 }
 
-function ActionPanel({ icon: Icon, title, count, to, children }: { icon: LucideIcon; title: string; count: number; to: string; children: React.ReactNode }) {
+function ActionPanel({ icon: Icon, title, count, to, viewAllLabel, children }: { icon: LucideIcon; title: string; count: number; to: string; viewAllLabel: string; children: React.ReactNode }) {
   return (
     <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
@@ -341,7 +347,7 @@ function ActionPanel({ icon: Icon, title, count, to, children }: { icon: LucideI
           <Icon className="h-4 w-4 text-accent" /> {title}
           <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-black text-accent">{count}</span>
         </span>
-        <Link to={to} className="text-[10px] font-bold uppercase tracking-widest text-muted hover:text-ink">View all</Link>
+        <Link to={to} className="text-[10px] font-bold uppercase tracking-widest text-muted hover:text-ink">{viewAllLabel}</Link>
       </div>
       <div className="divide-y divide-line/60">{children}</div>
     </div>

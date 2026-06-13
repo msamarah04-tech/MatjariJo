@@ -6,33 +6,6 @@ import { cn } from '@/lib/cn';
 import { useI18n } from '@/lib/i18n';
 import { LangToggle } from '@/components/ui/LangToggle';
 
-const FLOAT_CARDS = [
-  {
-    id: 1,
-    emoji: '🌹',
-    store: 'Sultan Oud',
-    label: 'New order',
-    sub: 'Rose Oud · JOD 45',
-    pos: 'top-[20%] right-8',
-  },
-  {
-    id: 2,
-    emoji: '✨',
-    store: 'Nour Modest',
-    label: 'Order fulfilled',
-    sub: '2 items shipped',
-    pos: 'top-[46%] right-8',
-  },
-  {
-    id: 3,
-    emoji: '🌿',
-    store: 'Baraka Herbs',
-    label: 'New customer',
-    sub: 'Lana Al-Amin joined',
-    pos: 'bottom-[22%] right-8',
-  },
-];
-
 export default function SignIn() {
   const signIn = useStore((s) => s.signIn);
   const apiError = useStore((s) => s.apiError);
@@ -44,6 +17,39 @@ export default function SignIn() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const FLOAT_CARDS = [
+    {
+      id: 1,
+      emoji: '🌹',
+      store: 'Sultan Oud',
+      label: t('signInCardNewOrder'),
+      sub: 'Rose Oud · JOD 45',
+      pos: 'top-[20%] right-8',
+    },
+    {
+      id: 2,
+      emoji: '✨',
+      store: 'Nour Modest',
+      label: t('signInCardFulfilled'),
+      sub: t('signInCardShipped'),
+      pos: 'top-[46%] right-8',
+    },
+    {
+      id: 3,
+      emoji: '🌿',
+      store: 'Baraka Herbs',
+      label: t('signInCardNewCustomer'),
+      sub: t('signInCardJoined'),
+      pos: 'bottom-[22%] right-8',
+    },
+  ];
+
+  const STATS = [
+    { value: '50+', label: t('signInStatStores') },
+    { value: 'JOD', label: t('signInStatCurrency') },
+    { value: '99.9%', label: t('signInStatUptime') },
+  ];
+
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError('');
@@ -52,7 +58,7 @@ export default function SignIn() {
       const user = await signIn(identifier, password);
       navigate(user.role === 'PLATFORM_OWNER' ? '/platform' : '/admin');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not sign in.');
+      setError(err instanceof Error ? err.message : t('signInError'));
     } finally {
       setLoading(false);
     }
@@ -109,29 +115,27 @@ export default function SignIn() {
           <div className="inline-flex items-center gap-2.5 rounded-full px-4 py-1.5"
             style={{ background: 'rgba(15,118,110,0.25)', border: '1px solid rgba(15,118,110,0.4)' }}>
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-300">Jordan's No.1 Commerce Platform</span>
+            <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-300">
+              {t('signInBadge')}
+            </span>
           </div>
 
           <h1 className="text-[3.25rem] font-black leading-[1.08] tracking-tight text-white">
-            Your brand.{' '}
+            {t('signInLine1')}{' '}
             <br />
             <span style={{ background: 'linear-gradient(90deg, #2dd4bf, #0F766E)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-              Your storefront.
+              {t('signInLine2')}
             </span>
           </h1>
 
           <p className="max-w-xs text-[15px] leading-relaxed text-white/45">
-            Launch a premium store in minutes. Built for Jordanian entrepreneurs who mean business.
+            {t('signInTagline')}
           </p>
         </div>
 
         {/* Stats row */}
         <div className="relative z-10 flex gap-10 border-t pt-8" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
-          {[
-            { value: '50+', label: 'Live stores' },
-            { value: 'JOD', label: 'Native currency' },
-            { value: '99.9%', label: 'Uptime SLA' },
-          ].map((stat) => (
+          {STATS.map((stat) => (
             <div key={stat.label}>
               <p className="text-2xl font-black text-white">{stat.value}</p>
               <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.16em] text-white/35">{stat.label}</p>
@@ -156,9 +160,9 @@ export default function SignIn() {
 
             {/* Heading */}
             <div className="mb-9">
-              <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.2em] text-muted">Store dashboard</p>
-              <h2 className="text-[2rem] font-black leading-tight tracking-tight text-ink">Welcome back</h2>
-              <p className="mt-1.5 text-sm text-muted/80">Sign in to your account to continue.</p>
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.2em] text-muted">{t('signInEyebrow')}</p>
+              <h2 className="text-[2rem] font-black leading-tight tracking-tight text-ink">{t('signInWelcome')}</h2>
+              <p className="mt-1.5 text-sm text-muted/80">{t('signInSubtext')}</p>
             </div>
 
             {/* Form */}
@@ -173,7 +177,7 @@ export default function SignIn() {
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   autoComplete="username"
-                  placeholder="your username or email"
+                  placeholder={t('signInUsernamePlaceholder')}
                   required
                   className={cn(
                     'w-full rounded-2xl border-2 bg-[#F8F8F8] px-4 py-3.5 text-sm font-medium text-ink',
@@ -191,7 +195,7 @@ export default function SignIn() {
                     {t('password')}
                   </label>
                   <Link to="/forgot-password" className="text-[11px] font-bold text-accent transition-opacity hover:opacity-70">
-                    Forgot?
+                    {t('forgotPassword')}
                   </Link>
                 </div>
                 <div className="relative">
@@ -246,12 +250,12 @@ export default function SignIn() {
                   {loading ? (
                     <>
                       <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                      Signing in…
+                      {t('signingIn')}
                     </>
                   ) : (
                     <>
                       {t('signIn')}
-                      <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                      <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 rtl:rotate-180" />
                     </>
                   )}
                 </span>
@@ -260,12 +264,12 @@ export default function SignIn() {
 
             {/* Sign-up prompt */}
             <div className="mt-10 border-t border-ink/6 pt-6 text-center">
-              <p className="text-sm text-ink/40">Don't have a store yet?</p>
+              <p className="text-sm text-ink/40">{t('noStoreYet')}</p>
               <Link
                 to="/request-website"
                 className="mt-2 inline-flex items-center gap-1.5 text-sm font-bold text-accent transition-opacity hover:opacity-70"
               >
-                Request your storefront <ArrowRight className="h-3.5 w-3.5" />
+                {t('requestStorefront')} <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
               </Link>
             </div>
           </div>
