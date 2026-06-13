@@ -362,6 +362,7 @@ export interface SupportTicket {
   priority: TicketPriority;
   assignedTo?: string;
   messages?: TicketMessage[];
+  ownerLastReadAt?: number;
   createdAt: number;
 }
 

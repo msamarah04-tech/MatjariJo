@@ -389,6 +389,18 @@ adminRouter.post('/admin/stores/:storeId/support/tickets/:ticketId/reply', requi
   res.json({ ticket: serialized });
 }));
 
+adminRouter.post('/admin/stores/:storeId/support/tickets/:ticketId/read', requireStoreAccess, asyncRoute(async (req, res) => {
+  const params = ticketIdParamSchema.parse(req.params);
+  const existing = await prisma.supportTicket.findFirst({ where: { id: params.ticketId, storeId: params.storeId } });
+  if (!existing) throw notFound('Ticket not found in this store.');
+  const ticket = await prisma.supportTicket.update({
+    where: { id: existing.id },
+    data: { ownerLastReadAt: new Date() },
+    include: { messages: { orderBy: { createdAt: 'asc' } } },
+  });
+  res.json({ ticket: serializeSupportTicket(ticket) });
+}));
+
 adminRouter.post('/admin/stores/:storeId/products/:productId/flags', requireStoreAccess, asyncRoute(async (req, res) => {
   const params = productIdParamSchema.parse(req.params);
   const input = flagCreateSchema.parse(req.body);

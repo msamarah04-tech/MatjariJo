@@ -36,11 +36,14 @@ const statusTone = (s: TicketStatus) =>
 const statusLabel = (s: TicketStatus) =>
   s === 'RESOLVED' ? 'Resolved' : s === 'IN_PROGRESS' ? 'In progress' : 'Open';
 
-/** True when the platform replied last and the owner hasn't responded yet. */
+/** True when the platform replied last and the owner hasn't read it yet. */
 function hasUnreadPlatformReply(ticket: SupportTicket): boolean {
   const messages = ticket.messages ?? [];
   if (messages.length === 0) return false;
-  return messages[messages.length - 1].from === 'PLATFORM';
+  const last = messages[messages.length - 1];
+  if (last.from !== 'PLATFORM') return false;
+  if (ticket.ownerLastReadAt && ticket.ownerLastReadAt >= last.ts) return false;
+  return true;
 }
 
 export default function Messages() {
@@ -49,6 +52,8 @@ export default function Messages() {
   const replyToTicket = useStore((s) => s.replyToTicket);
   const loadBootstrap = useStore((s) => s.loadBootstrap);
   const currentUser = useStore((s) => s.currentUser);
+
+  const markTicketAsRead = useStore((s) => s.markTicketAsRead);
 
   const storeTickets = useMemo(
     () => allTickets.filter((t) => t.storeId === storeId).sort((a, b) => b.createdAt - a.createdAt),
@@ -78,6 +83,7 @@ export default function Messages() {
     setActiveId(id);
     setComposing(false);
     setShowList(false);
+    markTicketAsRead(storeId, id);
   };
 
   const handleNewTicketCreated = async (subject: string, category: string, message: string) => {

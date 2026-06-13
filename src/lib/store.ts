@@ -289,6 +289,8 @@ interface AppState {
   assignTicket: (id: string, assignee: string) => void;
   /** Upsert a ticket received from an SSE event — add or replace without a full bootstrap. */
   applyTicketUpdate: (ticket: SupportTicket) => void;
+  /** Mark a ticket as read by the store owner (clears the unread badge). */
+  markTicketAsRead: (storeId: string, ticketId: string) => void;
 
   // notifications
   markNotificationsSeen: () => void;
@@ -1046,6 +1048,16 @@ export const useStore = create<AppState>()(
               : [normalized, ...state.supportTickets],
           };
         });
+      },
+
+      markTicketAsRead: (storeId, ticketId) => {
+        const now = Date.now();
+        set((state) => ({
+          supportTickets: state.supportTickets.map((t) =>
+            t.id === ticketId ? normalizeSupportTicket({ ...t, ownerLastReadAt: now }) : t,
+          ),
+        }));
+        adminApi.markSupportTicketRead(storeId, ticketId).catch(() => {});
       },
 
       setTicketStatus: (id, status) => {

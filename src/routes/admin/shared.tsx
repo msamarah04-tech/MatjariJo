@@ -42,7 +42,10 @@ export function useStoreBadges(storeId: string): StoreBadges {
       messages: supportTickets.filter((t) => {
         if (t.storeId !== storeId) return false;
         const msgs = t.messages ?? [];
-        return msgs.length > 0 && msgs[msgs.length - 1].from === 'PLATFORM';
+        if (msgs.length === 0 || msgs[msgs.length - 1].from !== 'PLATFORM') return false;
+        const lastPlatformMsg = msgs[msgs.length - 1];
+        if (t.ownerLastReadAt && t.ownerLastReadAt >= lastPlatformMsg.ts) return false;
+        return true;
       }).length,
     }),
     [orders, products, supportTickets, storeId]

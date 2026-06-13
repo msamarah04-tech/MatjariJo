@@ -221,20 +221,21 @@ model AnalyticsEvent {
 }
 
 model SupportTicket {
-  id           String   @id @default(cuid())
-  storeId      String?
-  store        Store?   @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  subject      String
-  category     String   @default("OTHER")
-  message      String
-  priority     String   @default("MEDIUM")
-  status       String   @default("OPEN")
-  assignedToId String?
-  assignedTo   User?    @relation("TicketAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
-  createdById  String?
-  createdBy    User?    @relation("TicketCreator", fields: [createdById], references: [id], onDelete: SetNull)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id               String    @id @default(cuid())
+  storeId          String?
+  store            Store?    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  subject          String
+  category         String    @default("OTHER")
+  message          String
+  priority         String    @default("MEDIUM")
+  status           String    @default("OPEN")
+  assignedToId     String?
+  assignedTo       User?     @relation("TicketAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  createdById      String?
+  createdBy        User?     @relation("TicketCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  ownerLastReadAt  DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   messages TicketMessage[]
 

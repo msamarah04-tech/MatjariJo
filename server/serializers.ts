@@ -287,6 +287,7 @@ export function serializeSupportTicket(ticket: TicketWithMessages) {
     priority: ticket.priority,
     assignedTo: ticket.assignedToId ?? undefined,
     messages: ticket.messages.map(serializeTicketMessage),
+    ownerLastReadAt: ms(ticket.ownerLastReadAt),
     createdAt: ms(ticket.createdAt)!,
   };
 }
