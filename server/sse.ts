@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 
-export type SseEventType = 'ticket.update';
+export type SseEventType = 'ticket.update' | 'shoprequest.new';
 
 export interface SseEvent {
   type: SseEventType;
@@ -72,6 +72,19 @@ export function broadcastTicketUpdate(ticket: { id: string; storeId?: string | n
       writeSseMessage(client.res, 'ticket.update', data);
     } else if (client.role === 'SHOP_OWNER' && client.storeId && client.storeId === ticket.storeId) {
       writeSseMessage(client.res, 'ticket.update', data);
+    }
+  }
+}
+
+/**
+ * Notify all connected platform-owner clients that a new shop request has arrived.
+ * Used to update the sidebar badge in real time without a full bootstrap reload.
+ */
+export function broadcastShopRequestNew(payload: unknown) {
+  const data = JSON.stringify(payload);
+  for (const client of clients.values()) {
+    if (client.role === 'PLATFORM_OWNER') {
+      writeSseMessage(client.res, 'shoprequest.new', data);
     }
   }
 }

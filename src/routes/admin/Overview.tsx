@@ -13,12 +13,14 @@ import {
   MousePointerClick,
   Package,
   PackageSearch,
+  PartyPopper,
   Receipt,
   ShoppingBag,
   Tag,
   TrendingUp,
   Users,
   Wallet,
+  X,
   XCircle,
 } from 'lucide-react';
 import { useStore } from '@/lib/store';
@@ -38,7 +40,7 @@ const WEEK_MS = 7 * 86400000;
 const REVENUE_STATUSES = ['APPROVED', 'FULFILLED'] as const;
 
 export default function Overview() {
-  const { storeId, store } = useAdminContext();
+  const { storeId, store, isPlatformViewer } = useAdminContext();
   const scopedOrders = useStoreOrders(storeId);
   const scopedProducts = useStoreProducts(storeId);
   const scopedDiscounts = useStoreDiscounts(storeId);
@@ -46,6 +48,7 @@ export default function Overview() {
   const approveOrder = useStore((s) => s.approveOrder);
   const rejectOrder = useStore((s) => s.rejectOrder);
   const fulfillOrder = useStore((s) => s.fulfillOrder);
+  const dismissWelcome = useStore((s) => s.dismissWelcome);
   const navigate = useNavigate();
   const { t } = useI18n();
 
@@ -81,8 +84,39 @@ export default function Overview() {
     { label: t('ovActiveProducts'), value: `${insights.kpis.productCount}`, icon: PackageSearch },
   ];
 
+  const showWelcome = !store.welcomeDismissed && !isPlatformViewer;
+
   return (
     <div className="space-y-8">
+      {showWelcome && (
+        <div className="flex items-start justify-between gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white">
+              <PartyPopper className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="font-heading text-base font-black text-emerald-900">{t('ovWelcomeTitle')}</p>
+              <p className="mt-0.5 text-sm text-emerald-700">{t('ovWelcomeDesc')}</p>
+              <a
+                href={storefrontUrl(store.slug)}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 underline-offset-2 hover:underline"
+              >
+                <Globe className="h-3.5 w-3.5" /> {storefrontUrl(store.slug).replace(/^https?:\/\//, '')}
+              </a>
+            </div>
+          </div>
+          <button
+            onClick={() => dismissWelcome(storeId)}
+            aria-label="Dismiss"
+            className="shrink-0 rounded-lg p-1.5 text-emerald-600 transition-colors hover:bg-emerald-100 hover:text-emerald-900"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       <PageHeader
         title={t('ovTitle')}
         subtitle={t('ovSubtitle').replace('{store}', store.name)}

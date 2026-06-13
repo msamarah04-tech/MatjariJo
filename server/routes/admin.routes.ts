@@ -401,6 +401,14 @@ adminRouter.post('/admin/stores/:storeId/support/tickets/:ticketId/read', requir
   res.json({ ticket: serializeSupportTicket(ticket) });
 }));
 
+adminRouter.post('/admin/stores/:storeId/dismiss-welcome', requireStoreAccess, asyncRoute(async (req, res) => {
+  const store = await prisma.store.update({
+    where: { id: req.params.storeId },
+    data: { welcomeDismissed: true },
+  });
+  res.json({ store: serializeStore(store) });
+}));
+
 adminRouter.post('/admin/stores/:storeId/products/:productId/flags', requireStoreAccess, asyncRoute(async (req, res) => {
   const params = productIdParamSchema.parse(req.params);
   const input = flagCreateSchema.parse(req.body);

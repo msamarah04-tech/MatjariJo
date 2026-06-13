@@ -25,6 +25,7 @@ const normalizeStore = (store: Store): Store => ({
   storefrontTemplate: store.storefrontTemplate ?? 'editorial',
   themeOverrides: store.themeOverrides ?? undefined,
   isFeatured: store.isFeatured ?? false,
+  welcomeDismissed: store.welcomeDismissed ?? false,
   plan: store.plan ?? 'STARTER',
   planStatus: store.planStatus ?? 'TRIAL',
 });
@@ -291,6 +292,10 @@ interface AppState {
   applyTicketUpdate: (ticket: SupportTicket) => void;
   /** Mark a ticket as read by the store owner (clears the unread badge). */
   markTicketAsRead: (storeId: string, ticketId: string) => void;
+  /** Dismiss the first-login welcome banner for a store (persisted to backend). */
+  dismissWelcome: (storeId: string) => Promise<void>;
+  /** Upsert a shop request received via SSE — add or replace without a full bootstrap. */
+  applyShopRequestUpdate: (request: ShopRequest) => void;
 
   // notifications
   markNotificationsSeen: () => void;
@@ -1099,6 +1104,30 @@ export const useStore = create<AppState>()(
             ts: Date.now(),
           }), ...state.auditLogs].slice(0, state.platformSettings.auditCap),
         }));
+      },
+
+      dismissWelcome: async (storeId) => {
+        set((state) => ({ stores: state.stores.map((s) => s.id === storeId ? { ...s, welcomeDismissed: true } : s) }));
+        const token = get().token;
+        if (token) {
+          try {
+            await adminApi.dismissWelcome(storeId);
+          } catch {
+            // best-effort — state is already updated optimistically
+          }
+        }
+      },
+
+      applyShopRequestUpdate: (request) => {
+        const normalized = normalizeShopRequest(request);
+        set((state) => {
+          const exists = state.shopRequests.some((r) => r.id === normalized.id);
+          return {
+            shopRequests: exists
+              ? state.shopRequests.map((r) => r.id === normalized.id ? normalized : r)
+              : [normalized, ...state.shopRequests],
+          };
+        });
       },
 
       markNotificationsSeen: () => set({ lastSeenNotificationsAt: Date.now() }),

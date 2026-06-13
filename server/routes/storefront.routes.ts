@@ -9,6 +9,7 @@ import { decrementVariantStock, productIsVariable, productPubliclyActive } from 
 import { publicWriteRateLimiter } from '../security/rateLimit.js';
 import { analyticsEventSchema, publicOrderSchema, shopRequestSchema } from '../validators.js';
 import { asyncRoute, normalizeCode } from '../http.js';
+import { broadcastShopRequestNew } from '../sse.js';
 import { notifyOrderPlaced } from '../services/notifications.js';
 import {
   serializeAnalyticsEvent,
@@ -195,5 +196,7 @@ storefrontRouter.post('/shop-requests', publicWriteRateLimiter, asyncRoute(async
     data: { ...rest, desiredUsername: username, passwordHash },
   });
   await audit(null, 'Submitted website request', request.storeName, { targetType: 'ShopRequest', targetId: request.id, detail: request.ownerEmail });
-  res.status(201).json({ request: serializeShopRequest(request) });
+  const serialized = serializeShopRequest(request);
+  broadcastShopRequestNew({ request: serialized });
+  res.status(201).json({ request: serialized });
 }));

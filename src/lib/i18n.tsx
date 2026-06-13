@@ -276,6 +276,8 @@ const en: Dict = {
   reqToastErrorDesc: 'Try again later.',
 
   // ── admin overview ───────────────────────────────────────────────────────────
+  ovWelcomeTitle: 'Your website is live!',
+  ovWelcomeDesc: 'Customers can now find and order from your store. Share the link to start getting orders.',
   ovTitle: 'Overview',
   ovSubtitle: 'How {store} is doing — last 30 days',
   ovViewStorefront: 'View shop',
@@ -586,6 +588,8 @@ const ar: Dict = {
   reqToastErrorDesc: 'حاول مرة أخرى لاحقاً.',
 
   // ── admin overview ───────────────────────────────────────────────────────────
+  ovWelcomeTitle: 'موقعك الإلكتروني أصبح مباشراً!',
+  ovWelcomeDesc: 'يمكن للعملاء الآن العثور على متجرك وتقديم الطلبات. شارك الرابط لتبدأ باستقبال الطلبات.',
   ovTitle: 'نظرة عامة',
   ovSubtitle: 'أداء {store} — آخر ٣٠ يوماً',
   ovViewStorefront: 'عرض الواجهة',

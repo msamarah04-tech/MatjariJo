@@ -80,6 +80,9 @@ model Store {
   address               String?
   // Monotonic per-store counter that backs sequential invoice numbers.
   nextInvoiceSeq        Int      @default(1)
+  // Set to false when a store is first created; the shop owner sees a "Your website is live"
+  // welcome banner until they dismiss it, at which point this flips to true permanently.
+  welcomeDismissed      Boolean  @default(false)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 

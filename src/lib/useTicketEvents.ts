@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useStore } from './store';
-import { SupportTicket } from './types';
+import { ShopRequest, SupportTicket } from './types';
 import { API_BASE } from '@/api/client';
 
 const BASE_DELAY_MS = 2_000;
@@ -22,6 +22,7 @@ interface UseTicketEventsOptions {
 export function useTicketEvents({ path }: UseTicketEventsOptions) {
   const token = useStore((s) => s.token);
   const applyTicketUpdate = useStore((s) => s.applyTicketUpdate);
+  const applyShopRequestUpdate = useStore((s) => s.applyShopRequestUpdate);
   const delayRef = useRef(BASE_DELAY_MS);
   const esRef = useRef<EventSource | null>(null);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -43,6 +44,18 @@ export function useTicketEvents({ path }: UseTicketEventsOptions) {
           const data = JSON.parse(e.data) as { ticket: SupportTicket };
           if (data?.ticket) {
             applyTicketUpdate(data.ticket);
+            delayRef.current = BASE_DELAY_MS;
+          }
+        } catch {
+          // malformed event — ignore
+        }
+      });
+
+      es.addEventListener('shoprequest.new', (e: MessageEvent) => {
+        try {
+          const data = JSON.parse(e.data) as { request: ShopRequest };
+          if (data?.request) {
+            applyShopRequestUpdate(data.request);
             delayRef.current = BASE_DELAY_MS;
           }
         } catch {

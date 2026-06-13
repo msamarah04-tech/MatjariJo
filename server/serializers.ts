@@ -86,6 +86,7 @@ export function serializeStore(store: Store) {
     planStatus: derivePlanStatus(store.planStatus as PlanStatus, ms(store.planPaidUntil)),
     planPaidUntil: ms(store.planPaidUntil),
     isFeatured: store.isFeatured,
+    welcomeDismissed: store.welcomeDismissed,
     ownerId: store.ownerId,
     createdAt: ms(store.createdAt)!,
   };

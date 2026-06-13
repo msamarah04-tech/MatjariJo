@@ -119,6 +119,8 @@ export interface Store {
   /** ms epoch; trial end while TRIAL, paid-until once ACTIVE. */
   planPaidUntil?: number;
   isFeatured?: boolean;
+  /** False until the owner dismisses the first-login welcome banner. */
+  welcomeDismissed?: boolean;
   ownerId: string;
   createdAt: number;
 }
