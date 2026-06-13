@@ -279,6 +279,8 @@ interface AppState {
   // Subscription billing (manual): change tier / record an off-platform payment.
   setStorePlan: (id: string, plan: StorePlan) => Promise<boolean>;
   recordPlanPayment: (id: string) => Promise<boolean>;
+  /** Confirm first payment receipt — sets paymentConfirmed=true and activates the subscription. */
+  confirmStorePayment: (id: string) => Promise<boolean>;
   toggleFeatured: (id: string) => void;
 
   // moderation
@@ -947,6 +949,17 @@ export const useStore = create<AppState>()(
             : store)),
         }));
         return true;
+      },
+
+      confirmStorePayment: async (id) => {
+        try {
+          await platformApi.confirmStorePayment(id);
+          await get().loadBootstrap();
+          return true;
+        } catch (error) {
+          set({ apiError: error instanceof Error ? error.message : 'Could not confirm payment.' });
+          return false;
+        }
       },
 
       toggleFeatured: (id) => {

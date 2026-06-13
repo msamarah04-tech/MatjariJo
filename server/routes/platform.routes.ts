@@ -255,6 +255,22 @@ platformRouter.post('/platform/stores/:storeId/plan/record-payment', asyncRoute(
   res.json({ store: serializeStorePlatformView(store) });
 }));
 
+// First-payment confirmation: marks paymentConfirmed=true and activates the subscription
+// so the dashboard and storefront open for the shop owner.
+platformRouter.patch('/platform/stores/:storeId/confirm-payment', asyncRoute(async (req, res) => {
+  const existing = await prisma.store.findUnique({ where: { id: req.params.storeId } });
+  if (!existing) throw notFound('Store not found.');
+  const now = new Date();
+  const base = existing.planPaidUntil && existing.planPaidUntil > now ? existing.planPaidUntil : now;
+  const store = await prisma.store.update({
+    where: { id: existing.id },
+    data: { paymentConfirmed: true, planStatus: 'ACTIVE', planPaidUntil: addOneMonth(base) },
+  });
+  await auditSecurity(req.user!, 'Confirmed first payment — store activated', store.name, { targetType: 'Store', targetId: store.id, ip: req.ip });
+  notifyPlanPayment(store);
+  res.json({ store: serializeStorePlatformView(store) });
+}));
+
 platformRouter.patch('/platform/stores/:storeId/owner-status', asyncRoute(async (req, res) => {
   const input = ownerStatusSchema.parse(req.body);
   const store = await prisma.store.findUnique({ where: { id: req.params.storeId } });
