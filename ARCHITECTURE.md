@@ -19,7 +19,7 @@ domain-specific API modules. Frontend and backend share a single typed **contrac
 
 Domain surface: stores, products (with variants/options), orders + items, discounts, analytics
 events, support tickets, product flags, shop requests, audit logs, platform settings, users +
-shop-owner assignments — plus money/tax, invoices, and storefront appearance.
+shop-owner assignments — plus money, invoices, and storefront appearance.
 
 ## High-Level Architecture
 
@@ -48,7 +48,7 @@ drift:
 | File | Responsibility |
 | --- | --- |
 | `contract.ts` | Domain enums (as Zod schemas) + entity TypeScript types. Frontend `types.ts` re-exports them; backend validators import the same enums. |
-| `money.ts` | Currency-aware money: integer minor units, per-currency exponent (JOD=3, USD=2), parse/format/round, bps/tax/commission math, exponent rescale. |
+| `money.ts` | Currency-aware money: integer minor units, per-currency exponent (JOD=3, USD=2), parse/format/round, exponent rescale. |
 | `phone.ts` | Jordan mobile (+962, `07[789]…`) validation/normalization/formatting. |
 
 A domain-shape change in `contract.ts` type-errors both the frontend and the backend serializers.
@@ -84,7 +84,7 @@ module divides, and only for display.
 | `storefront.api.ts` | Public store/products/discounts, analytics capture, COD checkout. |
 | `shopRequests.api.ts` | Public self-service shop-request submission. |
 | `admin.api.ts` | Store-scoped admin: products, orders, discounts, support, analytics, appearance, invoice, data export. |
-| `platform.api.ts` | Platform-only: requests, stores, moderation, support, analytics, audit, settings, commission, owner status, password reset, **store delete**. |
+| `platform.api.ts` | Platform-only: requests, stores, moderation, support, analytics, audit, settings, owner status, password reset, **store delete**. |
 | `queries.ts` | TanStack Query client + hooks (storefront wired; the migration seam). |
 
 ### State And Data Layer
@@ -114,7 +114,7 @@ and a policy layer (this was the top architecture debt and is now done).
 | Commerce | `commerce.ts`, `productDetails.ts` | Server-authoritative order math; variant/option resolution + per-variant stock decrement. |
 | Domain helpers | `analytics.ts`, `audit.ts`, `serializers.ts`, `validators.ts` | Insights, append-only audit, Prisma→payload mapping, Zod schemas (shared enums). |
 | Routes | `routes/{auth,bootstrap,storefront,platform,admin}.routes.ts` (+ `index.ts`) | Thin handlers; each group applies its own middleware. |
-| Services | `services/{onboarding,orders,invoices,dataPrivacy}.ts` | Slug/credential generation, order state machine, GST invoices, PDPL export/erase. |
+| Services | `services/{onboarding,orders,invoices,dataPrivacy}.ts` | Slug/credential generation, order state machine, invoices, PDPL export/erase. |
 | Policies | `policies/{roles,storeAccess}.policy.ts` | The single authorization decision point. |
 | Security | `security/{rateLimit,lockout,cookies}.ts` | In-memory IP rate limiting, per-account lockout, refresh-cookie helpers. |
 
@@ -129,12 +129,10 @@ Mounted under `/api`:
 - `/api/platform/*` — platform-owner only
 - `/api/admin/stores/:storeId/*` — store-scoped (the single authority for the order lifecycle)
 
-### Money And Tax
+### Money And Order Totals
 
 Order totals are computed only on the server ([`server/commerce.ts`](server/commerce.ts)) in minor
-units: subtotal → discount → **GST** → shipping → total. The effective tax rate is the store
-override or the platform default; pricing may be tax-inclusive or exclusive. Commission is taken on
-net merchandise value and captured per order. Tax invoices ([`server/services/invoices.ts`](server/services/invoices.ts))
+units: subtotal → discount → shipping → total. Invoices ([`server/services/invoices.ts`](server/services/invoices.ts))
 get a sequential per-store number (via `Store.nextInvoiceSeq`) on approval and render printable
 HTML in English (LTR) or Arabic (RTL, Arabic-Indic numerals).
 
@@ -147,7 +145,7 @@ Migrations:
 
 - `20260605000000_init`
 - `20260605001000_usernames`
-- `20260606000000_hardening` — money/tax fields, indexes, CHECK constraints, auth/security columns
+- `20260606000000_hardening` — money fields, indexes, CHECK constraints, auth/security columns
 - `20260606120000_self_service_credentials`
 - `20260606143000_storefront_appearance`
 - `20260606150000_product_catalog_fields`
@@ -208,13 +206,13 @@ Self-service onboarding
   -> store + shop-owner account created -> owner signs in directly
 
 COD checkout (one transaction)
-  reload products -> recompute totals + GST (minor units)
+  reload products -> recompute totals (minor units)
   -> atomic conditional stock decrement (simple + per-variant)
   -> atomic discount usage claim -> create order (idempotency key)
 
 Order lifecycle (single authority: store-scoped endpoint)
   PENDING -> APPROVED|REJECTED ;  APPROVED -> FULFILLED
-  approval assigns the sequential tax-invoice number
+  approval assigns the sequential invoice number
 
 App startup
   Zustand restores tokens -> GET /api/bootstrap -> hydrate role-scoped entities
@@ -234,12 +232,12 @@ App startup
 
 | Suite | Runner | Coverage |
 | --- | --- | --- |
-| `tests/api.test.ts` | `node --test` | Isolation, health/ready, **store deletion** (authz), checkout totals/GST. |
+| `tests/api.test.ts` | `node --test` | Isolation, health/ready, **store deletion** (authz), checkout totals. |
 | `tests/security.test.ts` | `node --test` | Token revocation on logout/password-change, lockout, self-service login + reset-forces-change, fail-closed boot. |
-| `tests/commerce.test.ts` | `node --test` | **Concurrent checkout: no oversell, no over-limit discount**, idempotency, server-side GST. |
-| `tests/invoices.test.ts` | `node --test` | Sequential invoice numbering, GST line, printable HTML (EN/AR), pending-order guard. |
+| `tests/commerce.test.ts` | `node --test` | **Concurrent checkout: no oversell, no over-limit discount**, idempotency, server-side totals. |
+| `tests/invoices.test.ts` | `node --test` | Sequential invoice numbering, printable HTML (EN/AR), pending-order guard. |
 | `tests/policy.test.ts` | `node --test` | Role + store-access policy decisions. |
-| `tests/money.test.ts` | `node --test` | Currency exponents, parse/format, bps/tax math, rescale, +962 phone. |
+| `tests/money.test.ts` | `node --test` | Currency exponents, parse/format, rescale, +962 phone. |
 | `tests/web/*.test.tsx` | Vitest + Testing Library | i18n toggle/RTL, money formatting, storefront cart. |
 | `tests/e2e/checkout.spec.ts` | Playwright | Storefront/RTL smoke (scaffold; needs `npx playwright install`). |
 

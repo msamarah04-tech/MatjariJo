@@ -17,11 +17,11 @@ Three actors define the product:
 | --- | --- |
 | **Public customer** | Browse a storefront, add to cart, place a COD order, request a website. No login. |
 | **Shop owner** | Manage their one store: products (incl. variants), orders, discounts, appearance, analytics, support, tax invoices, data export. |
-| **Platform owner** | Manage all stores: approve/reject requests, suspend/feature/delete stores, set commission, moderate flagged products, run support, read platform analytics + the audit log, edit settings. |
+| **Platform owner** | Manage all stores: approve/reject requests, suspend/feature/delete stores, moderate flagged products, run support, read platform analytics + the audit log, edit settings. |
 
 Two principles run through the codebase:
 
-1. **The backend is the single source of truth.** Money totals, tax, stock, and discount usage are
+1. **The backend is the single source of truth.** Money totals, stock, and discount usage are
    all (re)computed **server-side** at checkout — client values are never trusted.
 2. **No third-party integrations.** Everything runs inside this app and its own SQLite database.
    Payment gateways, e-invoicing, and email/SMS are designed as **adapter seams** to drop in later.
@@ -29,9 +29,9 @@ Two principles run through the codebase:
 ### Jordan-first
 
 - **JOD with 3 decimals** (1 JOD = 1000 fils). Money is always an integer count of minor units.
-- **GST 16%** computed server-side at checkout, plus printable **internal tax invoices** (EN LTR / AR RTL).
+- Printable **internal invoices** (EN LTR / AR RTL) assigned on order approval.
 - **Arabic + English with full RTL**, Asia/Amman dates, Arabic-Indic numerals, **+962** mobile validation.
-- **Cash on Delivery**, with a per-order platform **commission** captured for settlement reporting.
+- **Cash on Delivery only.**
 
 ## Tech stack
 

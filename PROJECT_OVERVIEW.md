@@ -20,13 +20,13 @@ There are three actors, and the whole product is organized around them:
 | --- | --- |
 | **Public customer** | Browse a storefront, add to cart, place a COD order, submit a "request a website" application. No login. |
 | **Shop owner** | Manage their **one** assigned store: catalog (incl. variants), orders, discounts, storefront appearance, analytics, support tickets, tax invoices, data export. |
-| **Platform owner** | Manage **all** stores: approve/reject requests, suspend/feature/delete stores, set commission, moderate flagged products, run support, read platform-wide analytics + the audit log, edit platform settings, reset owner passwords. |
+| **Platform owner** | Manage **all** stores: approve/reject requests, suspend/feature/delete stores, moderate flagged products, run support, read platform-wide analytics + the audit log, edit platform settings, reset owner passwords. |
 
 Two principles define the codebase:
 
 1. **The backend is the single source of truth.** Every business entity lives in the database; the
-   frontend hydrates from it and sends mutations through typed API modules. Money totals, tax,
-   stock, and discount usage are all (re)computed **server-side** — client values are never trusted.
+   frontend hydrates from it and sends mutations through typed API modules. Money totals, stock,
+   and discount usage are all (re)computed **server-side** — client values are never trusted.
 2. **No third-party integrations.** Everything runs inside this app and its own SQLite database —
    no payment gateway, tax-authority transmission, email/SMS, external auth, or log shipping. Each
    of those is designed as an **adapter seam** so a real provider can drop in later (see *Deferred*).
@@ -35,14 +35,12 @@ Two principles define the codebase:
 
 - **Currency is JOD with 3 decimal places** (1 JOD = 1000 fils). Money is always an integer count
   of minor units + a currency code; one module ([`shared/money.ts`](shared/money.ts)) owns all
-  parse/format/round/tax math. USD (2 decimals) also works for stores that need it.
-- **GST 16%** (1600 bps default) computed **server-side at checkout** — a configurable platform
-  default with an optional per-store rate override, tax-inclusive or exclusive — plus proper
-  **internal tax invoices** (sequential per-store numbering, printable in English LTR and Arabic RTL).
+  parse/format/round math. USD (2 decimals) also works for stores that need it.
+- Printable **internal invoices** (sequential per-store numbering, printable in English LTR and Arabic RTL)
+  assigned on order approval.
 - **Arabic + English with full RTL**, Asia/Amman dates, Western and Arabic-Indic numerals, and
   **+962** mobile validation (`07[789]…`).
-- **Cash on Delivery only** (first-class, internal), with a platform **commission** (default 800
-  bps / 8%, per-store override in basis points) captured per order for settlement reporting.
+- **Cash on Delivery only** (first-class, internal).
 
 ## Tech Stack
 
@@ -89,7 +87,7 @@ serializers, so they stay in lockstep.
 .
 ├── shared/                          # imported by BOTH frontend and backend — the typed contract
 │   ├── contract.ts                  # domain enums (as Zod schemas) + entity TS types (source of truth)
-│   ├── money.ts                     # currency-aware minor-unit money (JOD=3, USD=2) + tax/bps math
+│   ├── money.ts                     # currency-aware minor-unit money (JOD=3, USD=2)
 │   ├── phone.ts                     # +962 Jordan mobile validation / normalization
 │   └── productCategorySchemas.ts    # category attribute taxonomy (additive details layer)
 │
@@ -111,7 +109,7 @@ serializers, so they stay in lockstep.
 │   ├── logger.ts                    # pino logger config
 │   ├── http.ts                      # asyncRoute wrapper + small request helpers
 │   ├── auth.ts                      # token sign/verify, tokenVersion revocation, role/store guards
-│   ├── commerce.ts                  # server-authoritative order math (subtotal→discount→GST→shipping→total)
+│   ├── commerce.ts                  # server-authoritative order math (subtotal→discount→shipping→total)
 │   ├── productDetails.ts            # variant/option resolution + per-variant stock decrement
 │   ├── analytics.ts                 # store + platform insight aggregations
 │   ├── audit.ts                     # append-only audit log writers + settings accessor
@@ -127,7 +125,7 @@ serializers, so they stay in lockstep.
 │   ├── services/
 │   │   ├── onboarding.ts            # unique slug / username / email + one-time password generation
 │   │   ├── orders.ts                # order state machine (the single lifecycle authority)
-│   │   ├── invoices.ts              # GST tax-invoice model + printable HTML (EN/AR)
+│   │   ├── invoices.ts              # invoice model + printable HTML (EN/AR)
 │   │   └── dataPrivacy.ts           # PDPL data export + customer-PII erase
 │   ├── policies/
 │   │   ├── roles.policy.ts          # role predicates (isPlatformOwner, …)
@@ -245,11 +243,11 @@ and a policy layer ([`server/policies/`](server/policies/)). Highlights:
   reset, and bans revoke tokens immediately. Per-account lockout + IP rate limiting on login and
   public writes.
 - **Commerce** — checkout runs in one transaction: reload products, **recompute totals server-side**
-  (subtotal → discount → GST → shipping → total, in minor units), **atomic conditional stock
+  (subtotal → discount → shipping → total, in minor units), **atomic conditional stock
   decrement** (simple and per-variant), **atomic discount usage enforcement**, and an **idempotency
   key** so retries don't double-create orders. The order **state machine** has a single authority —
   the store-scoped endpoint.
-- **Invoices** — sequential per-store tax-invoice numbers assigned on approval; printable HTML in
+- **Invoices** — sequential per-store invoice numbers assigned on approval; printable HTML in
   EN/AR via [`server/services/invoices.ts`](server/services/invoices.ts).
 - **Data hygiene (PDPL)** — per-store data export and customer-PII erase, both security-audited.
 - **Authorization** — every store-scoped route flows through
@@ -270,7 +268,7 @@ password-rotated user; admin additionally enforces per-store access).
 | **Bootstrap** | `GET /bootstrap` (one role-scoped hydration payload) |
 | **Storefront (public)** | `GET /public/stores/:slug` · `GET /public/stores/:slug/products` · `POST /public/stores/:slug/analytics` · `POST /public/stores/:slug/orders` (COD, idempotent) · `POST /shop-requests` |
 | **Admin (store-scoped)** | `GET /admin/stores` · `GET\|PATCH /admin/stores/:id` · `GET …/data-export` · products `GET\|POST\|GET:pid\|PATCH:pid\|DELETE:pid` · `POST …/products/:pid/flags` · orders `GET\|GET:oid\|GET:oid/invoice\|POST:oid/{approve,reject,fulfill}` · discounts `GET\|POST\|GET:did\|PATCH:did\|DELETE:did` · `GET …/analytics` · support `GET\|POST\|GET:tid\|POST:tid/reply` |
-| **Platform (owner-only)** | `GET /platform/overview` · shop-requests `GET\|POST:id/approve\|POST:id/reject` · stores `GET\|GET:id\|PATCH:id\|POST:id/{suspend,reactivate,feature,unfeature}\|PATCH:id/{commission,owner-status}\|POST:id/reset-owner-password\|DELETE:id\|GET:id/data-export\|POST:id/erase-customer-data` · `GET /platform/orders` (read-only) · moderation `GET /flags\|POST:id/{dismiss,action,unpublish-product}` · support `GET\|GET:id\|POST:id/reply\|PATCH:id/{status,assign-to-me}` · `GET /platform/analytics` · `GET /platform/audit` (paged/filtered) · `GET\|PATCH /platform/settings` |
+| **Platform (owner-only)** | `GET /platform/overview` · shop-requests `GET\|POST:id/approve\|POST:id/reject` · stores `GET\|GET:id\|PATCH:id\|POST:id/{suspend,reactivate,feature,unfeature}\|PATCH:id/owner-status\|POST:id/reset-owner-password\|DELETE:id\|GET:id/data-export\|POST:id/erase-customer-data` · `GET /platform/orders` (read-only) · moderation `GET /flags\|POST:id/{dismiss,action,unpublish-product}` · support `GET\|GET:id\|POST:id/reply\|PATCH:id/{status,assign-to-me}` · `GET /platform/analytics` · `GET /platform/audit` (paged/filtered) · `GET\|PATCH /platform/settings` |
 
 > Note: order lifecycle transitions (approve / reject / fulfill) have **one** authority — the
 > store-scoped admin endpoints. The platform owner acts through those via oversight store access; the
@@ -282,15 +280,13 @@ Prisma owns [`prisma/schema.prisma`](prisma/schema.prisma). Core entities:
 
 - **User** — role (`PLATFORM_OWNER` / `SHOP_OWNER`), `ownerStatus` (ACTIVE/RESTRICTED/BANNED),
   `tokenVersion`, `mustChangePassword`, lockout fields (`failedLoginCount`, `lockedUntil`).
-- **Store** — slug, currency, shipping config, commission override, **tax/invoice fields**
-  (`taxRateBpsOverride`, `pricesIncludeTax`, `taxRegistrationNumber`, `contactPhone`, `address`,
+- **Store** — slug, currency, shipping config, contact info (`contactPhone`, `address`,
   `nextInvoiceSeq`), governance (`status`, `reviewStatus`, `isFeatured`, `suspensionReason`,
   `internalNote`), and **appearance** (`themeId`, `storefrontTemplate`, `themeOverrides`).
 - **Product** — price/compareAt/stock/images plus `category`, `collection`, `tags` (JSON), and a
   rich `details` JSON blob (selling type, options, **variants**, gallery, detail rows, and the
   category taxonomy `categoryKey` + `attributes`).
-- **Order / OrderItem** — currency snapshot, subtotal/discount/**tax**/shipping/total + the
-  tax rate & inclusive flag actually used, captured **commission**, payment method (COD),
+- **Order / OrderItem** — currency snapshot, subtotal/discount/shipping/total, payment method (COD),
   idempotency key, invoice number; items carry variant snapshots (title/sku/image).
 - **Discount** — code, type (PERCENT / FIXED / FREE_SHIPPING), value, min subtotal, usage limit +
   count, expiry. Unique per `(storeId, code)`.
@@ -300,8 +296,7 @@ Prisma owns [`prisma/schema.prisma`](prisma/schema.prisma). Core entities:
 - **ShopRequest** — the public application, including **self-service credentials** (chosen username +
   bcrypt password hash, cleared on approval).
 - **AuditLog** — append-only; security-flagged entries are exempt from `auditCap` pruning.
-- **PlatformSettings** — commission default (800 bps), default currency, categories, GST defaults
-  (1600 bps), maintenance mode, support email, audit cap, auto-flag threshold.
+- **PlatformSettings** — default currency, categories, maintenance mode, support email, audit cap, auto-flag threshold.
 
 Money is stored as **integers in the currency's minor unit** (never a float). Enum-like fields are
 strings validated by the shared Zod enums; JSON-like data (`details`, `tags`, `themeOverrides`) is
@@ -329,7 +324,7 @@ cannot drift.
 | --- | --- |
 | **Public customer** | Storefront browsing, cart, COD checkout, public analytics events, shop-request submission. No account. |
 | **Shop owner** | One assigned store only: products (incl. variants), orders, discounts, appearance, analytics, support, tax invoices, data export. |
-| **Platform owner** | All stores: requests/approvals, store controls, moderation, support, analytics, audit log, settings, commission, owner status, password reset, store deletion. |
+| **Platform owner** | All stores: requests/approvals, store controls, moderation, support, analytics, audit log, settings, owner status, password reset, store deletion. |
 
 Per-store isolation is enforced server-side through the single policy layer; the frontend also limits
 a shop owner's workspace to their assigned store.
@@ -339,11 +334,11 @@ a shop owner's workspace to their assigned store.
 - **Self-service onboarding** — a visitor requests a website (choosing their own username +
   password) → platform owner approves → store + owner account are created with those exact
   credentials → owner signs in **directly** (no relay, no forced change).
-- **COD checkout** — customer checks out → backend recomputes totals + GST, atomically decrements
+- **COD checkout** — customer checks out → backend recomputes totals, atomically decrements
   stock and claims discount usage, creates the order (idempotent). Client prices are never trusted.
 - **Order lifecycle** — `PENDING → APPROVED | REJECTED`, then `APPROVED → FULFILLED`; approving
-  assigns the sequential per-store tax-invoice number.
-- **Tax invoice** — `GET /api/admin/stores/:id/orders/:orderId/invoice` (printable HTML;
+  assigns the sequential per-store invoice number.
+- **Invoice** — `GET /api/admin/stores/:id/orders/:orderId/invoice` (printable HTML;
   `?lang=ar` for Arabic RTL, `?format=json` for the model).
 - **Moderation** — flagged products can be dismissed, actioned, or unpublished by the platform owner.
 - **Password reset / store deletion / data export-erase** — platform-owner actions, all
@@ -434,12 +429,12 @@ missing/default/weak, `COOKIE_SECRET` is missing, the seeded platform password i
 
 | Suite | Runner | Coverage |
 | --- | --- | --- |
-| `tests/api.test.ts` | `node --test` | Store isolation, health/ready, store deletion (authz), checkout totals/GST. |
-| `tests/commerce.test.ts` | `node --test` | Concurrent checkout (no oversell, no over-limit discount), idempotency, server GST. |
-| `tests/invoices.test.ts` | `node --test` | Sequential numbering, GST line, printable EN/AR, pending-order guard. |
+| `tests/api.test.ts` | `node --test` | Store isolation, health/ready, store deletion (authz), checkout totals. |
+| `tests/commerce.test.ts` | `node --test` | Concurrent checkout (no oversell, no over-limit discount), idempotency, server-side totals. |
+| `tests/invoices.test.ts` | `node --test` | Sequential numbering, printable EN/AR, pending-order guard. |
 | `tests/security.test.ts` | `node --test` | Token revocation, lockout, self-service login + reset-forces-change, fail-closed boot. |
 | `tests/policy.test.ts` | `node --test` | Role + store-access policy decisions. |
-| `tests/money.test.ts` | `node --test` | Currency exponents, parse/format, bps/tax math, rescale, +962 phone. |
+| `tests/money.test.ts` | `node --test` | Currency exponents, parse/format, rescale, +962 phone. |
 | `tests/productCatalog.test.ts` | `node --test` | Category taxonomy validation/normalization + variant details. |
 | `tests/web/*` | Vitest + Testing Library | i18n toggle/RTL, money formatting, product cards, storefront cart, category UI. |
 | `tests/e2e/checkout.spec.ts` | Playwright | Storefront/RTL checkout smoke (`npx playwright install` first). |
