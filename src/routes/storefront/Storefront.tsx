@@ -269,7 +269,7 @@ function isOnSale(product: Product) {
 }
 
 function isNewArrival(product: Product) {
-  return Date.now() / 1000 - product.createdAt < 14 * 24 * 3600;
+  return Date.now() - product.createdAt < 14 * 24 * 60 * 60 * 1000;
 }
 
 function salePercent(product: Product) {
