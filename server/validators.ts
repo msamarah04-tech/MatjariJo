@@ -421,9 +421,18 @@ export const directMessageSchema = z.object({
   body: z.string().trim().min(1).max(8000),
 }).strict();
 
+// Only accept server-hosted upload paths — never arbitrary external URLs.
+const ticketAttachmentUrlSchema = z
+  .string()
+  .regex(
+    /^\/uploads\/ticket-attachments\/[a-zA-Z0-9._-]+$/,
+    'Invalid attachment URL.',
+  )
+  .optional();
+
 export const ticketReplySchema = z.object({
   body: z.string().trim().max(4000).default(''),
-  attachmentUrl: z.string().max(500).optional(),
+  attachmentUrl: ticketAttachmentUrlSchema,
 }).refine((d) => d.body.length > 0 || !!d.attachmentUrl, {
   message: 'Message body or attachment is required.',
 });

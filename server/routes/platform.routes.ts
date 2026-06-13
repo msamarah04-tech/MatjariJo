@@ -380,12 +380,24 @@ platformRouter.patch('/platform/support/tickets/:ticketId/assign-to-me', asyncRo
 
 // Resolve ticket with optional reply email to the shop owner.
 platformRouter.patch('/platform/support/tickets/:ticketId/resolve', asyncRoute(async (req, res) => {
-  const replyBody: string | undefined = req.body?.replyBody?.trim() || undefined;
+  const input = ticketReplySchema.partial().safeParse(req.body);
+  const replyBody: string | undefined = input.success ? (input.data.body?.trim() || req.body?.replyBody?.trim() || undefined) : (req.body?.replyBody?.trim() || undefined);
+  const attachmentUrl: string | undefined = input.success ? input.data.attachmentUrl ?? undefined : undefined;
+  const hasMessage = !!(replyBody || attachmentUrl);
   const ticket = await prisma.supportTicket.update({
     where: { id: req.params.ticketId },
     data: {
       status: 'RESOLVED',
-      ...(replyBody ? { messages: { create: { from: 'PLATFORM', body: replyBody, authorId: req.user!.id } } } : {}),
+      ...(hasMessage ? {
+        messages: {
+          create: {
+            from: 'PLATFORM',
+            body: replyBody ?? '',
+            authorId: req.user!.id,
+            attachmentUrl: attachmentUrl ?? null,
+          },
+        },
+      } : {}),
     },
     include: { messages: { orderBy: { createdAt: 'asc' } }, store: { include: { owner: { select: { email: true, name: true } } } } },
   });
@@ -400,7 +412,7 @@ platformRouter.patch('/platform/support/tickets/:ticketId/resolve', asyncRoute(a
   await audit(req.user!, 'Resolved support ticket', ticket.subject, {
     targetType: 'SupportTicket',
     targetId: ticket.id,
-    detail: replyBody ? 'with reply' : 'no reply sent',
+    detail: hasMessage ? 'with reply' : 'no reply sent',
   });
   res.json({ ticket: serializeSupportTicket(ticket) });
 }));
