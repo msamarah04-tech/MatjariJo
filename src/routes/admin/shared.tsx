@@ -27,18 +27,25 @@ export const LOW_STOCK_THRESHOLD = 5;
 export interface StoreBadges {
   orders: number;
   lowStock: number;
+  messages: number;
 }
 
 /** Pending-count badges for the admin sidebar nav, scoped to one store. */
 export function useStoreBadges(storeId: string): StoreBadges {
   const orders = useStore((s) => s.orders);
   const products = useStore((s) => s.products);
+  const supportTickets = useStore((s) => s.supportTickets);
   return useMemo(
     () => ({
       orders: orders.filter((o) => o.storeId === storeId && o.status === 'PENDING').length,
       lowStock: products.filter((p) => p.storeId === storeId && p.isActive && p.stock <= LOW_STOCK_THRESHOLD).length,
+      messages: supportTickets.filter((t) => {
+        if (t.storeId !== storeId) return false;
+        const msgs = t.messages ?? [];
+        return msgs.length > 0 && msgs[msgs.length - 1].from === 'PLATFORM';
+      }).length,
     }),
-    [orders, products, storeId]
+    [orders, products, supportTickets, storeId]
   );
 }
 

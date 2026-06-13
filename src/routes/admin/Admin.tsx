@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  MessageSquare,
   PackageSearch,
   Paintbrush,
   Plus,
@@ -37,6 +38,7 @@ import ProductEditor from './ProductEditor';
 import ProductImport from './ProductImport';
 import Orders from './Orders';
 import Discounts from './Discounts';
+import Messages from './Messages';
 import Appearance from './Appearance';
 import Settings from './Settings';
 
@@ -53,6 +55,7 @@ const NAV: NavItem[] = [
   { labelKey: 'navProducts', to: 'products', icon: PackageSearch, badge: 'lowStock' },
   { labelKey: 'navOrders', to: 'orders', icon: ClipboardList, badge: 'orders' },
   { labelKey: 'navDiscounts', to: 'discounts', icon: BadgePercent },
+  { labelKey: 'navMessages', to: 'messages', icon: MessageSquare, badge: 'messages' },
   { labelKey: 'navAppearance', to: 'appearance', icon: Paintbrush },
   { labelKey: 'navSettings', to: 'settings', icon: SettingsIcon },
 ];
@@ -71,6 +74,7 @@ export default function Admin() {
         </Route>
         <Route path="orders" element={<Orders />} />
         <Route path="discounts" element={<Discounts />} />
+        <Route path="messages" element={<Messages />} />
         <Route path="appearance" element={<Appearance />} />
         <Route path="settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="." replace />} />
