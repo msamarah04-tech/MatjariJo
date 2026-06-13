@@ -2,6 +2,7 @@ import * as React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { useI18n } from '@/lib/i18n';
 
 interface DrawerProps {
   isOpen: boolean;
@@ -21,6 +22,8 @@ interface DrawerProps {
  */
 export function Drawer({ isOpen, onClose, title, description, footer, children, className }: DrawerProps) {
   const panelRef = React.useRef<HTMLDivElement>(null);
+  const { dir } = useI18n();
+  const exitX = dir === 'rtl' ? '-100%' : '100%';
 
   React.useEffect(() => {
     if (!isOpen) return;
@@ -58,12 +61,12 @@ export function Drawer({ isOpen, onClose, title, description, footer, children, 
             tabIndex={-1}
             className={cn(
               'relative z-50 flex h-full w-full max-w-md flex-col bg-surface shadow-2xl outline-none',
-              'border-l border-line',
+              'border-s border-line',
               className
             )}
-            initial={{ x: '100%' }}
+            initial={{ x: exitX }}
             animate={{ x: 0 }}
-            exit={{ x: '100%' }}
+            exit={{ x: exitX }}
             transition={{ type: 'spring', stiffness: 360, damping: 38 }}
           >
             <div className="flex items-start justify-between gap-4 border-b border-line p-5">

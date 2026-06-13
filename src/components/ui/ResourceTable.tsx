@@ -153,12 +153,12 @@ export function ResourceTable<T>({
           <div className="min-w-0">{filters}</div>
           {searchKeys?.length ? (
             <label className="relative block w-full lg:w-64">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+              <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder={searchPlaceholder}
-                className="h-10 w-full rounded-xl border border-line bg-surface pl-9 pr-3 text-sm font-semibold text-ink focus:outline-none focus:ring-1 focus:ring-accent"
+                className="h-10 w-full rounded-xl border border-line bg-surface ps-9 pe-3 text-sm font-semibold text-ink focus:outline-none focus:ring-1 focus:ring-accent"
               />
             </label>
           ) : null}
@@ -200,14 +200,14 @@ export function ResourceTable<T>({
           <div className="hidden overflow-hidden rounded-2xl border border-line bg-surface shadow-sm lg:block">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-line text-left text-[10px] font-bold uppercase tracking-widest text-muted">
+                <tr className="border-b border-line text-start text-[10px] font-bold uppercase tracking-widest text-muted">
                   {hasBulk && (
                     <th className="w-10 px-4 py-3">
                       <input type="checkbox" className="accent-accent" checked={allSelected} onChange={toggleAll} aria-label="Select all" />
                     </th>
                   )}
                   {columns.map((column) => (
-                    <th key={column.key} className={cn('px-4 py-3', column.align === 'right' && 'text-right')}>
+                    <th key={column.key} className={cn('px-4 py-3', column.align === 'right' && 'text-end')}>
                       {column.sortable ? (
                         <button onClick={() => onSort(column.key)} className={cn('inline-flex items-center gap-1 uppercase tracking-widest hover:text-ink', column.align === 'right' && 'flex-row-reverse')}>
                           {column.label}
@@ -216,7 +216,7 @@ export function ResourceTable<T>({
                       ) : column.label}
                     </th>
                   ))}
-                  {hasActions && <th className="w-20 px-4 py-3 text-right">Actions</th>}
+                  {hasActions && <th className="w-20 px-4 py-3 text-end">Actions</th>}
                 </tr>
               </thead>
               <tbody>
@@ -234,7 +234,7 @@ export function ResourceTable<T>({
                         </td>
                       )}
                       {columns.map((column) => (
-                        <td key={column.key} className={cn('px-4 py-3', column.align === 'right' && 'text-right')}>
+                        <td key={column.key} className={cn('px-4 py-3', column.align === 'right' && 'text-end')}>
                           {column.render ? column.render(row) : String((row as Record<string, unknown>)[column.key] ?? '')}
                         </td>
                       ))}
@@ -266,7 +266,7 @@ export function ResourceTable<T>({
                           {columns.filter((c) => !c.hideOnMobile).map((column) => (
                             <div key={column.key} className="flex items-center justify-between gap-3">
                               <span className="text-[10px] font-bold uppercase tracking-widest text-muted">{column.label}</span>
-                              <span className="min-w-0 truncate text-right text-sm font-semibold text-ink">
+                              <span className="min-w-0 truncate text-end text-sm font-semibold text-ink">
                                 {column.render ? column.render(row) : String((row as Record<string, unknown>)[column.key] ?? '')}
                               </span>
                             </div>

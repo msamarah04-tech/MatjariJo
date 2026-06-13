@@ -60,6 +60,7 @@ export default function Platform() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const badges = usePlatformBadges();
   const location = useLocation();
+  const { dir } = useI18n();
 
   useEffect(() => setMobileOpen(false), [location.pathname]);
 
@@ -67,7 +68,7 @@ export default function Platform() {
     <div className="flex min-h-screen bg-paper">
       <CommandPalette />
 
-      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-line bg-surface lg:flex">
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-e border-line bg-surface lg:flex">
         <SidebarContent badges={badges} />
       </aside>
 
@@ -82,10 +83,10 @@ export default function Platform() {
               onClick={() => setMobileOpen(false)}
             />
             <motion.aside
-              className="relative z-10 flex h-full w-72 flex-col border-r border-line bg-surface"
-              initial={{ x: '-100%' }}
+              className="relative z-10 flex h-full w-72 flex-col border-e border-line bg-surface"
+              initial={{ x: dir === 'rtl' ? '100%' : '-100%' }}
               animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
+              exit={{ x: dir === 'rtl' ? '100%' : '-100%' }}
               transition={{ type: 'spring', stiffness: 360, damping: 38 }}
             >
               <SidebarContent badges={badges} onClose={() => setMobileOpen(false)} />
@@ -221,7 +222,7 @@ function PlatformTopBar({ onMenu }: { onMenu: () => void }) {
         <button
           onClick={() => { signOut(); navigate('/sign-in'); }}
           title={`Sign out ${currentUser?.name || ''}`}
-          className="flex items-center gap-2 rounded-full border border-line bg-surface py-1 pl-1 pr-3 transition-colors hover:bg-paper"
+          className="flex items-center gap-2 rounded-full border border-line bg-surface py-1 ps-1 pe-3 transition-colors hover:bg-paper"
         >
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-ink text-xs font-black text-surface">{initials}</span>
           <LogOut className="hidden h-3.5 w-3.5 text-muted sm:block" />

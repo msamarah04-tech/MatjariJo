@@ -50,7 +50,7 @@ export function AppTopBar() {
         <div className="flex items-center gap-8">
           <div className="flex items-center gap-2">
             <img src="/logo.png" alt="Matjari Jordan" className="h-16 w-auto -my-3" />
-            <span className="bg-line text-muted text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-sm ml-2 hidden sm:inline-block">Workspace</span>
+            <span className="bg-line text-muted text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-sm ms-2 hidden sm:inline-block">Workspace</span>
           </div>
           
           <nav className="hidden md:flex gap-6 text-sm font-semibold uppercase tracking-wider text-muted">

@@ -95,6 +95,7 @@ function AdminShell() {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  const { dir } = useI18n();
   const isPlatformViewer = currentUser?.role === 'PLATFORM_OWNER';
   const userStores = useMemo(
     () => {
@@ -119,7 +120,7 @@ function AdminShell() {
     <div className="flex min-h-screen bg-paper">
       <CommandPalette storeId={storeId} />
 
-      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-line bg-surface lg:flex">
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-e border-line bg-surface lg:flex">
         <SidebarContent store={store} userStores={userStores} isPlatformViewer={isPlatformViewer} />
       </aside>
 
@@ -134,10 +135,10 @@ function AdminShell() {
               onClick={() => setMobileOpen(false)}
             />
             <motion.aside
-              className="relative z-10 flex h-full w-72 flex-col border-r border-line bg-surface"
-              initial={{ x: '-100%' }}
+              className="relative z-10 flex h-full w-72 flex-col border-e border-line bg-surface"
+              initial={{ x: dir === 'rtl' ? '100%' : '-100%' }}
               animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
+              exit={{ x: dir === 'rtl' ? '100%' : '-100%' }}
               transition={{ type: 'spring', stiffness: 360, damping: 38 }}
             >
               <SidebarContent store={store} userStores={userStores} isPlatformViewer={isPlatformViewer} onClose={() => setMobileOpen(false)} />
@@ -217,7 +218,7 @@ function SidebarContent({ store, userStores, isPlatformViewer, onClose }: { stor
         </a>
         {isPlatformViewer ? (
           <Link to="/platform/stores" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-muted transition-colors hover:bg-paper hover:text-ink">
-            <ArrowLeft className="h-4 w-4 shrink-0" /> {t('adminBackToPlatform')}
+            <ArrowLeft className="h-4 w-4 shrink-0 rtl:rotate-180" /> {t('adminBackToPlatform')}
           </Link>
         ) : (
           <Link to="/request-website" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-accent transition-colors hover:bg-accent-soft">
@@ -238,7 +239,7 @@ function StoreSwitcher({ store, userStores }: { store: Store; userStores: Store[
     <div className="relative min-w-0 flex-1">
       <button
         onClick={() => canSwitch && setOpen((v) => !v)}
-        className={cn('flex w-full items-center gap-2.5 rounded-xl border border-line bg-surface px-2.5 py-2 text-left transition-colors', canSwitch && 'hover:border-ink/30')}
+        className={cn('flex w-full items-center gap-2.5 rounded-xl border border-line bg-surface px-2.5 py-2 text-start transition-colors', canSwitch && 'hover:border-ink/30')}
       >
         <StoreAvatar emoji={store.logoEmoji} url={store.logoUrl} name={store.name} size="sm" />
         <span className="min-w-0 flex-1">
@@ -257,7 +258,7 @@ function StoreSwitcher({ store, userStores }: { store: Store; userStores: Store[
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.14 }}
-              className="absolute left-0 top-full z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-xl border border-line bg-surface py-1 shadow-xl"
+              className="absolute start-0 top-full z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-xl border border-line bg-surface py-1 shadow-xl"
             >
               {userStores.map((s) => (
                 <button
@@ -318,7 +319,7 @@ function AdminTopBar({ store, onMenu }: { store: Store; onMenu: () => void }) {
         <button
           onClick={() => { signOut(); navigate('/sign-in'); }}
           title={`Sign out ${currentUser?.name || ''}`}
-          className="flex items-center gap-2 rounded-full border border-line bg-surface py-1 pl-1 pr-3 transition-colors hover:bg-paper"
+          className="flex items-center gap-2 rounded-full border border-line bg-surface py-1 ps-1 pe-3 transition-colors hover:bg-paper"
         >
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-ink text-xs font-black text-surface">{initials}</span>
           <LogOut className="hidden h-3.5 w-3.5 text-muted sm:block" />
@@ -361,7 +362,7 @@ function NoStores() {
           icon={PackageSearch}
           title={t('adminNoStoresTitle')}
           description={t('adminNoStoresDesc')}
-          action={<Button variant="solid" onClick={() => navigate('/request-website')}><Plus className="mr-2 h-4 w-4" /> {t('adminRequestFirst')}</Button>}
+          action={<Button variant="solid" onClick={() => navigate('/request-website')}><Plus className="me-2 h-4 w-4" /> {t('adminRequestFirst')}</Button>}
         />
       </div>
     </div>

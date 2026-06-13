@@ -45,13 +45,13 @@ export function Modal({ isOpen, onClose, title, description, children, className
       >
         <button 
           onClick={onClose}
-          className="absolute right-4 top-4 rounded-sm opacity-70 hover:opacity-100 transition-opacity"
+          className="absolute end-4 top-4 rounded-sm opacity-70 hover:opacity-100 transition-opacity"
         >
           <X className="h-4 w-4" />
           <span className="sr-only">Close</span>
         </button>
         
-        <div className="flex flex-col space-y-1.5 mb-5 text-center sm:text-left">
+        <div className="flex flex-col space-y-1.5 mb-5 text-center sm:text-start">
           <h2 className="font-heading text-3xl font-black tracking-tight">{title}</h2>
           {description && <p className="text-sm text-muted">{description}</p>}
         </div>

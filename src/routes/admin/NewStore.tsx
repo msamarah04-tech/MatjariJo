@@ -302,11 +302,11 @@ export default function NewStore() {
                           <button key={plan} type="button"
                             onClick={() => form.setValue('plan', plan, { shouldDirty: true })}
                             className={cn(
-                              'relative rounded-2xl border-2 p-3.5 text-left transition-all duration-150',
+                              'relative rounded-2xl border-2 p-3.5 text-start transition-all duration-150',
                               active ? 'border-accent bg-accent/5 shadow-[0_0_0_4px_rgba(15,118,110,0.08)]' : 'border-transparent bg-[#F8F8F8] hover:border-ink/10'
                             )}>
                             {plan === 'GROWTH' && (
-                              <span className="absolute right-2.5 top-2.5 rounded-full bg-accent px-1.5 py-0.5 text-[8px] font-black uppercase tracking-widest text-white">
+                              <span className="absolute end-2.5 top-2.5 rounded-full bg-accent px-1.5 py-0.5 text-[8px] font-black uppercase tracking-widest text-white">
                                 {t('reqPopular')}
                               </span>
                             )}
@@ -330,18 +330,18 @@ export default function NewStore() {
                       <div className="grid grid-cols-2 gap-3">
                         <FF label={t('reqFieldPassword')} error={form.formState.errors.password?.message}>
                           <div className="relative">
-                            <FI {...form.register('password')} type={showPw ? 'text' : 'password'} autoComplete="new-password" placeholder={t('reqPasswordPlaceholder')} className="pr-10" />
+                            <FI {...form.register('password')} type={showPw ? 'text' : 'password'} autoComplete="new-password" placeholder={t('reqPasswordPlaceholder')} className="pe-10" />
                             <button type="button" tabIndex={-1} onClick={() => setShowPw((v) => !v)}
-                              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink/30 hover:text-ink/70">
+                              className="absolute end-3.5 top-1/2 -translate-y-1/2 text-ink/30 hover:text-ink/70">
                               {showPw ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                             </button>
                           </div>
                         </FF>
                         <FF label={t('reqFieldConfirm')} error={form.formState.errors.confirmPassword?.message}>
                           <div className="relative">
-                            <FI {...form.register('confirmPassword')} type={showCpw ? 'text' : 'password'} autoComplete="new-password" placeholder={t('reqConfirmPlaceholder')} className="pr-10" />
+                            <FI {...form.register('confirmPassword')} type={showCpw ? 'text' : 'password'} autoComplete="new-password" placeholder={t('reqConfirmPlaceholder')} className="pe-10" />
                             <button type="button" tabIndex={-1} onClick={() => setShowCpw((v) => !v)}
-                              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink/30 hover:text-ink/70">
+                              className="absolute end-3.5 top-1/2 -translate-y-1/2 text-ink/30 hover:text-ink/70">
                               {showCpw ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                             </button>
                           </div>
