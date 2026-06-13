@@ -14,7 +14,7 @@ const FLOAT_CARDS = [
     store: 'Sultan Oud',
     label: 'New order',
     sub: 'Rose Oud · JOD 45',
-    pos: 'top-[18%] right-8',
+    pos: 'top-[20%] right-8',
   },
   {
     id: 2,
@@ -22,7 +22,7 @@ const FLOAT_CARDS = [
     store: 'Nour Modest',
     label: 'Order fulfilled',
     sub: '2 items shipped',
-    pos: 'top-[44%] left-8',
+    pos: 'top-[46%] right-8',
   },
   {
     id: 3,
@@ -30,7 +30,7 @@ const FLOAT_CARDS = [
     store: 'Baraka Herbs',
     label: 'New customer',
     sub: 'Lana Al-Amin joined',
-    pos: 'bottom-[20%] right-10',
+    pos: 'bottom-[22%] right-8',
   },
 ];
 
