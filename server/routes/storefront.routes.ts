@@ -24,7 +24,7 @@ export const storefrontRouter = Router();
 
 storefrontRouter.get('/public/stores', asyncRoute(async (req, res) => {
   const stores = await prisma.store.findMany({
-    where: { status: 'ACTIVE' },
+    where: { status: 'ACTIVE', paymentConfirmed: true },
     orderBy: [{ isFeatured: 'desc' }, { createdAt: 'desc' }],
   });
   res.json({ stores: stores.map(serializePublicStore) });
@@ -39,7 +39,7 @@ storefrontRouter.get('/public/stores/:slug', asyncRoute(async (req, res) => {
     },
   });
   if (!store) throw notFound('Store not found.');
-  const isActive = store.status === 'ACTIVE';
+  const isActive = store.status === 'ACTIVE' && store.paymentConfirmed;
   res.json({
     store: serializePublicStore(store),
     products: isActive ? store.products.filter(productPubliclyActive).map(serializeProductForStorefront) : [],

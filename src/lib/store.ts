@@ -26,6 +26,7 @@ const normalizeStore = (store: Store): Store => ({
   themeOverrides: store.themeOverrides ?? undefined,
   isFeatured: store.isFeatured ?? false,
   welcomeDismissed: store.welcomeDismissed ?? false,
+  paymentConfirmed: store.paymentConfirmed ?? true,
   plan: store.plan ?? 'STARTER',
   planStatus: store.planStatus ?? 'TRIAL',
 });

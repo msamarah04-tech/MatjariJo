@@ -83,6 +83,10 @@ model Store {
   // Set to false when a store is first created; the shop owner sees a "Your website is live"
   // welcome banner until they dismiss it, at which point this flips to true permanently.
   welcomeDismissed      Boolean  @default(false)
+  // False when a store is first created via request approval. The storefront
+  // stays offline and the dashboard shows a payment-receipt gate until a
+  // platform admin explicitly confirms the first payment.
+  paymentConfirmed      Boolean  @default(true)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 

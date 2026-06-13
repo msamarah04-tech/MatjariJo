@@ -140,6 +140,9 @@ platformRouter.post('/platform/shop-requests/:id/approve', asyncRoute(async (req
         plan: request.plan ?? 'STARTER',
         planStatus: 'TRIAL',
         planPaidUntil: new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
+        // Dashboard and storefront are gated until the platform admin confirms
+        // receipt of the first payment.
+        paymentConfirmed: false,
       },
     });
     const updatedRequest = await tx.shopRequest.update({

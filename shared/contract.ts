@@ -121,6 +121,8 @@ export interface Store {
   isFeatured?: boolean;
   /** False until the owner dismisses the first-login welcome banner. */
   welcomeDismissed?: boolean;
+  /** False when store is awaiting first payment receipt confirmation. Storefront is offline until true. */
+  paymentConfirmed?: boolean;
   ownerId: string;
   createdAt: number;
 }

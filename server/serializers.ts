@@ -87,6 +87,7 @@ export function serializeStore(store: Store) {
     planPaidUntil: ms(store.planPaidUntil),
     isFeatured: store.isFeatured,
     welcomeDismissed: store.welcomeDismissed,
+    paymentConfirmed: store.paymentConfirmed,
     ownerId: store.ownerId,
     createdAt: ms(store.createdAt)!,
   };
@@ -127,6 +128,7 @@ export function serializeStorePlatformView(store: Store, agg?: { count: number; 
     suspensionReason: store.suspensionReason,
     internalNote: store.internalNote,
     isFeatured: store.isFeatured,
+    paymentConfirmed: store.paymentConfirmed,
     ownerId: store.ownerId,
     createdAt: ms(store.createdAt)!,
     ordersTotal: agg?.count ?? 0,
