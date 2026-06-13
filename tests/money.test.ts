@@ -4,7 +4,6 @@ import {
   minorUnitExponent,
   toMinor,
   parseMoney,
-  applyBps,
   percentOf,
   rescaleMinor,
   formatMoney,
@@ -27,8 +26,7 @@ test('toMinor / parseMoney convert without float drift', () => {
   assert.equal(parseMoney('', 'JOD'), null);
 });
 
-test('bps and percent math are integer half-up', () => {
-  assert.equal(applyBps(2468, 1600), 395); // 16% of 2468 = 394.88 -> 395
+test('percent math is integer half-up and clamped', () => {
   assert.equal(percentOf(2468, 10), 247); // 10% = 246.8 -> 247
   assert.equal(percentOf(100, 200), 100); // clamped to the base
 });

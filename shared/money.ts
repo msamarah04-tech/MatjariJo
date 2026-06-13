@@ -110,27 +110,9 @@ export function roundMinor(value: number): number {
   return Math.round(value);
 }
 
-/** Apply a basis-points rate (e.g. tax 1600 bps = 16%) to a minor-unit amount, half-up. */
-export function applyBps(minor: number, bps: number): number {
-  return Math.round((minor * bps) / 10000);
-}
-
 /** Percentage (0-100) of an amount, clamped to the amount, half-up — used by PERCENT discounts. */
 export function percentOf(minor: number, percent: number): number {
   return Math.min(minor, Math.round((minor * percent) / 100));
-}
-
-/**
- * Tax split. Given a pre-tax (exclusive) or tax-inclusive base, return the tax
- * portion in minor units. `inclusive` means the base already contains the tax.
- */
-export function taxFromBase(baseMinor: number, taxBps: number, inclusive: boolean): number {
-  if (taxBps <= 0) return 0;
-  if (inclusive) {
-    // base = net * (1 + r); tax = base - net = base * r / (1 + r)
-    return Math.round((baseMinor * taxBps) / (10000 + taxBps));
-  }
-  return applyBps(baseMinor, taxBps);
 }
 
 /**

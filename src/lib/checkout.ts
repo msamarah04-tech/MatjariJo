@@ -116,8 +116,7 @@ export function computeOrderSummary(store: Store, products: Product[], cartItems
   const discountCents = getDiscountCents(validDiscount, scopedSubtotal, totalQty, scopedItems);
   const freeShipping = validDiscount?.type === 'FREE_SHIPPING';
   const shippingCents = getShippingCents(store, subtotalCents, freeShipping);
-  const taxableBase = Math.max(0, subtotalCents - discountCents);
-  const totalCents = taxableBase + shippingCents;
+  const totalCents = Math.max(0, subtotalCents - discountCents) + shippingCents;
   return {
     items,
     subtotalCents,

@@ -36,7 +36,6 @@ const en: Dict = {
   placeOrder: 'Place order',
   subtotal: 'Subtotal',
   discount: 'Discount',
-  tax: 'Tax',
   shipping: 'Shipping',
   total: 'Total',
   free: 'Free',
@@ -50,7 +49,6 @@ const en: Dict = {
   discountCode: 'Discount code',
   apply: 'Apply',
   note: 'Note (optional)',
-  taxIncluded: 'incl. tax',
   codNote: 'Pay with cash on delivery',
 
   // ── landing – nav ────────────────────────────────────────────────────────
@@ -178,7 +176,7 @@ const en: Dict = {
   pricingScaleDesc: 'No limits for established brands moving real volume.',
   pricingFeatureStorefront: 'Your own storefront at yourshop.matjari.jo',
   pricingFeatureThemes: 'All templates, themes, and custom colors',
-  pricingFeatureCod: 'Cash on Delivery orders with internal tax invoices',
+  pricingFeatureCod: 'Cash on Delivery orders with automatic invoices',
   pricingFeatureAnalytics: 'Sales analytics and discount codes',
   pricingFeatureSupport: 'Priority support',
   legalPrivacyTitle: 'Privacy',
@@ -221,7 +219,6 @@ const ar: Dict = {
   placeOrder: 'تأكيد الطلب',
   subtotal: 'المجموع الفرعي',
   discount: 'الخصم',
-  tax: 'الضريبة',
   shipping: 'الشحن',
   total: 'الإجمالي',
   free: 'مجاني',
@@ -235,7 +232,6 @@ const ar: Dict = {
   discountCode: 'رمز الخصم',
   apply: 'تطبيق',
   note: 'ملاحظة (اختياري)',
-  taxIncluded: 'شامل الضريبة',
   codNote: 'الدفع نقدًا عند الاستلام',
 
   // ── landing – nav ────────────────────────────────────────────────────────
@@ -363,7 +359,7 @@ const ar: Dict = {
   pricingScaleDesc: 'بلا حدود للعلامات التجارية الراسخة ذات الحجم الكبير.',
   pricingFeatureStorefront: 'متجرك الخاص على yourshop.matjari.jo',
   pricingFeatureThemes: 'كل القوالب والثيمات والألوان المخصصة',
-  pricingFeatureCod: 'طلبات الدفع عند الاستلام مع فواتير ضريبية داخلية',
+  pricingFeatureCod: 'طلبات الدفع عند الاستلام مع فواتير تلقائية',
   pricingFeatureAnalytics: 'تحليلات المبيعات ورموز الخصم',
   pricingFeatureSupport: 'دعم ذو أولوية',
   legalPrivacyTitle: 'الخصوصية',

@@ -183,7 +183,7 @@ adminRouter.get('/admin/stores/:storeId/orders/:orderId', requireStoreAccess, as
   res.json({ order: serializeOrder(order) });
 }));
 
-// Internal GST tax invoice. ?format=json returns the model; otherwise printable HTML.
+// Order invoice. ?format=json returns the model; otherwise printable HTML.
 // ?lang=ar renders the Arabic RTL invoice.
 adminRouter.get('/admin/stores/:storeId/orders/:orderId/invoice', requireStoreAccess, asyncRoute(async (req, res) => {
   const params = orderIdParamSchema.parse(req.params);

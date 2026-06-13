@@ -96,7 +96,7 @@ export default function Settings() {
 
   return (
     <div className="pb-24">
-      <PageHeader title="Settings" subtitle="Store details, address, taxes, and account security." />
+      <PageHeader title="Settings" subtitle="Store details, address, and account security." />
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
