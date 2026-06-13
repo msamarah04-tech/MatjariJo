@@ -5,6 +5,7 @@ import { bootstrapRouter } from './bootstrap.routes.js';
 import { storefrontRouter } from './storefront.routes.js';
 import { platformRouter } from './platform.routes.js';
 import { adminRouter } from './admin.routes.js';
+import { uploadRouter } from './upload.routes.js';
 
 /**
  * Composes the API surface from focused route modules. Each module owns its paths
@@ -32,3 +33,4 @@ router.use(bootstrapRouter);
 router.use(storefrontRouter);
 router.use(platformRouter);
 router.use(adminRouter);
+router.use(uploadRouter);

@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
+import path from 'path';
 import { router } from './routes/index.js';
 import { errorHandler, notFound } from './errors.js';
 import { cookieSecret, env, isProduction } from './env.js';
@@ -59,6 +60,8 @@ app.use(cors({
 app.use(cookieParser(cookieSecret));
 app.use(express.json({ limit: env.REQUEST_BODY_LIMIT }));
 app.use(express.urlencoded({ extended: true, limit: env.REQUEST_BODY_LIMIT }));
+// Serve uploaded files (ticket attachments etc.) as static assets.
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 app.use('/api', router);
 app.use((_req, _res, next) => next(notFound('Route not found.')));
 app.use(errorHandler);

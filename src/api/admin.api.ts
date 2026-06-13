@@ -30,6 +30,6 @@ export const dismissWelcome = (storeId: string) => apiFetch<{ store: Store }>(`/
 
 export const listSupportTickets = (storeId: string) => apiFetch<{ supportTickets: SupportTicket[] }>(`/admin/stores/${storeId}/support/tickets`);
 export const createSupportTicket = (storeId: string, payload: unknown) => apiFetch<{ ticket: SupportTicket }>(`/admin/stores/${storeId}/support/tickets`, { method: 'POST', body: JSON.stringify(payload) });
-export const replyToSupportTicket = (storeId: string, ticketId: string, payload: { body: string }) => apiFetch<{ ticket: SupportTicket }>(`/admin/stores/${storeId}/support/tickets/${ticketId}/reply`, { method: 'POST', body: JSON.stringify(payload) });
+export const replyToSupportTicket = (storeId: string, ticketId: string, payload: { body: string; attachmentUrl?: string }) => apiFetch<{ ticket: SupportTicket }>(`/admin/stores/${storeId}/support/tickets/${ticketId}/reply`, { method: 'POST', body: JSON.stringify(payload) });
 export const markSupportTicketRead = (storeId: string, ticketId: string) => apiFetch<{ ticket: SupportTicket }>(`/admin/stores/${storeId}/support/tickets/${ticketId}/read`, { method: 'POST' });
 

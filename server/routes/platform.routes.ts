@@ -367,7 +367,7 @@ platformRouter.post('/platform/support/tickets/:ticketId/reply', asyncRoute(asyn
     where: { id: req.params.ticketId },
     data: {
       status: 'IN_PROGRESS',
-      messages: { create: { from: 'PLATFORM', body: input.body, authorId: req.user!.id } },
+      messages: { create: { from: 'PLATFORM', body: input.body, authorId: req.user!.id, attachmentUrl: input.attachmentUrl ?? null } },
     },
     include: { messages: { orderBy: { createdAt: 'asc' } } },
   });

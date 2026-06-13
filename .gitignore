@@ -18,3 +18,4 @@ playwright-report/
 
 # Replit agent state / local tooling
 .local/
+uploads/

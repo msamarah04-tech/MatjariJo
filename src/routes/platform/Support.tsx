@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, CheckCircle2, Inbox, Mail, MessageSquare, Search, Send, UserCheck } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, FileText, Inbox, Mail, MessageSquare, Search, Send, UserCheck } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { timeAgo } from '@/lib/format';
 import { SupportTicket, TicketPriority, TicketStatus } from '@/lib/types';
@@ -331,6 +331,7 @@ function ChatPanel({
 
         {messages.map((message) => {
           const isPlatform = message.from === 'PLATFORM';
+          const isImg = (url: string) => /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
           return (
             <div key={message.id} className={cn('flex flex-col', isPlatform ? 'items-end' : 'items-start')}>
               <div className={cn(
@@ -339,7 +340,23 @@ function ChatPanel({
                   ? 'rounded-2xl rounded-tr-sm bg-accent text-white'
                   : 'rounded-2xl rounded-tl-sm border border-line bg-paper text-ink',
               )}>
-                {message.body}
+                {message.body && <p>{message.body}</p>}
+                {message.attachmentUrl && (
+                  <a
+                    href={message.attachmentUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={cn(
+                      'mt-1.5 inline-flex max-w-[240px] items-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold transition-opacity hover:opacity-80',
+                      isPlatform ? 'border-white/30 bg-white/10 text-white' : 'border-line bg-surface text-ink',
+                    )}
+                  >
+                    {isImg(message.attachmentUrl)
+                      ? <img src={message.attachmentUrl} alt="attachment" className="h-24 w-full rounded-lg object-cover" />
+                      : <><FileText className="h-4 w-4 shrink-0" /><span className="truncate">{message.attachmentUrl.split('/').pop()}</span></>
+                    }
+                  </a>
+                )}
               </div>
               <span className="mt-1.5 text-[10px] font-bold uppercase tracking-widest text-muted/60">
                 {isPlatform ? operatorName : storeName} · {timeAgo(message.ts)}

@@ -2,8 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
   CheckCircle2,
+  FileText,
   Inbox,
   MessageSquare,
+  Paperclip,
   Plus,
   Send,
   X,
@@ -18,6 +20,7 @@ import { toast } from '@/components/ui/Toast';
 import { cn } from '@/lib/cn';
 import { PageHeader } from '@/components/ui/dashboard';
 import { createSupportTicket } from '@/api/admin.api';
+import { API_BASE } from '@/api/client';
 import { useAdminContext } from './shared';
 
 type Filter = 'active' | 'resolved' | 'all';
@@ -98,9 +101,9 @@ export default function Messages() {
     }
   };
 
-  const handleReply = (body: string) => {
+  const handleReply = (body: string, attachmentUrl?: string) => {
     if (!active) return;
-    replyToTicket(active.id, body);
+    replyToTicket(active.id, body, attachmentUrl);
   };
 
   return (
@@ -327,6 +330,28 @@ function ComposePanel({
   );
 }
 
+const isImageUrl = (url: string) => /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
+
+function AttachmentBubble({ url, isOwner }: { url: string; isOwner: boolean }) {
+  const img = isImageUrl(url);
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noreferrer"
+      className={cn(
+        'mt-1.5 inline-flex max-w-[260px] items-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold transition-opacity hover:opacity-80',
+        isOwner ? 'border-white/30 bg-white/10 text-white' : 'border-line bg-surface text-ink',
+      )}
+    >
+      {img
+        ? <img src={url} alt="attachment" className="h-24 w-full rounded-lg object-cover" />
+        : <><FileText className="h-4 w-4 shrink-0" /><span className="truncate">{url.split('/').pop()}</span></>
+      }
+    </a>
+  );
+}
+
 function ChatPanel({
   ticket,
   ownerName,
@@ -336,11 +361,15 @@ function ChatPanel({
   ticket: SupportTicket;
   ownerName: string;
   onBack: () => void;
-  onReply: (body: string) => void;
+  onReply: (body: string, attachmentUrl?: string) => void;
 }) {
+  const token = useStore((s) => s.token);
   const [reply, setReply] = useState('');
+  const [pendingAttachment, setPendingAttachment] = useState<{ url: string; name: string } | null>(null);
+  const [uploading, setUploading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const messages = ticket.messages ?? [];
 
   useEffect(() => {
@@ -349,14 +378,37 @@ function ChatPanel({
 
   useEffect(() => {
     setReply('');
+    setPendingAttachment(null);
     setTimeout(() => textareaRef.current?.focus(), 50);
   }, [ticket.id]);
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(`${API_BASE}/uploads/ticket-attachment`, { method: 'POST', headers, body: formData });
+      if (!res.ok) throw new Error('Upload failed');
+      const { url } = await res.json();
+      setPendingAttachment({ url, name: file.name });
+    } catch {
+      toast({ title: 'Upload failed', description: 'Only images and PDFs up to 5 MB are accepted.', type: 'error' });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   const send = () => {
     const body = reply.trim();
-    if (!body) return;
-    onReply(body);
+    if (!body && !pendingAttachment) return;
+    onReply(body, pendingAttachment?.url);
     setReply('');
+    setPendingAttachment(null);
     textareaRef.current?.focus();
   };
 
@@ -401,7 +453,10 @@ function ChatPanel({
                   ? 'rounded-2xl rounded-tr-sm bg-accent text-white'
                   : 'rounded-2xl rounded-tl-sm border border-line bg-paper text-ink',
               )}>
-                {message.body}
+                {message.body && <p>{message.body}</p>}
+                {message.attachmentUrl && (
+                  <AttachmentBubble url={message.attachmentUrl} isOwner={isOwner} />
+                )}
               </div>
               <span className="mt-1.5 text-[10px] font-bold uppercase tracking-widest text-muted/60">
                 {isOwner ? ownerName : 'Support team'} · {timeAgo(message.ts)}
@@ -415,6 +470,23 @@ function ChatPanel({
       {/* Input */}
       {ticket.status !== 'RESOLVED' ? (
         <div className="shrink-0 border-t border-line bg-paper/60 px-4 py-3 space-y-2">
+          {/* Pending attachment preview */}
+          {pendingAttachment && (
+            <div className="flex items-center gap-2 rounded-xl border border-accent/30 bg-accent/5 px-3 py-2">
+              {isImageUrl(pendingAttachment.url)
+                ? <img src={pendingAttachment.url} alt="preview" className="h-10 w-10 rounded-lg object-cover" />
+                : <FileText className="h-5 w-5 shrink-0 text-accent" />
+              }
+              <span className="min-w-0 flex-1 truncate text-xs font-bold text-ink">{pendingAttachment.name}</span>
+              <button
+                onClick={() => setPendingAttachment(null)}
+                className="shrink-0 rounded-full p-0.5 text-muted hover:text-ink"
+                aria-label="Remove attachment"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
           <textarea
             ref={textareaRef}
             value={reply}
@@ -424,15 +496,31 @@ function ChatPanel({
             placeholder="Type a reply… (Enter to send · Shift+Enter for new line)"
             className="w-full resize-none rounded-xl border border-line bg-surface px-3 py-2.5 text-sm font-semibold text-ink placeholder:font-normal focus:outline-none focus:ring-1 focus:ring-accent"
           />
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading || !!pendingAttachment}
+              title="Attach image or PDF (max 5 MB)"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-paper hover:text-ink disabled:opacity-40"
+            >
+              <Paperclip className={cn('h-4 w-4', uploading && 'animate-pulse')} />
+            </button>
             <Button
               variant="solid"
               size="sm"
               className="gap-1.5"
               onClick={send}
-              disabled={!reply.trim()}
+              disabled={!reply.trim() && !pendingAttachment}
             >
-              <Send className="h-3.5 w-3.5" /> Send
+              <Send className="h-3.5 w-3.5" /> {uploading ? 'Uploading…' : 'Send'}
             </Button>
           </div>
         </div>

@@ -348,6 +348,8 @@ export interface TicketMessage {
   id: string;
   from: TicketAuthor;
   body: string;
+  /** Optional file attachment URL (image or PDF). Served from /uploads/ticket-attachments/. */
+  attachmentUrl?: string;
   ts: number;
 }
 

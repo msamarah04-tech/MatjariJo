@@ -381,7 +381,7 @@ adminRouter.post('/admin/stores/:storeId/support/tickets/:ticketId/reply', requi
   if (!existing) throw notFound('Ticket not found in this store.');
   const ticket = await prisma.supportTicket.update({
     where: { id: existing.id },
-    data: { messages: { create: { from: 'OWNER', body: input.body, authorId: req.user!.id } } },
+    data: { messages: { create: { from: 'OWNER', body: input.body, authorId: req.user!.id, attachmentUrl: input.attachmentUrl ?? null } } },
     include: { messages: { orderBy: { createdAt: 'asc' } } },
   });
   const serialized = serializeSupportTicket(ticket);

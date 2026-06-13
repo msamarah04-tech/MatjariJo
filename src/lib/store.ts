@@ -285,7 +285,7 @@ interface AppState {
   unpublishProduct: (id: string) => void;
 
   // support inbox
-  replyToTicket: (id: string, body: string) => void;
+  replyToTicket: (id: string, body: string, attachmentUrl?: string) => void;
   setTicketStatus: (id: string, status: TicketStatus) => void;
   assignTicket: (id: string, assignee: string) => void;
   /** Upsert a ticket received from an SSE event — add or replace without a full bootstrap. */
@@ -1017,18 +1017,18 @@ export const useStore = create<AppState>()(
         }));
       },
 
-      replyToTicket: (id, body) => {
+      replyToTicket: (id, body, attachmentUrl) => {
         const token = get().token;
         if (token) {
           const ticket = get().supportTickets.find((item) => item.id === id);
           (get().currentUser?.role === 'PLATFORM_OWNER'
-            ? platformApi.replyToPlatformTicket(id, { body })
-            : adminApi.replyToSupportTicket(ticket!.storeId!, id, { body }))
+            ? platformApi.replyToPlatformTicket(id, { body, attachmentUrl })
+            : adminApi.replyToSupportTicket(ticket!.storeId!, id, { body, attachmentUrl }))
             .then(() => get().loadBootstrap())
             .catch((error) => set({ apiError: error instanceof Error ? error.message : 'Could not reply to ticket.' }));
           return;
         }
-        const message = { id: crypto.randomUUID(), from: 'PLATFORM' as const, body, ts: Date.now() };
+        const message = { id: crypto.randomUUID(), from: 'PLATFORM' as const, body, attachmentUrl, ts: Date.now() };
         set((state) => ({
           supportTickets: state.supportTickets.map((ticket) => (ticket.id === id
             ? normalizeSupportTicket({ ...ticket, status: ticket.status === 'OPEN' ? 'IN_PROGRESS' : ticket.status, messages: [...(ticket.messages || []), message] })

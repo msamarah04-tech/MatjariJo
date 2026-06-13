@@ -393,7 +393,10 @@ export const directMessageSchema = z.object({
 }).strict();
 
 export const ticketReplySchema = z.object({
-  body: z.string().trim().min(1).max(4000),
+  body: z.string().trim().max(4000).default(''),
+  attachmentUrl: z.string().max(500).optional(),
+}).refine((d) => d.body.length > 0 || !!d.attachmentUrl, {
+  message: 'Message body or attachment is required.',
 });
 
 export const ticketStatusSchema = z.object({

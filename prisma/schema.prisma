@@ -248,14 +248,15 @@ model SupportTicket {
 }
 
 model TicketMessage {
-  id        String        @id @default(cuid())
-  ticketId  String
-  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  authorId  String?
-  author    User?         @relation(fields: [authorId], references: [id], onDelete: SetNull)
-  from      String
-  body      String
-  createdAt DateTime      @default(now())
+  id            String        @id @default(cuid())
+  ticketId      String
+  ticket        SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId      String?
+  author        User?         @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  from          String
+  body          String
+  attachmentUrl String?
+  createdAt     DateTime      @default(now())
 
   @@index([ticketId])
 }

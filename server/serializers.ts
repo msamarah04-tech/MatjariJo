@@ -271,6 +271,7 @@ export function serializeTicketMessage(message: TicketMessage) {
     id: message.id,
     from: message.from,
     body: message.body,
+    attachmentUrl: message.attachmentUrl ?? undefined,
     ts: ms(message.createdAt)!,
   };
 }

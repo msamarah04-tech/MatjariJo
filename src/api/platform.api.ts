@@ -31,7 +31,7 @@ export const unpublishFlaggedProduct = (flagId: string) => apiFetch<{ product: P
 
 export const listPlatformTickets = () => apiFetch<{ supportTickets: SupportTicket[] }>('/platform/support/tickets');
 export const getPlatformTicket = (ticketId: string) => apiFetch<{ ticket: SupportTicket }>(`/platform/support/tickets/${ticketId}`);
-export const replyToPlatformTicket = (ticketId: string, payload: { body: string }) => apiFetch<{ ticket: SupportTicket }>(`/platform/support/tickets/${ticketId}/reply`, { method: 'POST', body: JSON.stringify(payload) });
+export const replyToPlatformTicket = (ticketId: string, payload: { body: string; attachmentUrl?: string }) => apiFetch<{ ticket: SupportTicket }>(`/platform/support/tickets/${ticketId}/reply`, { method: 'POST', body: JSON.stringify(payload) });
 export const updatePlatformTicketStatus = (ticketId: string, status: TicketStatus) => apiFetch<{ ticket: SupportTicket }>(`/platform/support/tickets/${ticketId}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
 export const assignTicketToMe = (ticketId: string) => apiFetch<{ ticket: SupportTicket }>(`/platform/support/tickets/${ticketId}/assign-to-me`, { method: 'PATCH' });
 
