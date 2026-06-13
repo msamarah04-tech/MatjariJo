@@ -955,6 +955,28 @@ function HomePage({ store, products, discounts, addToCart }: { store: Store; pro
           </div>
         )}
 
+        {/* Category pills — editorial / boutique / lookbook always; market only when heroSlides
+            replace MarketHero (which normally owns the pills) */}
+        {(templateId !== 'market' || heroSlides.length > 0) && collections.length > 1 && (
+          <div className="mb-5 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {collections.map((col) => (
+              <button
+                key={col}
+                type="button"
+                onClick={() => setCollection(collection === col ? 'All' : col)}
+                className={cn(
+                  'shrink-0 rounded-full px-4 py-2 text-xs font-bold transition-all active:scale-95',
+                  collection === col
+                    ? 'bg-[var(--c-text)] text-[var(--c-bg)] shadow-sm'
+                    : 'bg-[var(--c-surface)] border border-[var(--c-line)]/40 hover:border-[var(--c-text)]/40',
+                )}
+              >
+                {col}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Filter toolbar — clean, no card wrapper */}
         <div className="mb-8">
           <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
@@ -970,19 +992,6 @@ function HomePage({ store, products, discounts, addToCart }: { store: Store; pro
               </label>
             )}
             <div className="flex flex-wrap items-center gap-2 shrink-0">
-              <label className="relative">
-                <select
-                  value={collection}
-                  onChange={(e) => setCollection(e.target.value)}
-                  className={cn(
-                    'h-10 appearance-none rounded-full border border-[var(--c-line)]/50 bg-[var(--c-surface)] ps-4 pe-8 text-xs font-black uppercase tracking-[0.1em] transition-all focus:border-[var(--c-text)]/40 outline-none',
-                    collection !== 'All' && 'border-[var(--c-text)]/60 bg-[var(--c-text)] text-[var(--c-bg)]',
-                  )}
-                >
-                  {collections.map((item) => <option key={item} value={item}>{item}</option>)}
-                </select>
-                <ChevronDown className="pointer-events-none absolute end-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 opacity-40" />
-              </label>
               <label className="relative">
                 <select
                   value={sort}
@@ -1437,11 +1446,11 @@ function MarketHero({ store, theme, query, setQuery, collections, collection, se
 
         {collections.length > 1 && (
           <div className="mt-4 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {collections.slice(0, 12).map((col) => (
+            {collections.map((col) => (
               <button
                 key={col}
                 type="button"
-                onClick={() => setCollection(col)}
+                onClick={() => setCollection(collection === col ? 'All' : col)}
                 className={cn(
                   'shrink-0 rounded-full px-4 py-2 text-xs font-bold transition-all active:scale-95',
                   collection === col
