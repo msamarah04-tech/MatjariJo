@@ -120,6 +120,8 @@ platformRouter.post('/platform/shop-requests/:id/approve', asyncRoute(async (req
       request: serializeShopRequest(request),
       store: store ? serializeStorePlatformView(store) : undefined,
       owner: owner ? serializeUser(owner) : undefined,
+      credentials: owner ? { username: owner.username, email: owner.email } : undefined,
+      selfService: true,
       idempotent: true,
     });
     return;
@@ -130,10 +132,10 @@ platformRouter.post('/platform/shop-requests/:id/approve', asyncRoute(async (req
     const owner = await tx.user.update({ where: { id: request.userId! }, data: { ownerStatus: 'ACTIVE' } });
     const existing = await tx.store.findUnique({ where: { id: request.storeId! } });
     if (!existing) throw notFound('Linked store not found.');
-    const base = existing.planPaidUntil && existing.planPaidUntil > now ? existing.planPaidUntil : now;
+    // Only unlock the store — planStatus/planPaidUntil stay as TRIAL set at creation time.
     const store = await tx.store.update({
       where: { id: existing.id },
-      data: { paymentConfirmed: true, planStatus: 'ACTIVE', planPaidUntil: addOneMonth(base) },
+      data: { paymentConfirmed: true },
     });
     const updatedRequest = await tx.shopRequest.update({
       where: { id: request.id },
@@ -147,6 +149,8 @@ platformRouter.post('/platform/shop-requests/:id/approve', asyncRoute(async (req
     request: serializeShopRequest(result.request),
     store: serializeStorePlatformView(result.store),
     owner: serializeUser(result.owner),
+    credentials: { username: result.owner.username, email: result.owner.email },
+    selfService: true,
   });
 }));
 

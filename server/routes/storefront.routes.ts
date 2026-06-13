@@ -182,6 +182,11 @@ storefrontRouter.post('/public/stores/:slug/orders', publicWriteRateLimiter, asy
       });
       if (existing) return res.status(200).json({ order: serializeOrder(existing), idempotent: true });
     }
+    // Serializable transaction conflict under concurrent load — surface as 409 so
+    // clients/tests can distinguish it from an unexpected server error (500).
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {
+      throw conflict('Could not place order due to high demand — please try again.');
+    }
     throw error;
   }
 }));
