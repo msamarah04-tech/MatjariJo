@@ -191,8 +191,12 @@ authRouter.post('/auth/reset-password', asyncRoute(async (req, res) => {
 // Forced first-login rotation and ordinary password changes. Bumps tokenVersion to
 // revoke other sessions, then re-issues tokens so the current session stays signed in.
 authRouter.post('/auth/change-password', authenticate, asyncRoute(async (req, res) => {
-  const input = changePasswordSchema.parse(req.body);
   const user = req.user!;
+  // The platform owner must use the email reset flow only — the dashboard change
+  // password form is blocked so an admin account compromise cannot be used to lock
+  // the owner out permanently.
+  if (user.role === 'PLATFORM_OWNER') throw forbidden('Use the password reset email instead.');
+  const input = changePasswordSchema.parse(req.body);
   if (!(await bcrypt.compare(input.currentPassword, user.passwordHash))) {
     throw badRequest('Current password is incorrect.');
   }

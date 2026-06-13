@@ -7,7 +7,7 @@ import jwt from 'jsonwebtoken';
 import { env } from '../env.js';
 import { openSseStream, broadcastTicketUpdate } from '../sse.js';
 import { audit, auditSecurity, getSettings } from '../audit.js';
-import { badRequest, notFound } from '../errors.js';
+import { badRequest, forbidden, notFound } from '../errors.js';
 import { parseRange, platformInsights } from '../analytics.js';
 import { asyncRoute } from '../http.js';
 import {
@@ -238,19 +238,25 @@ platformRouter.patch('/platform/stores/:storeId/owner-status', asyncRoute(async 
   const input = ownerStatusSchema.parse(req.body);
   const store = await prisma.store.findUnique({ where: { id: req.params.storeId } });
   if (!store) throw notFound('Store not found.');
+  // Protect the platform owner account from being restricted/banned by any UI action.
+  const owner = await prisma.user.findUnique({ where: { id: store.ownerId } });
+  if (!owner) throw notFound('Owner not found.');
+  if (owner.role === 'PLATFORM_OWNER') throw forbidden('This account is protected and cannot be changed.');
   // Banning or restricting an owner revokes their active sessions immediately.
   const revoke = input.ownerStatus !== 'ACTIVE';
-  const owner = await prisma.user.update({
+  const updated = await prisma.user.update({
     where: { id: store.ownerId },
     data: { ownerStatus: input.ownerStatus, ...(revoke ? { tokenVersion: { increment: 1 } } : {}) },
   });
   await auditSecurity(req.user!, `Set owner status to ${input.ownerStatus}`, owner.email, { targetType: 'User', targetId: owner.id, ip: req.ip });
-  res.json({ owner: serializeUser(owner) });
+  res.json({ owner: serializeUser(updated) });
 }));
 
 platformRouter.post('/platform/stores/:storeId/reset-owner-password', asyncRoute(async (req, res) => {
   const store = await prisma.store.findUnique({ where: { id: req.params.storeId }, include: { owner: true } });
   if (!store) throw notFound('Store not found.');
+  // Protect the platform owner account from being reset by any UI action.
+  if (store.owner.role === 'PLATFORM_OWNER') throw forbidden('This account is protected and cannot be reset.');
   const password = shopPassword(store.slug);
   const passwordHash = await bcrypt.hash(password, 12);
   // Reset forces a first-login change and revokes the owner's existing sessions

@@ -157,7 +157,7 @@ export default function Settings() {
         </form>
 
         <div className="space-y-6">
-          <PasswordSection />
+          <PlatformOwnerPasswordBlock />
           <MessagesLinkSection />
           <DataExportSection storeId={storeId} slug={store.slug} />
         </div>
@@ -201,6 +201,30 @@ function PlanSection({ store, supportEmail }: { store: Store; supportEmail?: str
       </p>
     </Section>
   );
+}
+
+function PlatformOwnerPasswordBlock() {
+  const currentUser = useStore((s) => s.currentUser);
+  const isPlatformOwner = currentUser?.role === 'PLATFORM_OWNER';
+
+  if (isPlatformOwner) {
+    return (
+      <Section title="Password" icon={KeyRound}>
+        <div className="space-y-3">
+          <p className="text-sm font-semibold text-muted">
+            This account is protected. Password changes are only allowed through the email reset link.
+          </p>
+          <Link to="/forgot-password">
+            <Button type="button" variant="ghost" className="w-full border border-line">
+              Send reset link
+            </Button>
+          </Link>
+        </div>
+      </Section>
+    );
+  }
+
+  return <PasswordSection />;
 }
 
 function PasswordSection() {
