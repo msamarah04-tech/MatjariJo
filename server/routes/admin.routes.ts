@@ -1,7 +1,10 @@
 import { Router } from 'express';
 import { Prisma } from '@prisma/client';
+import jwt from 'jsonwebtoken';
 import { prisma } from '../db.js';
+import { env } from '../env.js';
 import { authenticate, blockIfMustChangePassword, requireStoreAccess } from '../auth.js';
+import { openSseStream, broadcastTicketUpdate } from '../sse.js';
 import { auditSecurity } from '../audit.js';
 import { conflict, forbidden, notFound } from '../errors.js';
 import { PLAN_DEFS } from '../../shared/plans.js';
@@ -38,6 +41,28 @@ import {
 import { normalizeProductDetails } from '../../shared/productCategorySchemas.js';
 
 export const adminRouter = Router();
+
+// SSE stream for real-time ticket notifications (store owner).
+// Registered BEFORE the authenticate middleware because native EventSource cannot
+// send custom Authorization headers; the token is validated in the handler instead.
+adminRouter.get('/admin/stores/:storeId/events', asyncRoute(async (req, res) => {
+  const rawToken = typeof req.query.token === 'string' ? req.query.token : undefined;
+  if (!rawToken) { res.status(401).json({ error: { message: 'Missing token.' } }); return; }
+  try {
+    const payload = jwt.verify(rawToken, env.JWT_SECRET) as { sub: string; tv: number; type: string };
+    if (payload.type !== 'access') throw new Error('Wrong token type.');
+    const user = await prisma.user.findUnique({ where: { id: payload.sub } });
+    if (!user || user.tokenVersion !== payload.tv) { res.status(401).json({ error: { message: 'Invalid token.' } }); return; }
+    const storeId = req.params.storeId;
+    const store = await prisma.store.findUnique({ where: { id: storeId } });
+    if (!store || (user.role !== 'PLATFORM_OWNER' && store.ownerId !== user.id)) {
+      res.status(403).json({ error: { message: 'Forbidden.' } }); return;
+    }
+    openSseStream(req, res, 'SHOP_OWNER', storeId);
+  } catch {
+    res.status(401).json({ error: { message: 'Invalid token.' } }); return;
+  }
+}));
 
 // Authenticated + password-rotated. Per-route requireStoreAccess enforces isolation.
 adminRouter.use('/admin', authenticate, blockIfMustChangePassword);
@@ -337,7 +362,9 @@ adminRouter.post('/admin/stores/:storeId/support/tickets', requireStoreAccess, a
     { subject: ticket.subject, message: ticket.message, category: ticket.category, ownerName: req.user!.name },
     store?.name ?? req.params.storeId,
   );
-  res.status(201).json({ ticket: serializeSupportTicket(ticket) });
+  const serialized = serializeSupportTicket(ticket);
+  broadcastTicketUpdate(ticket, { ticket: serialized });
+  res.status(201).json({ ticket: serialized });
 }));
 
 adminRouter.get('/admin/stores/:storeId/support/tickets/:ticketId', requireStoreAccess, asyncRoute(async (req, res) => {
@@ -357,7 +384,9 @@ adminRouter.post('/admin/stores/:storeId/support/tickets/:ticketId/reply', requi
     data: { messages: { create: { from: 'OWNER', body: input.body, authorId: req.user!.id } } },
     include: { messages: { orderBy: { createdAt: 'asc' } } },
   });
-  res.json({ ticket: serializeSupportTicket(ticket) });
+  const serialized = serializeSupportTicket(ticket);
+  broadcastTicketUpdate(ticket, { ticket: serialized });
+  res.json({ ticket: serialized });
 }));
 
 adminRouter.post('/admin/stores/:storeId/products/:productId/flags', requireStoreAccess, asyncRoute(async (req, res) => {

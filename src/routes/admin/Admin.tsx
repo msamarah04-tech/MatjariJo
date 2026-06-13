@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useTicketEvents } from '@/lib/useTicketEvents';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   ArrowLeft,
@@ -101,6 +102,8 @@ function AdminShell() {
 
   const { dir } = useI18n();
   const isPlatformViewer = currentUser?.role === 'PLATFORM_OWNER';
+
+  useTicketEvents({ path: `/admin/stores/${storeId}/events` });
   const userStores = useMemo(
     () => {
       const ownedStores = stores.filter((s) => s.ownerId === currentUser?.id);

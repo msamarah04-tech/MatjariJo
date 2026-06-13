@@ -24,6 +24,7 @@ import { NotificationsBell } from './NotificationsBell';
 import { PlatformBadges, usePlatformBadges } from './shared';
 import { useI18n } from '@/lib/i18n';
 import { LangToggle } from '@/components/ui/LangToggle';
+import { useTicketEvents } from '@/lib/useTicketEvents';
 
 import Overview from './Overview';
 import ShopRequests from './ShopRequests';
@@ -61,6 +62,8 @@ export default function Platform() {
   const badges = usePlatformBadges();
   const location = useLocation();
   const { dir } = useI18n();
+
+  useTicketEvents({ path: '/platform/events' });
 
   useEffect(() => setMobileOpen(false), [location.pathname]);
 

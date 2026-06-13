@@ -3,6 +3,9 @@ import bcrypt from 'bcrypt';
 import { Prisma } from '@prisma/client';
 import { prisma, withTransaction } from '../db.js';
 import { authenticate, blockIfMustChangePassword, requireRole } from '../auth.js';
+import jwt from 'jsonwebtoken';
+import { env } from '../env.js';
+import { openSseStream, broadcastTicketUpdate } from '../sse.js';
 import { audit, auditSecurity, getSettings } from '../audit.js';
 import { badRequest, notFound } from '../errors.js';
 import { parseRange, platformInsights } from '../analytics.js';
@@ -41,6 +44,25 @@ import {
 } from '../serializers.js';
 
 export const platformRouter = Router();
+
+// SSE stream for real-time ticket notifications (platform owner).
+// Registered BEFORE the authenticate middleware because native EventSource cannot
+// send custom Authorization headers; the token is validated in the handler instead.
+platformRouter.get('/platform/events', asyncRoute(async (req, res) => {
+  const rawToken = typeof req.query.token === 'string' ? req.query.token : undefined;
+  if (!rawToken) { res.status(401).json({ error: { message: 'Missing token.' } }); return; }
+  try {
+    const payload = jwt.verify(rawToken, env.JWT_SECRET) as { sub: string; tv: number; type: string };
+    if (payload.type !== 'access') throw new Error('Wrong token type.');
+    const user = await prisma.user.findUnique({ where: { id: payload.sub } });
+    if (!user || user.tokenVersion !== payload.tv || user.role !== 'PLATFORM_OWNER') {
+      res.status(403).json({ error: { message: 'Forbidden.' } }); return;
+    }
+  } catch {
+    res.status(401).json({ error: { message: 'Invalid token.' } }); return;
+  }
+  openSseStream(req, res, 'PLATFORM_OWNER');
+}));
 
 // Every /platform route requires an authenticated, password-rotated platform owner.
 platformRouter.use('/platform', authenticate, blockIfMustChangePassword, requireRole('PLATFORM_OWNER'));
@@ -350,7 +372,9 @@ platformRouter.post('/platform/support/tickets/:ticketId/reply', asyncRoute(asyn
     include: { messages: { orderBy: { createdAt: 'asc' } } },
   });
   await audit(req.user!, 'Replied to support ticket', ticket.subject, { targetType: 'SupportTicket', targetId: ticket.id });
-  res.json({ ticket: serializeSupportTicket(ticket) });
+  const serialized = serializeSupportTicket(ticket);
+  broadcastTicketUpdate(ticket, { ticket: serialized });
+  res.json({ ticket: serialized });
 }));
 
 platformRouter.patch('/platform/support/tickets/:ticketId/status', asyncRoute(async (req, res) => {
@@ -468,6 +492,13 @@ platformRouter.post('/platform/stores/:storeId/message', asyncRoute(async (req, 
     targetType: 'Store',
     targetId: store.id,
     detail: input.subject,
+  });
+  // Notify connected store owner SSE clients about the direct message.
+  broadcastTicketUpdate({ id: req.params.storeId, storeId: req.params.storeId }, {
+    type: 'direct_message',
+    storeId: req.params.storeId,
+    subject: input.subject,
+    body: input.body,
   });
   res.json({ ok: true });
 }));

@@ -287,6 +287,8 @@ interface AppState {
   replyToTicket: (id: string, body: string) => void;
   setTicketStatus: (id: string, status: TicketStatus) => void;
   assignTicket: (id: string, assignee: string) => void;
+  /** Upsert a ticket received from an SSE event — add or replace without a full bootstrap. */
+  applyTicketUpdate: (ticket: SupportTicket) => void;
 
   // notifications
   markNotificationsSeen: () => void;
@@ -1032,6 +1034,18 @@ export const useStore = create<AppState>()(
             ts: Date.now(),
           }), ...state.auditLogs].slice(0, state.platformSettings.auditCap),
         }));
+      },
+
+      applyTicketUpdate: (ticket) => {
+        const normalized = normalizeSupportTicket(ticket);
+        set((state) => {
+          const exists = state.supportTickets.some((t) => t.id === normalized.id);
+          return {
+            supportTickets: exists
+              ? state.supportTickets.map((t) => (t.id === normalized.id ? normalized : t))
+              : [normalized, ...state.supportTickets],
+          };
+        });
       },
 
       setTicketStatus: (id, status) => {
