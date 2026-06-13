@@ -268,6 +268,10 @@ function isOnSale(product: Product) {
   return Boolean(product.compareAtCents && product.compareAtCents > product.priceCents);
 }
 
+function isNewArrival(product: Product) {
+  return Date.now() / 1000 - product.createdAt < 14 * 24 * 3600;
+}
+
 function salePercent(product: Product) {
   if (!isOnSale(product)) return 0;
   return Math.round((1 - product.priceCents / product.compareAtCents!) * 100);
@@ -951,48 +955,51 @@ function HomePage({ store, products, discounts, addToCart }: { store: Store; pro
           </div>
         )}
 
-        {/* Filter toolbar */}
+        {/* Filter toolbar — clean, no card wrapper */}
         <div className="mb-8">
           <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
             {templateId !== 'market' && (
               <label className="relative flex-1">
-                <Search className="pointer-events-none absolute start-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 opacity-30" />
+                <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 opacity-30" />
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder={c.search}
-                  className="h-11 w-full rounded-xl border border-[var(--c-line)]/40 bg-[var(--c-surface)] ps-9 pe-4 text-sm font-medium transition-all focus:border-[var(--c-primary)]/50 focus:ring-1 focus:ring-[var(--c-primary)]/20 outline-none placeholder:opacity-30"
+                  className="h-10 w-full rounded-full border border-[var(--c-line)]/50 bg-[var(--c-surface)] ps-9 pe-4 text-sm font-medium transition-all focus:border-[var(--c-text)]/40 focus:ring-2 focus:ring-[var(--c-text)]/10 outline-none"
                 />
               </label>
             )}
-            <label className={cn('relative', templateId === 'market' && 'flex-1')}>
-              <select
-                value={collection}
-                onChange={(e) => setCollection(e.target.value)}
-                className="h-11 w-full appearance-none rounded-xl border border-[var(--c-line)]/40 bg-[var(--c-surface)] ps-3.5 pe-9 text-sm font-medium transition-all focus:border-[var(--c-primary)]/50 focus:ring-1 focus:ring-[var(--c-primary)]/20 outline-none sm:min-w-[10rem]"
-              >
-                {collections.map((item) => <option key={item} value={item}>{item}</option>)}
-              </select>
-              <ChevronDown className="pointer-events-none absolute end-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 opacity-30" />
-            </label>
-            <label className={cn('relative', templateId === 'market' && 'flex-1')}>
-              <select
-                value={sort}
-                onChange={(e) => setSort(e.target.value as SortMode)}
-                className="h-11 w-full appearance-none rounded-xl border border-[var(--c-line)]/40 bg-[var(--c-surface)] ps-3.5 pe-9 text-sm font-medium transition-all focus:border-[var(--c-primary)]/50 focus:ring-1 focus:ring-[var(--c-primary)]/20 outline-none sm:min-w-[10rem]"
-              >
-                <option value="newest">{c.newest}</option>
-                <option value="price-asc">{c.priceLow}</option>
-                <option value="price-desc">{c.priceHigh}</option>
-                <option value="name">{c.name}</option>
-              </select>
-              <SlidersHorizontal className="pointer-events-none absolute end-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 opacity-30" />
-            </label>
-          </div>
-          <div className="mt-2.5 flex flex-wrap items-center gap-2">
-            <FilterChip active={inStockOnly} onClick={() => setInStockOnly((v) => !v)} label={c.inStock} />
-            <FilterChip active={onSaleOnly} onClick={() => setOnSaleOnly((v) => !v)} label={c.onSale} />
-            {templateId === 'market' && <span className="ms-auto text-xs font-bold opacity-40">{filtered.length} {c.products}</span>}
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <label className="relative">
+                <select
+                  value={collection}
+                  onChange={(e) => setCollection(e.target.value)}
+                  className={cn(
+                    'h-10 appearance-none rounded-full border border-[var(--c-line)]/50 bg-[var(--c-surface)] ps-4 pe-8 text-xs font-black uppercase tracking-[0.1em] transition-all focus:border-[var(--c-text)]/40 outline-none',
+                    collection !== 'All' && 'border-[var(--c-text)]/60 bg-[var(--c-text)] text-[var(--c-bg)]',
+                  )}
+                >
+                  {collections.map((item) => <option key={item} value={item}>{item}</option>)}
+                </select>
+                <ChevronDown className="pointer-events-none absolute end-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 opacity-40" />
+              </label>
+              <label className="relative">
+                <select
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value as SortMode)}
+                  className="h-10 appearance-none rounded-full border border-[var(--c-line)]/50 bg-[var(--c-surface)] ps-4 pe-8 text-xs font-black uppercase tracking-[0.1em] transition-all focus:border-[var(--c-text)]/40 outline-none"
+                >
+                  <option value="newest">{c.newest}</option>
+                  <option value="price-asc">{c.priceLow}</option>
+                  <option value="price-desc">{c.priceHigh}</option>
+                  <option value="name">{c.name}</option>
+                </select>
+                <ChevronDown className="pointer-events-none absolute end-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 opacity-40" />
+              </label>
+              <FilterChip active={inStockOnly} onClick={() => setInStockOnly((v) => !v)} label={c.inStock} />
+              <FilterChip active={onSaleOnly} onClick={() => setOnSaleOnly((v) => !v)} label={c.onSale} />
+              {templateId === 'market' && <span className="ms-auto text-xs font-bold opacity-40">{filtered.length} {c.products}</span>}
+            </div>
           </div>
         </div>
 
@@ -1291,40 +1298,55 @@ function EditorialHero({ store, theme, featuredProduct, collections }: { store: 
   const categories = collections.filter((item) => item !== 'All');
   return (
     <section className="relative overflow-hidden bg-[var(--c-surface)] border-b border-[var(--c-line)]/20">
-      <div aria-hidden className="pointer-events-none absolute -top-32 -end-32 h-96 w-96 rounded-full bg-[var(--c-primary)] opacity-[0.07] blur-3xl" />
-      <div aria-hidden className="pointer-events-none absolute -bottom-40 -start-24 h-80 w-80 rounded-full bg-[var(--c-accent)] opacity-[0.07] blur-3xl" />
-      <div className="relative mx-auto grid max-w-7xl items-center gap-10 px-4 py-14 sm:px-6 sm:py-20 lg:min-h-[72vh] lg:grid-cols-[1.1fr_0.9fr] lg:gap-16 lg:px-8">
+      {/* Dramatic background layers */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[var(--c-soft)] via-transparent to-[var(--c-accent)]/5" />
+      <div aria-hidden className="pointer-events-none absolute -top-48 -end-24 h-[36rem] w-[36rem] rounded-full bg-[var(--c-primary)] opacity-[0.09] blur-3xl" />
+      <div aria-hidden className="pointer-events-none absolute -bottom-48 -start-32 h-[32rem] w-[32rem] rounded-full bg-[var(--c-accent)] opacity-[0.09] blur-3xl" />
+      {/* Large watermark text for depth */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-end overflow-hidden pe-8 opacity-[0.025]">
+        <span className="text-[20vw] font-black uppercase tracking-tighter leading-none select-none" style={{ fontFamily: theme.hero }}>
+          {(store.tagline || store.name).split(' ')[0]}
+        </span>
+      </div>
+
+      <div className="relative mx-auto grid max-w-7xl items-center gap-10 px-4 py-16 sm:px-6 sm:py-24 lg:min-h-[76vh] lg:grid-cols-[1.15fr_0.85fr] lg:gap-20 lg:px-8">
         <Reveal className="z-10 flex flex-col justify-center">
-          <span className="mb-6 inline-flex w-fit items-center gap-2 rounded-full bg-[var(--c-bg)] px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.2em] border border-[var(--c-line)]/40">
+          <span className="mb-7 inline-flex w-fit items-center gap-2 rounded-full bg-[var(--c-bg)]/80 px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.22em] border border-[var(--c-line)]/50 backdrop-blur-sm shadow-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-[var(--c-primary)]" />
             {store.category}
           </span>
-          <h1 className="text-[2.75rem] font-black leading-[1.02] tracking-tighter sm:text-6xl lg:text-7xl xl:text-[5.25rem]" style={{ fontFamily: theme.hero }}>
+          <h1 className="text-[3rem] font-black leading-[1.0] tracking-tighter sm:text-[4.5rem] lg:text-[5.5rem] xl:text-[6.5rem]" style={{ fontFamily: theme.hero }}>
             {store.tagline || store.name}
           </h1>
+          {store.about && (
+            <p className="mt-6 max-w-sm text-base font-medium leading-relaxed opacity-50 line-clamp-2">
+              {store.about.split('\n')[0].slice(0, 120)}
+            </p>
+          )}
           <div className="mt-10 flex flex-wrap items-center gap-3">
-            <button type="button" onClick={scrollToProducts} className={cn(getCtaClass(buttonStyleOf(store)), 'w-auto px-8 h-12')}>
+            <button type="button" onClick={scrollToProducts} className={cn(getCtaClass(buttonStyleOf(store)), 'w-auto px-9 h-13')}>
               {c.shopNow} <ArrowRight className="h-4 w-4 rtl:rotate-180" />
             </button>
             {store.about && (
-              <Link to={`/s/${store.slug}/about`} className="inline-flex h-12 items-center gap-2 px-6 text-[11px] font-black uppercase tracking-[0.12em] opacity-50 hover:opacity-100 transition-opacity">
+              <Link to={`/s/${store.slug}/about`} className="inline-flex h-13 items-center gap-2 px-6 text-[11px] font-black uppercase tracking-[0.12em] opacity-50 hover:opacity-100 transition-opacity">
                 {c.about}
               </Link>
             )}
           </div>
-          <HeroTrustChips className="mt-9 opacity-60" />
+          <HeroTrustChips className="mt-10 opacity-55" />
         </Reveal>
-        <Reveal delay={0.12} className="relative lg:justify-self-end lg:w-full lg:max-w-md">
+        <Reveal delay={0.14} className="relative z-10 lg:justify-self-end lg:w-full lg:max-w-[26rem]">
           <HeroFeaturedCard store={store} product={featuredProduct} />
         </Reveal>
       </div>
+
       {categories.length > 1 && (
-        <div className="relative border-t border-[var(--c-line)]/20 bg-[var(--c-bg)]/60">
-          <div className="mx-auto flex max-w-7xl gap-8 overflow-x-auto px-4 py-3.5 sm:px-6 lg:px-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="relative border-t border-[var(--c-line)]/15 bg-[var(--c-primary)]/5 backdrop-blur-sm">
+          <div className="mx-auto flex max-w-7xl gap-10 overflow-x-auto px-4 py-4 sm:px-6 lg:px-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {categories.slice(0, 12).map((item) => (
-              <span key={item} className="flex shrink-0 items-center gap-8 text-[11px] font-black uppercase tracking-[0.2em] opacity-35">
+              <span key={item} className="flex shrink-0 items-center gap-10 text-[10px] font-black uppercase tracking-[0.22em] opacity-40 hover:opacity-70 transition-opacity cursor-default">
                 {item}
-                <span aria-hidden className="text-[var(--c-primary)] opacity-80">✦</span>
+                <span aria-hidden className="text-[var(--c-primary)]">✦</span>
               </span>
             ))}
           </div>
@@ -1525,7 +1547,7 @@ function ProductDetail({ store, products, addToCart }: { store: Store; products:
 
   if (!product) return (
     <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-      <EmptyState title="Product not found" body="" action={<Link className={cn(getCtaClass(buttonStyleOf(store)), 'w-auto px-6')} to={`/s/${store.slug}`}>{c.backToShop}</Link>} />
+      <EmptyState title={c.productNotFound} body="" action={<Link className={cn(getCtaClass(buttonStyleOf(store)), 'w-auto px-6')} to={`/s/${store.slug}`}>{c.backToShop}</Link>} />
     </div>
   );
 
@@ -2260,107 +2282,109 @@ function ProductCard({ product, store, addToCart, templateId, featured = false }
   const priceRange = productPriceRange(product);
   const swatches = colorValues(product);
   const sale = isOnSale(product);
-  const btnStyle = buttonStyleOf(store);
+  const isNew = isNewArrival(product);
   const isCompact = templateId === 'market';
-  const isBoutique = templateId === 'boutique';
-  const isFrameless = !isCompact; // editorial, boutique, lookbook all go frameless
   const images = productImages(product);
   const hoverImage = images[1]?.url;
-  const isNew = !sale && !soldOut && Date.now() - product.createdAt < 14 * 24 * 60 * 60 * 1000;
 
   return (
-    <article className={cn(
-      'group flex flex-col transition-all duration-300',
-      isFrameless
-        ? 'bg-transparent'
-        : 'bg-[var(--c-surface)] border border-[var(--c-line)]/30 rounded-xl overflow-hidden hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[var(--c-text)]/8 hover:border-[var(--c-line)]/60',
-    )}>
+    <article className="group flex flex-col">
       {/* Image */}
-      <Link
-        to={`/s/${store.slug}/p/${product.id}`}
-        className={cn(
-          'relative block overflow-hidden',
-          isFrameless
-            ? cn('rounded-2xl ring-1 ring-[var(--c-line)]/20 group-hover:ring-[var(--c-primary)]/30 transition-all duration-300', isBoutique ? '' : 'shadow-sm group-hover:shadow-md')
-            : '',
-        )}
-      >
+      <Link to={`/s/${store.slug}/p/${product.id}`} className="relative block overflow-hidden rounded-2xl">
         <div className={cn(
           'relative overflow-hidden bg-[var(--c-soft)]',
           featured ? 'aspect-[16/9]' :
           isCompact ? 'aspect-square' :
-          isBoutique ? 'aspect-[3/4]' :
+          templateId === 'boutique' ? 'aspect-[3/4]' :
           'aspect-[4/5]',
         )}>
-          {productPrimaryImage(product)
-            ? (
-              <>
-                <img src={productPrimaryImage(product)!} alt={product.name} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]" />
-                {hoverImage && (
-                  <img src={hoverImage} alt="" aria-hidden loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
-                )}
-              </>
-            )
-            : <div className="h-full w-full flex items-center justify-center transition-transform duration-700 group-hover:scale-[1.04]">
-                <span className="text-4xl opacity-40">{product.imageEmoji || '📦'}</span>
-              </div>
-          }
+          {productPrimaryImage(product) ? (
+            <>
+              <img src={productPrimaryImage(product)!} alt={product.name} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]" />
+              {hoverImage && (
+                <img src={hoverImage} alt="" aria-hidden loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+              )}
+            </>
+          ) : (
+            <div className="h-full w-full flex items-center justify-center">
+              <span className="text-4xl opacity-25">{product.imageEmoji || '📦'}</span>
+            </div>
+          )}
         </div>
         {/* Sold-out overlay */}
         {soldOut && (
-          <div className="absolute inset-0 bg-[var(--c-bg)]/70 backdrop-blur-[1px] flex items-center justify-center">
+          <div className="absolute inset-0 bg-[var(--c-bg)]/65 flex items-center justify-center">
             <span className="rounded-full bg-[var(--c-text)] px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-[var(--c-bg)]">{c.soldOut}</span>
           </div>
         )}
-        {/* Badges */}
-        {sale && !soldOut && (
-          <span className="absolute start-3 top-3 rounded-full bg-red-500 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-white shadow-sm">
-            -{salePercent(product)}%
-          </span>
+        {/* Badges — stacked column */}
+        {!soldOut && (sale || isNew) && (
+          <div className="absolute start-2.5 top-2.5 flex flex-col gap-1.5">
+            {sale && (
+              <span className="rounded-full bg-red-600 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-white shadow-sm">
+                -{salePercent(product)}%
+              </span>
+            )}
+            {isNew && (
+              <span className="rounded-full bg-[var(--c-primary)] px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-white shadow-sm">
+                {c.newArrival}
+              </span>
+            )}
+          </div>
         )}
-        {isNew && (
-          <span className="absolute start-3 top-3 rounded-full bg-[var(--c-primary)] px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-[var(--c-bg)] shadow-sm">
-            {c.newArrival}
-          </span>
-        )}
-        {/* Desktop hover quick-add (simple products only — variants need the detail page) */}
+        {/* Desktop hover quick-add (simple products only) */}
         {!soldOut && !variable && (
           <button
             type="button"
             aria-label={`${c.quickAdd}: ${product.name}`}
             onClick={(event) => { event.preventDefault(); addToCart(product.id); }}
-            className="absolute bottom-3 end-3 hidden h-10 w-10 items-center justify-center rounded-full bg-[var(--c-text)] text-[var(--c-bg)] shadow-lg transition-all duration-300 sm:flex sm:translate-y-2 sm:opacity-0 sm:group-hover:translate-y-0 sm:group-hover:opacity-100 focus-visible:translate-y-0 focus-visible:opacity-100 hover:scale-105 active:scale-95"
+            className="absolute bottom-2.5 end-2.5 hidden h-9 w-9 items-center justify-center rounded-full bg-[var(--c-text)] text-[var(--c-bg)] shadow-md transition-all duration-300 sm:flex sm:translate-y-2 sm:opacity-0 sm:group-hover:translate-y-0 sm:group-hover:opacity-100 focus-visible:translate-y-0 focus-visible:opacity-100 hover:scale-110 active:scale-95"
           >
             <Plus className="h-4 w-4" />
           </button>
         )}
       </Link>
 
-      {/* Info */}
-      <div className={cn(
-        'flex flex-col flex-1',
-        isCompact ? 'p-2.5' : isBoutique ? 'px-1 pt-3 pb-1' : 'pt-3 pb-1',
-      )}>
-        <p className={cn(
-          'text-[9px] sm:text-[10px] font-black uppercase tracking-[0.16em] truncate',
-          isCompact ? 'opacity-35' : 'text-[var(--c-primary)] opacity-70',
-        )}>{productCategory(product, store)}</p>
+      {/* Info — frameless */}
+      <div className={cn('pt-3', isCompact && 'pt-2')}>
+        <p className="text-[9px] font-black uppercase tracking-[0.16em] opacity-35 truncate">{productCategory(product, store)}</p>
         <Link
           to={`/s/${store.slug}/p/${product.id}`}
-          className={cn('mt-0.5 font-black leading-snug hover:opacity-60 transition-opacity', isCompact ? 'text-xs line-clamp-2' : 'text-sm sm:text-[15px] line-clamp-2')}
+          className={cn('mt-0.5 block font-black leading-snug hover:opacity-60 transition-opacity', isCompact ? 'text-xs line-clamp-2' : 'text-sm line-clamp-2')}
         >
           {product.name}
         </Link>
-        <div className={cn('mt-1.5 flex items-baseline gap-2', isCompact ? 'text-xs font-bold' : 'text-sm font-black')}>
-          {priceRange.min !== priceRange.max
-            ? <span>{c.from} {money(priceRange.min, store.currency)}</span>
-            : <>
-                <span>{money(priceRange.min, store.currency)}</span>
+        <div className="mt-1.5 flex items-center justify-between gap-2">
+          <div className={cn('flex items-baseline gap-1.5', isCompact ? 'text-xs' : 'text-sm')}>
+            {priceRange.min !== priceRange.max ? (
+              <span className="font-bold">{c.from} {money(priceRange.min, store.currency)}</span>
+            ) : (
+              <>
+                <span className="font-black">{money(priceRange.min, store.currency)}</span>
                 {product.compareAtCents && product.compareAtCents > product.priceCents && (
                   <span className="text-xs line-through opacity-35 font-medium">{money(product.compareAtCents, store.currency)}</span>
                 )}
               </>
-          }
+            )}
+          </div>
+          {/* Inline CTA */}
+          {variable ? (
+            <Link
+              to={`/s/${store.slug}/p/${product.id}`}
+              className="shrink-0 flex items-center gap-0.5 text-[10px] font-black uppercase tracking-[0.1em] opacity-45 hover:opacity-100 transition-opacity"
+            >
+              {c.chooseOptions} <ArrowRight className="h-2.5 w-2.5 rtl:rotate-180" />
+            </Link>
+          ) : !soldOut ? (
+            <button
+              type="button"
+              onClick={() => addToCart(product.id)}
+              aria-label={`${c.addToCart}: ${product.name}`}
+              className="shrink-0 flex h-7 w-7 items-center justify-center rounded-full bg-[var(--c-text)] text-[var(--c-bg)] transition-all hover:scale-110 active:scale-95 shadow-sm"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+          ) : null}
         </div>
         {swatches.length > 0 && (
           <div className="mt-2 flex gap-1.5">
@@ -2369,27 +2393,6 @@ function ProductCard({ product, store, addToCart, templateId, featured = false }
             ))}
             {swatches.length > 6 && <span className="text-[10px] font-bold opacity-40">+{swatches.length - 6}</span>}
           </div>
-        )}
-      </div>
-
-      {/* CTA */}
-      <div className={cn(isCompact ? 'px-2.5 pb-2.5 pt-2' : isBoutique ? 'px-1 pb-1 pt-2.5' : 'pt-3 pb-0.5')}>
-        {variable ? (
-          <Link
-            to={`/s/${store.slug}/p/${product.id}`}
-            className={cn(getCtaClass(btnStyle), isCompact ? 'h-9 text-[10px]' : isFrameless ? 'h-10 text-[11px]' : '')}
-          >
-            {c.chooseOptions}
-          </Link>
-        ) : (
-          <button
-            type="button"
-            disabled={soldOut}
-            onClick={() => !soldOut && addToCart(product.id)}
-            className={cn(getCtaClass(btnStyle), isCompact ? 'h-9 text-[10px]' : isFrameless ? 'h-10 text-[11px]' : '')}
-          >
-            {soldOut ? c.soldOut : c.addToCart}
-          </button>
         )}
       </div>
     </article>
