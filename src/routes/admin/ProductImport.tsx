@@ -54,6 +54,8 @@ type ParsedRow = {
   weight_grams: string;
   image_url: string;
   dimensions: string;
+  /** Any extra columns not in the standard template (e.g. fragranceFamily, gender). */
+  extras: Record<string, string>;
   errors: string[];
 };
 
@@ -94,6 +96,30 @@ function rowToPayload(row: ParsedRow, store: { currency: string; category: strin
   const categoryKey = matchedSchema?.key || '';
   const categoryLabel = matchedSchema ? tr(matchedSchema.label, 'en') : (row.category.trim() || store.category);
 
+  // Map any extra columns (e.g. fragranceFamily, gender) from the user's spreadsheet
+  // into category attributes. We match by option key first, then by English label
+  // (case-insensitive), and fall back to storing the raw text so nothing is lost.
+  // categoryKey is intentionally kept out of `details` — the Excel template cannot
+  // supply every required attribute, so omitting it bypasses server-side
+  // required-field validation while still preserving what the user did provide.
+  const attributes: Record<string, string> = {};
+  if (matchedSchema) {
+    for (const [rawKey, rawValue] of Object.entries(row.extras)) {
+      const field = matchedSchema.fields.find((f) => f.key.toLowerCase() === rawKey.toLowerCase());
+      if (!field) continue;
+      if (field.options && field.options.length > 0) {
+        const matched = field.options.find(
+          (o) =>
+            o.value.toLowerCase() === rawValue.toLowerCase() ||
+            tr(o.label, 'en').toLowerCase() === rawValue.toLowerCase(),
+        );
+        attributes[field.key] = matched ? matched.value : rawValue;
+      } else {
+        attributes[field.key] = rawValue;
+      }
+    }
+  }
+
   return {
     name: row.name.trim(),
     description: row.description.trim(),
@@ -108,9 +134,7 @@ function rowToPayload(row: ParsedRow, store: { currency: string; category: strin
     isActive: status === 'ACTIVE',
     isFeatured: false,
     details: {
-      // categoryKey is intentionally omitted from bulk imports — the Excel template
-      // has no columns for required category-specific attributes (e.g. fragranceFamily),
-      // so including it would trigger validation errors on every row.
+      // categoryKey is intentionally omitted — see comment above.
       status,
       sku: row.sku.trim() || undefined,
       barcode: row.barcode.trim() || undefined,
@@ -120,6 +144,7 @@ function rowToPayload(row: ParsedRow, store: { currency: string; category: strin
       weightGrams: row.weight_grams ? Math.max(0, Math.floor(Number(row.weight_grams) || 0)) : undefined,
       dimensions: row.dimensions.trim() || undefined,
       slug: row.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+      attributes: Object.keys(attributes).length > 0 ? attributes : undefined,
     },
   };
 }
@@ -237,6 +262,11 @@ async function parseExcelFile(file: File, currency: string): Promise<ParsedRow[]
     if (val) colIndex[String(val).trim().toLowerCase()] = i;
   });
 
+  // Any column header not in the standard template is treated as a category attribute
+  // (e.g. fragranceFamily, gender, concentration added by the user to the template).
+  const knownKeys = new Set(COLUMNS.map((c) => c.key));
+  const extraKeys = Object.keys(colIndex).filter((k) => !knownKeys.has(k));
+
   const rows: ParsedRow[] = [];
   ws.eachRow((row, rowNum) => {
     if (rowNum <= headerRowNum + 1) return; // skip header + hint rows
@@ -247,6 +277,12 @@ async function parseExcelFile(file: File, currency: string): Promise<ParsedRow[]
     const category = get('category');
     const price = get('price');
     if (!name && !category && !price) return; // blank row
+
+    const extras: Record<string, string> = {};
+    for (const k of extraKeys) {
+      const v = get(k);
+      if (v) extras[k] = v;
+    }
 
     const parsed: ParsedRow = {
       rowIndex: rowNum,
@@ -266,6 +302,7 @@ async function parseExcelFile(file: File, currency: string): Promise<ParsedRow[]
       weight_grams: get('weight_grams'),
       image_url: get('image_url'),
       dimensions: get('dimensions'),
+      extras,
       errors: [],
     };
     parsed.errors = validateRow(parsed, currency);
