@@ -142,8 +142,8 @@ export function getPlatformAnalytics(days: DateRangeDays, stores: Store[], order
 
 // ---------------------------------------------------------------------------
 // Enhanced platform insights — used by the redesigned platform dashboard.
-// Adds commission earnings, a cross-store conversion funnel, category and
-// revenue-vs-commission breakdowns, KPI sparklines, and an "all" date range.
+// Adds a cross-store conversion funnel, category breakdowns, KPI sparklines,
+// and an "all" date range.
 // ---------------------------------------------------------------------------
 
 export type PlatformRange = 7 | 30 | 90 | 'all';

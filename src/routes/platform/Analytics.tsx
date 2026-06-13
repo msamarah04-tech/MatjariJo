@@ -86,7 +86,7 @@ export default function Analytics() {
             </ResponsiveContainer>
           </ChartCard>
 
-          <ChartCard title="Revenue vs commission" subtitle="Store revenue against platform commission">
+          <ChartCard title="Revenue over time" subtitle="Total GMV across all stores in range">
             <ResponsiveContainer width="100%" height={280}>
               <LineChart data={insights.series}>
                 <CartesianGrid stroke="#E7E0D3" strokeDasharray="3 3" />
