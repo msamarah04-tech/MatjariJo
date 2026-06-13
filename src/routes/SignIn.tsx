@@ -2,7 +2,6 @@ import { FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { useStore } from '@/lib/store';
-import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/cn';
 import { useI18n } from '@/lib/i18n';
 import { LangToggle } from '@/components/ui/LangToggle';
@@ -36,7 +35,6 @@ const FLOAT_CARDS = [
 
 export default function SignIn() {
   const signIn = useStore((s) => s.signIn);
-  const clearSession = useStore((s) => s.clearSession);
   const apiError = useStore((s) => s.apiError);
   const navigate = useNavigate();
   const { t } = useI18n();
@@ -260,16 +258,15 @@ export default function SignIn() {
               </button>
             </form>
 
-            {/* Session reset */}
+            {/* Sign-up prompt */}
             <div className="mt-10 border-t border-ink/6 pt-6 text-center">
-              <p className="mb-3 text-xs text-ink/35">{t('clearSessionPrompt')}</p>
-              <Button
-                variant="quiet"
-                size="sm"
-                onClick={() => { clearSession(); window.location.reload(); }}
+              <p className="text-sm text-ink/40">Don't have a store yet?</p>
+              <Link
+                to="/request-website"
+                className="mt-2 inline-flex items-center gap-1.5 text-sm font-bold text-accent transition-opacity hover:opacity-70"
               >
-                {t('clearLocalSession')}
-              </Button>
+                Request your storefront <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
             </div>
           </div>
         </div>
