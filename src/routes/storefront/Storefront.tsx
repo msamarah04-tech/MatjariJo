@@ -164,6 +164,9 @@ const text = {
     sale: 'Sale',
     newArrival: 'New',
     selected: 'Selected',
+    checkoutTrustNote: 'Stock, discounts, and shipping are verified server-side before the order is confirmed.',
+    privacy: 'Privacy',
+    terms: 'Terms',
   },
   ar: {
     unavailableTitle: 'المتجر غير متاح',
@@ -242,6 +245,9 @@ const text = {
     chooseVariant: 'اختر',
     productNotFound: 'المنتج غير موجود',
     selected: 'تم اختيار',
+    checkoutTrustNote: 'يتم التحقق من المخزون والخصومات والشحن من قِبل الخادم قبل تأكيد الطلب.',
+    privacy: 'الخصوصية',
+    terms: 'الشروط',
   },
 } as const;
 
@@ -831,8 +837,8 @@ function StorefrontFrame({ store, products, discounts }: { store: Store; product
           <div className="mt-10 border-t border-[var(--c-line)]/20 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-[10px] font-bold uppercase tracking-[0.18em] opacity-35">
             <span>© {store.name}</span>
             <span className="flex items-center gap-4">
-              <a href={mainSiteUrl('/privacy')} className="hover:opacity-100 transition-opacity">Privacy</a>
-              <a href={mainSiteUrl('/terms')} className="hover:opacity-100 transition-opacity">Terms</a>
+              <a href={mainSiteUrl('/privacy')} className="hover:opacity-100 transition-opacity">{c.privacy}</a>
+              <a href={mainSiteUrl('/terms')} className="hover:opacity-100 transition-opacity">{c.terms}</a>
               <span>{c.powered}</span>
             </span>
           </div>
@@ -946,16 +952,16 @@ function HomePage({ store, products, discounts, addToCart }: { store: Store; pro
         )}
 
         {/* Filter toolbar */}
-        <div className="mb-8 rounded-2xl bg-[var(--c-surface)] p-3 shadow-sm border border-[var(--c-line)]/30">
-          <div className="flex flex-col gap-3 sm:flex-row">
+        <div className="mb-8">
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
             {templateId !== 'market' && (
               <label className="relative flex-1">
-                <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 opacity-35" />
+                <Search className="pointer-events-none absolute start-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 opacity-30" />
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder={c.search}
-                  className="h-10 w-full rounded-xl border border-[var(--c-line)]/40 bg-[var(--c-bg)] ps-9 pe-4 text-sm font-medium transition-all focus:border-[var(--c-text)]/50 focus:ring-1 focus:ring-[var(--c-text)]/30 outline-none"
+                  className="h-11 w-full rounded-xl border border-[var(--c-line)]/40 bg-[var(--c-surface)] ps-9 pe-4 text-sm font-medium transition-all focus:border-[var(--c-primary)]/50 focus:ring-1 focus:ring-[var(--c-primary)]/20 outline-none placeholder:opacity-30"
                 />
               </label>
             )}
@@ -963,27 +969,27 @@ function HomePage({ store, products, discounts, addToCart }: { store: Store; pro
               <select
                 value={collection}
                 onChange={(e) => setCollection(e.target.value)}
-                className="h-10 w-full appearance-none rounded-xl border border-[var(--c-line)]/40 bg-[var(--c-bg)] ps-3 pe-9 text-sm font-medium transition-all focus:border-[var(--c-text)]/50 focus:ring-1 focus:ring-[var(--c-text)]/30 outline-none sm:min-w-[10rem]"
+                className="h-11 w-full appearance-none rounded-xl border border-[var(--c-line)]/40 bg-[var(--c-surface)] ps-3.5 pe-9 text-sm font-medium transition-all focus:border-[var(--c-primary)]/50 focus:ring-1 focus:ring-[var(--c-primary)]/20 outline-none sm:min-w-[10rem]"
               >
                 {collections.map((item) => <option key={item} value={item}>{item}</option>)}
               </select>
-              <ChevronDown className="pointer-events-none absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 opacity-35" />
+              <ChevronDown className="pointer-events-none absolute end-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 opacity-30" />
             </label>
             <label className={cn('relative', templateId === 'market' && 'flex-1')}>
               <select
                 value={sort}
                 onChange={(e) => setSort(e.target.value as SortMode)}
-                className="h-10 w-full appearance-none rounded-xl border border-[var(--c-line)]/40 bg-[var(--c-bg)] ps-3 pe-9 text-sm font-medium transition-all focus:border-[var(--c-text)]/50 focus:ring-1 focus:ring-[var(--c-text)]/30 outline-none sm:min-w-[10rem]"
+                className="h-11 w-full appearance-none rounded-xl border border-[var(--c-line)]/40 bg-[var(--c-surface)] ps-3.5 pe-9 text-sm font-medium transition-all focus:border-[var(--c-primary)]/50 focus:ring-1 focus:ring-[var(--c-primary)]/20 outline-none sm:min-w-[10rem]"
               >
                 <option value="newest">{c.newest}</option>
                 <option value="price-asc">{c.priceLow}</option>
                 <option value="price-desc">{c.priceHigh}</option>
                 <option value="name">{c.name}</option>
               </select>
-              <SlidersHorizontal className="pointer-events-none absolute end-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 opacity-35" />
+              <SlidersHorizontal className="pointer-events-none absolute end-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 opacity-30" />
             </label>
           </div>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
+          <div className="mt-2.5 flex flex-wrap items-center gap-2">
             <FilterChip active={inStockOnly} onClick={() => setInStockOnly((v) => !v)} label={c.inStock} />
             <FilterChip active={onSaleOnly} onClick={() => setOnSaleOnly((v) => !v)} label={c.onSale} />
             {templateId === 'market' && <span className="ms-auto text-xs font-bold opacity-40">{filtered.length} {c.products}</span>}
@@ -2141,7 +2147,7 @@ function CheckoutForm({ form, store, submitCheckout, backToCart }: { form: UseFo
     <form id="cod-checkout-form" className="space-y-5" onSubmit={form.handleSubmit(submitCheckout)}>
       <div className="rounded-xl bg-[var(--c-soft)] p-4 border border-[var(--c-line)]/20">
         <p className="flex items-center gap-2.5 text-sm font-black"><ShieldCheck className="h-5 w-5 shrink-0" /> {c.cod}</p>
-        <p className="mt-1.5 text-xs font-medium leading-relaxed opacity-55">Stock, discounts, and shipping are verified server-side before the order is confirmed.</p>
+        <p className="mt-1.5 text-xs font-medium leading-relaxed opacity-55">{c.checkoutTrustNote}</p>
       </div>
       <Field form={form} name="customerName" label={c.fullName} />
       <Field form={form} name="customerPhone" label={c.phone} type="tel" placeholder="0790000000" />
