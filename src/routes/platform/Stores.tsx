@@ -352,19 +352,24 @@ function StoreDetail({
 }) {
   const { store } = row;
   const [msgOpen, setMsgOpen] = useState(false);
-  const [msgSubject, setMsgSubject] = useState('');
   const [msgBody, setMsgBody] = useState('');
   const [msgSending, setMsgSending] = useState(false);
+  const [emailMode, setEmailMode] = useState(false);
+  const [msgSubject, setMsgSubject] = useState('');
 
   const handleSendMessage = async () => {
-    if (!msgSubject.trim() || !msgBody.trim()) return;
+    if (!msgBody.trim()) return;
+    const subject = emailMode && msgSubject.trim()
+      ? msgSubject.trim()
+      : msgBody.trim().slice(0, 60) + (msgBody.trim().length > 60 ? '…' : '');
     setMsgSending(true);
     try {
-      await sendDirectMessage(store.id, { subject: msgSubject, body: msgBody });
-      toast({ title: 'Message sent', type: 'success' });
+      await sendDirectMessage(store.id, { subject, body: msgBody });
+      toast({ title: emailMode ? 'Email sent to owner' : 'Message sent', type: 'success' });
       setMsgOpen(false);
-      setMsgSubject('');
       setMsgBody('');
+      setMsgSubject('');
+      setEmailMode(false);
     } catch {
       toast({ title: 'Could not send message', type: 'error' });
     } finally {
@@ -399,21 +404,41 @@ function StoreDetail({
         </Button>
       </div>
 
-      <Modal isOpen={msgOpen} onClose={() => setMsgOpen(false)} title={`Message owner of ${store.name}`} description="This email will be sent directly to the store owner and logged in the audit trail.">
-        <div className="space-y-4">
-          <label className="block">
-            <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-muted">Subject</span>
-            <input value={msgSubject} onChange={(e) => setMsgSubject(e.target.value)} placeholder="e.g. Action required: overdue payment" className="h-10 w-full rounded-lg border border-line bg-surface px-3 text-sm font-semibold text-ink focus:outline-none focus:ring-1 focus:ring-accent" />
-          </label>
-          <label className="block">
-            <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-muted">Message</span>
-            <textarea value={msgBody} onChange={(e) => setMsgBody(e.target.value)} rows={5} placeholder="Write your message here…" className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm font-semibold text-ink focus:outline-none focus:ring-1 focus:ring-accent" />
-          </label>
-          <div className="flex gap-2">
-            <Button variant="ghost" className="flex-1 border border-line" onClick={() => setMsgOpen(false)}>Cancel</Button>
-            <Button variant="accent" className="flex-1 gap-1.5" disabled={!msgSubject.trim() || !msgBody.trim() || msgSending} onClick={handleSendMessage}>
-              {msgSending ? 'Sending…' : 'Send message'}
-            </Button>
+      <Modal isOpen={msgOpen} onClose={() => { setMsgOpen(false); setEmailMode(false); setMsgBody(''); setMsgSubject(''); }} title={`Message ${store.name}`} description="Send a direct message to the store owner. It will be logged in the audit trail.">
+        <div className="space-y-3">
+          <textarea
+            value={msgBody}
+            onChange={(e) => setMsgBody(e.target.value)}
+            rows={5}
+            placeholder="Type your message here…"
+            className="w-full resize-none rounded-xl border border-line bg-surface px-3 py-2.5 text-sm font-semibold text-ink placeholder:font-normal focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+          {emailMode && (
+            <label className="block">
+              <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-muted">Email subject</span>
+              <input
+                value={msgSubject}
+                onChange={(e) => setMsgSubject(e.target.value)}
+                placeholder="e.g. Action required: overdue payment"
+                className="h-10 w-full rounded-lg border border-line bg-surface px-3 text-sm font-semibold text-ink focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </label>
+          )}
+          <div className="flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => setEmailMode(!emailMode)}
+              className={`inline-flex items-center gap-1.5 text-xs font-bold ${emailMode ? 'text-accent' : 'text-muted hover:text-ink'}`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+              {emailMode ? 'Email mode on' : 'Send as email'}
+            </button>
+            <div className="flex gap-2">
+              <Button variant="ghost" className="border border-line" onClick={() => { setMsgOpen(false); setEmailMode(false); setMsgBody(''); setMsgSubject(''); }}>Cancel</Button>
+              <Button variant="accent" className="gap-1.5" disabled={!msgBody.trim() || msgSending} onClick={handleSendMessage}>
+                {msgSending ? 'Sending…' : emailMode ? 'Send email' : 'Send'}
+              </Button>
+            </div>
           </div>
         </div>
       </Modal>
