@@ -27,7 +27,6 @@ const normalizeStore = (store: Store): Store => ({
   isFeatured: store.isFeatured ?? false,
   welcomeDismissed: store.welcomeDismissed ?? false,
   paymentConfirmed: store.paymentConfirmed ?? true,
-  paymentReceiptNote: store.paymentReceiptNote ?? '',
   plan: store.plan ?? 'STARTER',
   planStatus: store.planStatus ?? 'TRIAL',
 });
@@ -280,10 +279,10 @@ interface AppState {
   // Subscription billing (manual): change tier / record an off-platform payment.
   setStorePlan: (id: string, plan: StorePlan) => Promise<boolean>;
   recordPlanPayment: (id: string) => Promise<boolean>;
-  /** Confirm first payment receipt — sets paymentConfirmed=true and activates the subscription. */
-  confirmStorePayment: (id: string) => Promise<boolean>;
-  /** Shop owner attaches their bank-transfer bill for the platform to review (does not activate). */
-  submitPaymentReceipt: (storeId: string, url: string, note?: string) => Promise<boolean>;
+  /** Onboarding gate: upload a payment-proof image (data URL). Returns the updated request. */
+  submitPaymentProof: (storeId: string, dataUrl: string) => Promise<ShopRequest>;
+  /** Re-fetch the owner's store(s) so paymentConfirmed flips to true once the platform approves. */
+  refreshStores: () => Promise<void>;
   toggleFeatured: (id: string) => void;
 
   // moderation
@@ -954,26 +953,16 @@ export const useStore = create<AppState>()(
         return true;
       },
 
-      confirmStorePayment: async (id) => {
-        try {
-          await platformApi.confirmStorePayment(id);
-          await get().loadBootstrap();
-          return true;
-        } catch (error) {
-          set({ apiError: error instanceof Error ? error.message : 'Could not confirm payment.' });
-          return false;
-        }
-      },
 
-      submitPaymentReceipt: async (storeId, url, note) => {
-        try {
-          const { store } = await adminApi.submitPaymentReceipt(storeId, { url, note });
-          set((state) => ({ stores: state.stores.map((s) => (s.id === storeId ? normalizeStore(store) : s)) }));
-          return true;
-        } catch (error) {
-          set({ apiError: error instanceof Error ? error.message : 'Could not submit your bill.' });
-          return false;
-        }
+      submitPaymentProof: async (storeId, dataUrl) => {
+        const { request } = await adminApi.submitPaymentProof(storeId, { dataUrl });
+        return request;
+      },
+      refreshStores: async () => {
+        const { stores } = await adminApi.listAdminStores();
+        const normalized = stores.map(normalizeStore);
+        const ids = new Set(normalized.map((s) => s.id));
+        set((state) => ({ stores: [...normalized, ...state.stores.filter((s) => !ids.has(s.id))] }));
       },
 
       toggleFeatured: (id) => {

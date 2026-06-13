@@ -38,6 +38,7 @@ import {
   serializeProduct,
   serializeProductFlag,
   serializeShopRequest,
+  serializeShopRequestDetail,
   serializeStorePlatformView,
   serializeSupportTicket,
   serializeUser,
@@ -88,84 +89,62 @@ platformRouter.get('/platform/overview', asyncRoute(async (_req, res) => {
 
 platformRouter.get('/platform/shop-requests', asyncRoute(async (_req, res) => {
   const requests = await prisma.shopRequest.findMany({ orderBy: { createdAt: 'desc' } });
+  // List serializer omits the heavy proof data URL.
   res.json({ shopRequests: requests.map(serializeShopRequest) });
 }));
 
+// Full request detail, including the payment-proof image for the reviewer to inspect.
+platformRouter.get('/platform/shop-requests/:id', asyncRoute(async (req, res) => {
+  const request = await prisma.shopRequest.findUnique({ where: { id: req.params.id } });
+  if (!request) throw notFound('Shop request not found.');
+  res.json({ request: serializeShopRequestDetail(request) });
+}));
+
+// Approve the first payment: unlock the owner (RESTRICTED → ACTIVE), bring the store
+// online (paymentConfirmed = true), and start the paid subscription month. The account
+// and store already exist (created at request time), so this is purely an unlock and is
+// idempotent — re-approving simply returns the current state.
 platformRouter.post('/platform/shop-requests/:id/approve', asyncRoute(async (req, res) => {
   const request = await prisma.shopRequest.findUnique({ where: { id: req.params.id } });
   if (!request) throw notFound('Shop request not found.');
-  if (request.status === 'APPROVED') throw badRequest('Shop request is already approved.');
-  const slug = await uniqueSlug(request.storeName);
-  const adminEmail = await uniqueEmail(adminEmailForShop(request.ownerEmail, slug));
+  if (!request.storeId || !request.userId) throw badRequest('This request has no linked store or owner account.');
 
-  // Self-service: the requester chose their own username + password. Reuse them so
-  // the owner can sign in directly. Legacy requests (no stored credentials) fall back
-  // to a generated one-time password the platform owner relays.
-  const selfService = !!request.passwordHash && !!request.desiredUsername;
-  const username = await uniqueUsername(selfService ? request.desiredUsername! : usernameFromShopSlug(slug));
-  let passwordHash: string;
-  let tempPassword: string | undefined;
-  if (selfService) {
-    passwordHash = request.passwordHash!;
-  } else {
-    tempPassword = shopPassword(slug);
-    passwordHash = await bcrypt.hash(tempPassword, 12);
+  if (request.status === 'APPROVED') {
+    const [store, owner] = await Promise.all([
+      prisma.store.findUnique({ where: { id: request.storeId } }),
+      prisma.user.findUnique({ where: { id: request.userId } }),
+    ]);
+    res.json({
+      request: serializeShopRequest(request),
+      store: store ? serializeStorePlatformView(store) : undefined,
+      owner: owner ? serializeUser(owner) : undefined,
+      idempotent: true,
+    });
+    return;
   }
 
+  const now = new Date();
   const result = await prisma.$transaction(async (tx) => {
-    const user = await tx.user.create({
-      data: {
-        email: adminEmail,
-        username,
-        name: request.ownerName,
-        role: 'SHOP_OWNER',
-        passwordHash,
-        ownerStatus: 'ACTIVE',
-        // Self-service owners already know their password; only generated ones must rotate.
-        mustChangePassword: !selfService,
-        passwordChangedAt: selfService ? new Date() : null,
-      },
-    });
-    const store = await tx.store.create({
-      data: {
-        ownerId: user.id,
-        slug,
-        name: request.storeName,
-        tagline: request.tagline,
-        category: request.category,
-        logoEmoji: '🛍️',
-        status: 'ACTIVE',
-        reviewStatus: 'APPROVED',
-        // Subscription: requested tier (default STARTER) with a free trial window.
-        plan: request.plan ?? 'STARTER',
-        planStatus: 'TRIAL',
-        planPaidUntil: new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
-        // Dashboard and storefront are gated until the platform admin confirms
-        // receipt of the first payment.
-        paymentConfirmed: false,
-      },
+    const owner = await tx.user.update({ where: { id: request.userId! }, data: { ownerStatus: 'ACTIVE' } });
+    const existing = await tx.store.findUnique({ where: { id: request.storeId! } });
+    if (!existing) throw notFound('Linked store not found.');
+    const base = existing.planPaidUntil && existing.planPaidUntil > now ? existing.planPaidUntil : now;
+    const store = await tx.store.update({
+      where: { id: existing.id },
+      data: { paymentConfirmed: true, planStatus: 'ACTIVE', planPaidUntil: addOneMonth(base) },
     });
     const updatedRequest = await tx.shopRequest.update({
       where: { id: request.id },
-      // Clear the stored hash once it's been transferred to the user account.
-      data: { status: 'APPROVED', storeId: store.id, reviewedAt: new Date(), passwordHash: null },
+      data: { status: 'APPROVED', reviewedAt: now, rejectionReason: null },
     });
-    return { user, store, request: updatedRequest };
+    return { owner, store, request: updatedRequest };
   });
-  await auditSecurity(req.user!, selfService ? 'Approved website request (owner self-set credentials)' : 'Approved website request and issued shop-owner credentials', result.store.name, { targetType: 'ShopRequest', targetId: request.id, ip: req.ip });
-  notifyShopApproved(result.store, result.user);
-  res.status(201).json({
+  await auditSecurity(req.user!, 'Approved first payment — store activated', result.store.name, { targetType: 'ShopRequest', targetId: request.id, ip: req.ip });
+  notifyShopApproved(result.store, result.owner);
+  res.json({
     request: serializeShopRequest(result.request),
     store: serializeStorePlatformView(result.store),
-    owner: serializeUser(result.user),
-    selfService,
-    ...(tempPassword ? { temporaryPassword: tempPassword } : {}),
-    credentials: {
-      email: result.user.email,
-      username: result.user.username,
-      // Only present for the generated (legacy) path; self-service owners use their own password.
-      ...(tempPassword ? { password: tempPassword } : {}),
-    },
+    owner: serializeUser(result.owner),
   });
 }));
 
@@ -251,22 +230,6 @@ platformRouter.post('/platform/stores/:storeId/plan/record-payment', asyncRoute(
     data: { planStatus: 'ACTIVE', planPaidUntil: addOneMonth(base) },
   });
   await auditSecurity(req.user!, `Recorded subscription payment (${store.plan})`, store.name, { targetType: 'Store', targetId: store.id, ip: req.ip });
-  notifyPlanPayment(store);
-  res.json({ store: serializeStorePlatformView(store) });
-}));
-
-// First-payment confirmation: marks paymentConfirmed=true and activates the subscription
-// so the dashboard and storefront open for the shop owner.
-platformRouter.patch('/platform/stores/:storeId/confirm-payment', asyncRoute(async (req, res) => {
-  const existing = await prisma.store.findUnique({ where: { id: req.params.storeId } });
-  if (!existing) throw notFound('Store not found.');
-  const now = new Date();
-  const base = existing.planPaidUntil && existing.planPaidUntil > now ? existing.planPaidUntil : now;
-  const store = await prisma.store.update({
-    where: { id: existing.id },
-    data: { paymentConfirmed: true, planStatus: 'ACTIVE', planPaidUntil: addOneMonth(base) },
-  });
-  await auditSecurity(req.user!, 'Confirmed first payment — store activated', store.name, { targetType: 'Store', targetId: store.id, ip: req.ip });
   notifyPlanPayment(store);
   res.json({ store: serializeStorePlatformView(store) });
 }));

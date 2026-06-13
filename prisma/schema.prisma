@@ -28,6 +28,7 @@ model User {
   updatedAt    DateTime @updatedAt
 
   stores               Store[]
+  shopRequests         ShopRequest[]
   assignedTickets      SupportTicket[] @relation("TicketAssignee")
   createdTickets       SupportTicket[] @relation("TicketCreator")
   ticketMessages       TicketMessage[]
@@ -83,14 +84,10 @@ model Store {
   // Set to false when a store is first created; the shop owner sees a "Your website is live"
   // welcome banner until they dismiss it, at which point this flips to true permanently.
   welcomeDismissed      Boolean  @default(false)
-  // False when a store is first created via request approval. The storefront
-  // stays offline and the dashboard shows a payment-receipt gate until a
-  // platform admin explicitly confirms the first payment.
+  // False when a store is first created (at request time). The storefront stays
+  // offline and the owner's dashboard is gated until a platform admin reviews the
+  // attached payment proof and approves, which flips this to true.
   paymentConfirmed      Boolean  @default(true)
-  // Bank-transfer bill the owner attaches from their dashboard for the platform
-  // to review before confirming the first payment.
-  paymentReceiptUrl     String?
-  paymentReceiptNote    String   @default("")
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
@@ -304,12 +301,24 @@ model ShopRequest {
   status          String    @default("PENDING")
   storeId         String?
   store           Store?    @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  // The shop-owner account is created at request time (offline/restricted), so the
+  // request links to it directly.
+  userId          String?
+  user            User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  // Payment proof the owner uploads from their gated dashboard, stored as a data URL
+  // in the DB (same pattern as product images) so single-file backups stay complete.
+  // Kept in its own columns so default request listings don't load the large blob.
+  paymentProofDataUrl    String?
+  paymentProofMime       String?
+  paymentProofSizeBytes  Int?
+  paymentProofUploadedAt DateTime?
   reviewedAt      DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
   @@index([status])
   @@index([ownerEmail])
+  @@index([userId])
 }
 
 model AuditLog {

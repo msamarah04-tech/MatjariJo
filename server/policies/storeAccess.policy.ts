@@ -25,6 +25,26 @@ export async function assertStoreAccess(user: User, storeId: string): Promise<tr
 }
 
 /**
+ * Narrow exception used ONLY by the payment-proof routes. A store owner whose
+ * account is still RESTRICTED (awaiting first-payment approval) is normally blocked
+ * by assertStoreAccess, but must be able to view and submit their payment proof for
+ * their own one store. Every other status rule (single-store limit, ownership) holds.
+ * BANNED owners are already rejected upstream in `authenticate`.
+ */
+export async function assertStoreAccessForPaymentProof(user: User, storeId: string): Promise<true> {
+  if (user.ownerStatus !== 'ACTIVE' && user.ownerStatus !== 'RESTRICTED') {
+    throw forbidden('Owner account is not active.');
+  }
+  const store = await prisma.store.findFirst({ where: { id: storeId, ownerId: user.id } });
+  if (!store) throw forbidden('You do not have access to this store.');
+  const firstOwnedStore = await prisma.store.findFirst({ where: { ownerId: user.id }, orderBy: { createdAt: 'asc' } });
+  if (firstOwnedStore && firstOwnedStore.id !== storeId) {
+    throw forbidden('This shop-admin account is limited to its assigned store.');
+  }
+  return true;
+}
+
+/**
  * Explicit shop-owner-only guard. Use on any route that reads or mutates shop
  * content (products, orders, customers, discounts). Platform owners get 403 —
  * they must use the /platform routes which expose only privacy-safe metadata.

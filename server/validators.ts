@@ -290,10 +290,34 @@ export const adminStorePatchSchema = z.object({
   address: z.string().trim().max(300).optional().nullable(),
 }).strict();
 
-export const paymentReceiptSchema = z.object({
-  url: z.string().trim().min(1).max(2000),
-  note: z.string().trim().max(300).optional(),
-}).strict();
+// Payment proof the shop owner uploads from the dashboard gate. Accepts a base64
+// image data URL only; re-validated server-side (the client also compresses it).
+export const PAYMENT_PROOF_MIME = ['image/jpeg', 'image/png', 'image/webp'];
+export const PAYMENT_PROOF_MAX_BYTES = 3 * 1024 * 1024;
+
+export const paymentProofSchema = z.object({
+  // ~3MB of binary becomes ~4MB of base64; cap the raw string generously.
+  dataUrl: z.string().trim().min(1).max(4_500_000),
+}).strict().transform((value, ctx) => {
+  const match = /^data:([a-z0-9.+/-]+);base64,([A-Za-z0-9+/=]+)$/i.exec(value.dataUrl);
+  if (!match) {
+    ctx.addIssue({ code: 'custom', path: ['dataUrl'], message: 'Upload a valid image file.' });
+    return z.NEVER;
+  }
+  const mime = match[1].toLowerCase();
+  if (!PAYMENT_PROOF_MIME.includes(mime)) {
+    ctx.addIssue({ code: 'custom', path: ['dataUrl'], message: 'Use a JPG, PNG, or WebP image.' });
+    return z.NEVER;
+  }
+  const base64 = match[2];
+  const padding = base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0;
+  const sizeBytes = Math.floor((base64.length * 3) / 4) - padding;
+  if (sizeBytes > PAYMENT_PROOF_MAX_BYTES) {
+    ctx.addIssue({ code: 'custom', path: ['dataUrl'], message: 'Image must be 3MB or smaller.' });
+    return z.NEVER;
+  }
+  return { dataUrl: value.dataUrl, mime, sizeBytes };
+});
 
 export const productCreateSchema = z.object({
   name: z.string().trim().min(1).max(160),

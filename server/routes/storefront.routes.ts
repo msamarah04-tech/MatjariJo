@@ -11,6 +11,8 @@ import { analyticsEventSchema, publicOrderSchema, shopRequestSchema } from '../v
 import { asyncRoute, normalizeCode } from '../http.js';
 import { broadcastShopRequestNew } from '../sse.js';
 import { notifyOrderPlaced } from '../services/notifications.js';
+import { adminEmailForShop, uniqueEmail, uniqueSlug } from '../services/onboarding.js';
+import { TRIAL_DAYS } from '../../shared/plans.js';
 import {
   serializeAnalyticsEvent,
   serializeDiscount,
@@ -187,18 +189,72 @@ storefrontRouter.post('/public/stores/:slug/orders', publicWriteRateLimiter, asy
 storefrontRouter.post('/shop-requests', publicWriteRateLimiter, asyncRoute(async (req, res) => {
   const { username, password, ...rest } = shopRequestSchema.parse(req.body);
 
-  // Reject usernames already taken by a user or a still-open request, so the
-  // requester's chosen username is very likely to survive to approval.
+  // The username is the owner's sign-in handle, so it must be free against both
+  // live accounts and other still-open requests.
   const taken = (await prisma.user.findUnique({ where: { username } }))
     || (await prisma.shopRequest.findFirst({ where: { desiredUsername: username, status: { in: ['PENDING', 'IN_REVIEW'] } } }));
   if (taken) throw conflict('That username is taken. Please choose another.');
 
   const passwordHash = await bcrypt.hash(password, 12);
-  const request = await prisma.shopRequest.create({
-    data: { ...rest, desiredUsername: username, passwordHash },
+  const slug = await uniqueSlug(rest.storeName);
+  // Owners sign in by username; the email is an internal, collision-safe handle.
+  const adminEmail = await uniqueEmail(adminEmailForShop(rest.ownerEmail, slug));
+
+  // New onboarding model: the account, store, and request are all created up front.
+  // The owner can sign in immediately but lands on a blocking dashboard gate
+  // (ownerStatus RESTRICTED + store offline) whose only action is uploading a
+  // payment proof. A platform admin reviews it and approves to unlock everything.
+  const result = await prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: {
+        email: adminEmail,
+        username,
+        name: rest.ownerName,
+        role: 'SHOP_OWNER',
+        passwordHash,
+        // Restricted until the first payment is approved.
+        ownerStatus: 'RESTRICTED',
+        // The owner chose this password themselves — no forced rotation.
+        mustChangePassword: false,
+        passwordChangedAt: new Date(),
+      },
+    });
+    const store = await tx.store.create({
+      data: {
+        ownerId: user.id,
+        slug,
+        name: rest.storeName,
+        tagline: rest.tagline,
+        category: rest.category,
+        logoEmoji: '🛍️',
+        status: 'ACTIVE',
+        reviewStatus: 'APPROVED',
+        plan: rest.plan ?? 'STARTER',
+        planStatus: 'TRIAL',
+        planPaidUntil: new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
+        // Offline until a platform admin approves the first payment.
+        paymentConfirmed: false,
+      },
+    });
+    const request = await tx.shopRequest.create({
+      data: {
+        ...rest,
+        desiredUsername: username,
+        status: 'PENDING',
+        storeId: store.id,
+        userId: user.id,
+      },
+    });
+    return { user, store, request };
   });
-  await audit(null, 'Submitted website request', request.storeName, { targetType: 'ShopRequest', targetId: request.id, detail: request.ownerEmail });
-  const serialized = serializeShopRequest(request);
+
+  await audit(null, 'Submitted website request', result.request.storeName, { targetType: 'ShopRequest', targetId: result.request.id, detail: result.request.ownerEmail });
+  const serialized = serializeShopRequest(result.request);
   broadcastShopRequestNew({ request: serialized });
-  res.status(201).json({ request: serialized });
+  res.status(201).json({
+    request: serialized,
+    // Echo the sign-in handle so the success screen can tell the owner how to log in.
+    credentials: { username: result.user.username, email: result.user.email },
+    storeSlug: result.store.slug,
+  });
 }));

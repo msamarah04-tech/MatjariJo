@@ -5,7 +5,7 @@ import { prisma } from './db.js';
 import { env } from './env.js';
 import { forbidden, unauthorized } from './errors.js';
 import { hasRole, isBanned, type Role } from './policies/roles.policy.js';
-import { assertStoreAccess } from './policies/storeAccess.policy.js';
+import { assertStoreAccess, assertStoreAccessForPaymentProof } from './policies/storeAccess.policy.js';
 
 // Re-export the store-access policy so existing call sites keep importing from auth.
 export { assertStoreAccess } from './policies/storeAccess.policy.js';
@@ -133,6 +133,20 @@ export async function requireStoreAccess(req: Request, _res: Response, next: Nex
   if (!req.user) return next(unauthorized());
   try {
     await assertStoreAccess(req.user, req.params.storeId);
+    return next();
+  } catch (error) {
+    return next(error);
+  }
+}
+
+/**
+ * Guard for the payment-proof routes only. Lets a still-RESTRICTED owner reach their
+ * own store's proof endpoints (the one thing they can do before approval).
+ */
+export async function requireStoreAccessForPaymentProof(req: Request, _res: Response, next: NextFunction) {
+  if (!req.user) return next(unauthorized());
+  try {
+    await assertStoreAccessForPaymentProof(req.user, req.params.storeId);
     return next();
   } catch (error) {
     return next(error);

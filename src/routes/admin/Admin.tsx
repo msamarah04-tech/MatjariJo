@@ -27,7 +27,9 @@ import {
 import { useStore } from '@/lib/store';
 import { storefrontUrl } from '@/lib/tenant';
 import { cn } from '@/lib/cn';
-import { Store } from '@/lib/types';
+import { ShopRequest, Store } from '@/lib/types';
+import { prepareImageDataUrl } from '@/lib/images';
+import * as adminApi from '@/api/admin.api';
 import { StoreAvatar } from '@/components/ui/dashboard';
 import { SkeletonCards } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -37,7 +39,6 @@ import { CommandPalette } from './CommandPalette';
 import { useI18n } from '@/lib/i18n';
 import { LangToggle } from '@/components/ui/LangToggle';
 import { toast } from '@/components/ui/Toast';
-import { API_BASE } from '@/api/client';
 
 import Overview from './Overview';
 import Products from './Products';
@@ -127,6 +128,12 @@ function AdminShell() {
     return <NoAccess />;
   }
 
+  // Blocking onboarding gate: a shop owner whose first payment hasn't been approved
+  // yet sees ONLY the proof-upload screen — no dashboard, nav, or store data.
+  if (!isPlatformViewer && !store.paymentConfirmed) {
+    return <OnboardingGate store={store} storeId={storeId} />;
+  }
+
   const context: AdminContextValue = { storeId, store, userStores, isPlatformViewer };
 
   return (
@@ -166,7 +173,6 @@ function AdminShell() {
         <PlanPastDueBanner store={store} />
         <main className="flex-1 px-5 py-6 md:px-8 md:py-8">
           <div className="mx-auto max-w-6xl">
-            {!isPlatformViewer && <PaymentSetupCard store={store} storeId={storeId} />}
             <Outlet context={context} />
           </div>
         </main>
@@ -175,124 +181,171 @@ function AdminShell() {
   );
 }
 
-function PaymentSetupCard({ store, storeId }: { store: Store; storeId: string }) {
-  const token = useStore((s) => s.token);
-  const submitPaymentReceipt = useStore((s) => s.submitPaymentReceipt);
+function OnboardingGate({ store, storeId }: { store: Store; storeId: string }) {
+  const { t, dir, date } = useI18n();
+  const submitPaymentProof = useStore((s) => s.submitPaymentProof);
+  const refreshStores = useStore((s) => s.refreshStores);
+  const signOut = useStore((s) => s.signOut);
+  const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [file, setFile] = useState<File | null>(null);
-  const [note, setNote] = useState('');
-  const [uploading, setUploading] = useState(false);
-  const [replacing, setReplacing] = useState(false);
 
-  if (store.paymentConfirmed) return null;
+  const [request, setRequest] = useState<ShopRequest | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async () => {
-    if (!file) return;
-    setUploading(true);
+  // Load the request status, then poll: refresh both the request and the store so the
+  // gate disappears automatically the moment the platform approves the first payment.
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      try {
+        const { request } = await adminApi.getPaymentProof(storeId);
+        if (active) setRequest(request);
+      } catch {
+        /* keep the gate visible; the next poll will retry */
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    load();
+    const id = window.setInterval(() => {
+      load();
+      refreshStores().catch(() => {});
+    }, 8000);
+    return () => { active = false; window.clearInterval(id); };
+  }, [storeId, refreshStores]);
+
+  const status = request?.status ?? 'PENDING';
+  const rejected = status === 'REJECTED';
+  const inReview = status === 'IN_REVIEW';
+
+  const handlePick = async (picked: File | null) => {
+    if (!picked) return;
+    setError(null);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      const uploadRes = await fetch(`${API_BASE}/uploads/ticket-attachment`, { method: 'POST', headers, body: formData });
-      if (!uploadRes.ok) throw new Error('Upload failed');
-      const { url } = (await uploadRes.json()) as { url: string };
-      const ok = await submitPaymentReceipt(storeId, url, note.trim() || undefined);
-      if (!ok) throw new Error('Save failed');
-      toast({ title: 'Bill sent for review', description: 'The platform team will review it and activate your store.', type: 'success' });
-      setFile(null);
-      setNote('');
-      setReplacing(false);
+      const dataUrl = await prepareImageDataUrl(picked, { maxDimension: 1600, maxBytes: 3 * 1024 * 1024 });
+      setPreview(dataUrl);
     } catch {
-      toast({ title: 'Could not send your bill', description: 'Please try again in a moment.', type: 'error' });
-    } finally {
-      setUploading(false);
+      setError(t('gateUploadError'));
     }
   };
 
-  const submitted = Boolean(store.paymentReceiptUrl);
+  const handleSubmit = async () => {
+    if (!preview) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const updated = await submitPaymentProof(storeId, preview);
+      setRequest(updated);
+      setPreview(null);
+      toast({ title: t('gateSubmitSuccess'), type: 'success' });
+    } catch {
+      setError(t('gateSubmitError'));
+      toast({ title: t('gateSubmitError'), type: 'error' });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const headTitle = rejected ? t('gateStatusRejected') : inReview ? t('gateStatusReview') : t('gateStatusPending');
+  const serverProof = request?.paymentProofDataUrl;
+  const waiting = inReview && !preview;
 
   return (
-    <div className="mb-6 overflow-hidden rounded-3xl border border-amber-200 bg-amber-50/70 shadow-sm">
-      <div className="flex items-center gap-3 border-b border-amber-200 bg-amber-100/60 px-5 py-3 md:px-6">
-        <Clock className="h-5 w-5 shrink-0 text-amber-700" />
-        <div>
-          <p className="font-heading text-lg font-black text-amber-900">Waiting for platform approval</p>
-          <p className="text-sm font-semibold text-amber-800">
-            Your store is set up but not live yet. Attach your payment bill below so the platform can review and approve it.
-          </p>
+    <div dir={dir} className="flex min-h-screen flex-col bg-paper">
+      <header className="flex items-center justify-between border-b border-line bg-surface px-5 py-4 md:px-8">
+        <div className="flex items-center gap-3">
+          <StoreAvatar emoji={store.logoEmoji} url={store.logoUrl} name={store.name} size="sm" />
+          <span className="font-heading text-lg font-black text-ink">{store.name}</span>
         </div>
-      </div>
+        <div className="flex items-center gap-2">
+          <LangToggle />
+          <Button variant="ghost" className="gap-2 border border-line" onClick={() => { signOut(); navigate('/sign-in'); }}>
+            <LogOut className="h-4 w-4" /> {t('gateSignOut')}
+          </Button>
+        </div>
+      </header>
 
-      <div className="p-5 md:p-6">
-        {submitted && !replacing ? (
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-amber-200 bg-surface px-4 py-3">
-              <CheckCircle2 className="h-5 w-5 shrink-0 text-green-600" />
-              <span className="flex-1 text-sm font-bold text-ink">Bill submitted — waiting for the platform to approve it.</span>
-              <a
-                href={store.paymentReceiptUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-paper px-3 py-1.5 text-xs font-bold text-ink transition-colors hover:border-ink/30"
-              >
-                <FileText className="h-3.5 w-3.5" /> View bill
-              </a>
+      <main className="flex flex-1 items-center justify-center px-5 py-10">
+        <div className="w-full max-w-lg">
+          <div className="mb-6 text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+              <Clock className="h-7 w-7" />
             </div>
-            {store.paymentReceiptNote ? (
-              <p className="text-sm text-muted"><span className="font-bold text-ink">Your note:</span> {store.paymentReceiptNote}</p>
-            ) : null}
-            <button onClick={() => setReplacing(true)} className="text-sm font-bold text-amber-800 underline-offset-2 hover:underline">
-              Replace the bill
-            </button>
+            <h1 className="font-heading text-2xl font-black text-ink">{t('gateTitle')}</h1>
+            <p className="mt-2 text-sm font-semibold text-muted">{t('gateSubtitle')}</p>
           </div>
-        ) : (
-          <div className="space-y-3">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*,application/pdf"
-              className="hidden"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            />
-            {file ? (
-              <div className="flex items-center gap-2 rounded-xl border border-amber-300 bg-surface px-3 py-2.5">
-                <FileText className="h-5 w-5 shrink-0 text-amber-700" />
-                <span className="flex-1 truncate text-sm font-bold text-ink">{file.name}</span>
-                <button onClick={() => setFile(null)} className="text-muted hover:text-ink">
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full rounded-xl border-2 border-dashed border-amber-300 bg-surface py-8 text-center transition-colors hover:border-amber-400"
-              >
-                <Upload className="mx-auto mb-2 h-8 w-8 text-amber-600" />
-                <p className="font-bold text-ink">Click to attach your bill</p>
-                <p className="mt-1 text-xs text-muted">Image or PDF, up to 5 MB</p>
-              </button>
-            )}
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              rows={2}
-              placeholder="Optional note (e.g. transfer reference number)"
-              className="w-full resize-none rounded-xl border border-line bg-surface px-3 py-2.5 text-sm font-semibold text-ink placeholder:font-normal focus:outline-none focus:ring-1 focus:ring-amber-400"
-            />
-            <div className="flex flex-wrap gap-2">
-              <Button variant="accent" className="gap-2" onClick={handleSubmit} disabled={!file || uploading}>
-                {uploading ? 'Sending…' : 'Send bill for review'}
-              </Button>
-              {replacing && (
-                <Button variant="ghost" className="border border-line" onClick={() => { setReplacing(false); setFile(null); }}>
-                  Cancel
-                </Button>
+
+          <div className="overflow-hidden rounded-3xl border border-line bg-surface shadow-sm">
+            <div className={cn('flex items-center gap-3 border-b px-5 py-3', rejected ? 'border-red-200 bg-red-50' : inReview ? 'border-blue-200 bg-blue-50' : 'border-amber-200 bg-amber-50')}>
+              {rejected ? <TriangleAlert className="h-5 w-5 shrink-0 text-red-600" /> : inReview ? <Clock className="h-5 w-5 shrink-0 text-blue-600" /> : <Upload className="h-5 w-5 shrink-0 text-amber-600" />}
+              <p className="font-heading text-base font-black text-ink">{headTitle}</p>
+            </div>
+
+            <div className="space-y-4 p-5 md:p-6">
+              {loading ? (
+                <p className="text-sm font-semibold text-muted">{t('gateRefreshing')}</p>
+              ) : waiting ? (
+                <div className="space-y-4">
+                  <p className="text-sm font-semibold text-muted">{t('gateStatusReviewSub')}</p>
+                  {serverProof && (
+                    <img src={serverProof} alt={t('gatePreviewAlt')} className="max-h-64 w-full rounded-xl border border-line object-contain" />
+                  )}
+                  {request?.paymentProofUploadedAt && (
+                    <p className="text-xs font-semibold text-muted">{t('gateSubmittedAt').replace('{date}', date(request.paymentProofUploadedAt))}</p>
+                  )}
+                  <button onClick={() => fileInputRef.current?.click()} className="text-sm font-bold text-amber-800 underline-offset-2 hover:underline">
+                    {t('gateResubmit')}
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {rejected && request?.rejectionReason && (
+                    <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm">
+                      <span className="font-black text-red-700">{t('gateRejectionLabel')}: </span>
+                      <span className="font-semibold text-red-800">{request.rejectionReason}</span>
+                    </div>
+                  )}
+                  {preview ? (
+                    <div className="relative">
+                      <img src={preview} alt={t('gatePreviewAlt')} className="max-h-64 w-full rounded-xl border border-line object-contain" />
+                      <button onClick={() => setPreview(null)} className="absolute end-2 top-2 rounded-full bg-ink/70 p-1.5 text-white transition-colors hover:bg-ink">
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button onClick={() => fileInputRef.current?.click()} className="w-full rounded-2xl border-2 border-dashed border-line bg-paper py-10 text-center transition-colors hover:border-accent/50">
+                      <Upload className="mx-auto mb-2 h-8 w-8 text-muted" />
+                      <p className="font-bold text-ink">{t('gateUploadCta')}</p>
+                      <p className="mt-1 text-xs text-muted">{t('gateUploadHint')}</p>
+                    </button>
+                  )}
+                  {error && <p className="text-sm font-semibold text-red-600">{error}</p>}
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="accent" className="gap-2" onClick={handleSubmit} disabled={!preview || submitting}>
+                      {submitting ? t('gateSubmitting') : t('gateSubmit')}
+                    </Button>
+                    {preview && (
+                      <Button variant="ghost" className="border border-line" onClick={() => fileInputRef.current?.click()}>
+                        {t('gateChangeImage')}
+                      </Button>
+                    )}
+                  </div>
+                </div>
               )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={(e) => { handlePick(e.target.files?.[0] ?? null); e.target.value = ''; }}
+              />
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      </main>
     </div>
   );
 }

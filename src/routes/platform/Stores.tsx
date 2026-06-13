@@ -35,7 +35,6 @@ export default function Stores() {
   const setStoreStatus = useStore((s) => s.setStoreStatus);
   const setStorePlan = useStore((s) => s.setStorePlan);
   const recordPlanPayment = useStore((s) => s.recordPlanPayment);
-  const confirmStorePayment = useStore((s) => s.confirmStorePayment);
   const toggleFeatured = useStore((s) => s.toggleFeatured);
   const setOwnerStatus = useStore((s) => s.setOwnerStatus);
   const deletePlatformStore = useStore((s) => s.deletePlatformStore);
@@ -261,10 +260,6 @@ export default function Stores() {
               const ok = await recordPlanPayment(activeRow.store.id);
               toast(ok ? { title: 'Payment recorded', description: 'Paid-until extended by one month.', type: 'success' } : { title: 'Could not record payment', type: 'error' });
             }}
-            onConfirmPayment={async () => {
-              const ok = await confirmStorePayment(activeRow.store.id);
-              toast(ok ? { title: 'Payment confirmed', description: 'Store is now active and live.', type: 'success' } : { title: 'Could not confirm payment', type: 'error' });
-            }}
             onOwner={(next) => {
               if (next === 'ACTIVE') { setOwnerStatus(activeRow.store.ownerId, 'ACTIVE'); toast({ title: 'Owner reactivated', type: 'success' }); }
               else setConfirm({ kind: next === 'BANNED' ? 'ban' : 'restrict', store: activeRow.store });
@@ -340,7 +335,6 @@ function StoreDetail({
   onToggleFeatured,
   onSetPlan,
   onRecordPayment,
-  onConfirmPayment,
   onOwner,
   onResetPassword,
   onDelete,
@@ -352,7 +346,6 @@ function StoreDetail({
   onToggleFeatured: () => void;
   onSetPlan: (plan: StorePlan) => void;
   onRecordPayment: () => void;
-  onConfirmPayment: () => void;
   onOwner: (next: OwnerStatus) => void;
   onResetPassword: () => void;
   onDelete: () => void;
@@ -480,31 +473,7 @@ function StoreDetail({
         {!store.paymentConfirmed && (
           <div className="mb-3 space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
             <p className="text-[10px] font-bold uppercase tracking-widest text-amber-800">First payment</p>
-            {store.paymentReceiptUrl ? (
-              <>
-                <a
-                  href={store.paymentReceiptUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-surface px-3 py-1.5 text-xs font-bold text-ink transition-colors hover:border-ink/30"
-                >
-                  <FileText className="h-3.5 w-3.5" /> View attached bill
-                </a>
-                {store.paymentReceiptNote ? (
-                  <p className="text-xs text-amber-800"><span className="font-bold">Note:</span> {store.paymentReceiptNote}</p>
-                ) : null}
-                <Button variant="accent" className="w-full gap-1.5" onClick={onConfirmPayment}>
-                  <CheckCircle2 className="h-4 w-4" /> Approve &amp; activate store
-                </Button>
-              </>
-            ) : (
-              <>
-                <p className="text-xs text-amber-800">The owner hasn’t attached a payment bill yet.</p>
-                <Button variant="ghost" className="w-full gap-1.5 border border-amber-300 text-amber-900" onClick={onConfirmPayment}>
-                  <CheckCircle2 className="h-4 w-4" /> Confirm anyway
-                </Button>
-              </>
-            )}
+            <p className="text-xs text-amber-800">This store is awaiting first-payment approval. Review and approve the owner’s payment proof from the Shop requests page.</p>
           </div>
         )}
         <Button variant="accent" className="w-full" onClick={onRecordPayment}>Record payment (+1 month)</Button>

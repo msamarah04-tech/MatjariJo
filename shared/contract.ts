@@ -121,12 +121,8 @@ export interface Store {
   isFeatured?: boolean;
   /** False until the owner dismisses the first-login welcome banner. */
   welcomeDismissed?: boolean;
-  /** False when store is awaiting first payment receipt confirmation. Storefront is offline until true. */
+  /** False while the store awaits platform approval of the first payment. Storefront stays offline until true. */
   paymentConfirmed?: boolean;
-  /** URL of the bank-transfer bill the owner attached for the platform to review. */
-  paymentReceiptUrl?: string;
-  /** Optional note the owner added with the bill (e.g. transfer reference). */
-  paymentReceiptNote?: string;
   ownerId: string;
   createdAt: number;
 }
@@ -400,6 +396,14 @@ export interface ShopRequest {
   rejectionReason?: string;
   status: ShopRequestStatus;
   storeId?: string;
+  /** The shop-owner account created for this request (accounts are created at request time now). */
+  userId?: string;
+  /** Light flag for list views — true once the owner has attached a payment proof. */
+  hasPaymentProof?: boolean;
+  paymentProofMime?: string;
+  paymentProofUploadedAt?: number;
+  /** Full payment-proof data URL — present ONLY in the single-request detail payload, never in lists. */
+  paymentProofDataUrl?: string;
   reviewedAt?: number;
   createdAt: number;
 }

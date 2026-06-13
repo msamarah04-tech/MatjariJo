@@ -1,10 +1,12 @@
-import { Discount, Order, Product, Store, SupportTicket } from '@/lib/types';
+import { Discount, Order, Product, ShopRequest, Store, SupportTicket } from '@/lib/types';
 import { apiFetch } from './client';
 
 export const listAdminStores = () => apiFetch<{ stores: Store[] }>('/admin/stores');
 export const getAdminStore = (storeId: string) => apiFetch<{ store: Store }>(`/admin/stores/${storeId}`);
 export const updateAdminStore = (storeId: string, payload: unknown) => apiFetch<{ store: Store }>(`/admin/stores/${storeId}`, { method: 'PATCH', body: JSON.stringify(payload) });
-export const submitPaymentReceipt = (storeId: string, payload: { url: string; note?: string }) => apiFetch<{ store: Store }>(`/admin/stores/${storeId}/payment-receipt`, { method: 'POST', body: JSON.stringify(payload) });
+// Onboarding gate: read the store's own request (status + proof preview), and submit a proof.
+export const getPaymentProof = (storeId: string) => apiFetch<{ request: ShopRequest }>(`/admin/stores/${storeId}/payment-proof`);
+export const submitPaymentProof = (storeId: string, payload: { dataUrl: string }) => apiFetch<{ request: ShopRequest }>(`/admin/stores/${storeId}/payment-proof`, { method: 'POST', body: JSON.stringify(payload) });
 
 export const listProducts = (storeId: string) => apiFetch<{ products: Product[] }>(`/admin/stores/${storeId}/products`);
 export const createProduct = (storeId: string, payload: unknown) => apiFetch<{ product: Product }>(`/admin/stores/${storeId}/products`, { method: 'POST', body: JSON.stringify(payload) });

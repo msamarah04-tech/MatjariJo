@@ -28,6 +28,30 @@ bootstrapRouter.get('/bootstrap', authenticate, blockIfMustChangePassword, async
   const stores = platform ? allStores : allStores.slice(0, 1);
   const storeIds = stores.map((store) => store.id);
   const scoped = platform ? undefined : { storeId: { in: storeIds } };
+
+  // Restricted owners are pre-approval: they may only reach the onboarding gate, so don't
+  // hand them any business data. They still get their store metadata (needed to render the
+  // gate) and ownerStatuses; the proof itself is fetched separately by the gate.
+  const restricted = !platform && req.user!.ownerStatus === 'RESTRICTED';
+  if (restricted) {
+    const lockedUsers = await prisma.user.findMany({ select: { id: true, ownerStatus: true } });
+    res.json({
+      currentUser: serializeUser(req.user!),
+      stores: stores.map(serializeStore),
+      products: [],
+      orders: [],
+      discounts: [],
+      analyticsEvents: [],
+      platformSettings: serializePlatformSettings(settings),
+      supportTickets: [],
+      productFlags: [],
+      shopRequests: [],
+      auditLogs: [],
+      ownerStatuses: Object.fromEntries(lockedUsers.map((user) => [user.id, user.ownerStatus])),
+    });
+    return;
+  }
+
   const [
     products,
     orders,

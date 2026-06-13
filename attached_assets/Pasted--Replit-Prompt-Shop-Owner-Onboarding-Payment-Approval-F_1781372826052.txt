@@ -1,0 +1,324 @@
+# Replit Prompt — Shop-Owner Onboarding & Payment-Approval Flow (Matjari)
+
+> Paste this whole file into the Replit Agent. It is written against the existing Matjari
+> codebase. **Read the existing code before changing it** — reuse the patterns already in place,
+> do not invent new ones.
+
+---
+
+## 0. Context you need (do not re-derive)
+
+Matjari is a **self-hosted, self-contained, multi-store commerce SaaS** for Jordan. There are three
+actors: **public customer**, **shop owner** (manages one store), **platform owner** (oversees all
+stores + approves applications).
+
+Stack: **React 19 + Vite + TypeScript + Zustand + TanStack Query + Tailwind** frontend;
+**Express 4 + Prisma 5 + SQLite (WAL, single pooled writer)** backend; a shared typed **contract**
+under `shared/` imported by both sides. Auth = short-lived JWT access token (Bearer) + httpOnly
+refresh cookie, with `tokenVersion` revocation. Money is always integer minor units.
+
+Relevant existing files (inspect them first):
+
+- `shared/contract.ts` — domain enums (Zod) + entity types. **Source of truth.** A change here
+  type-errors both frontend and backend, which is the desired safety net.
+- `prisma/schema.prisma` — data model. Already has `Store.status`, `Store.reviewStatus`,
+  `Store.suspensionReason`, `Store.internalNote`, `User.ownerStatus` (ACTIVE/RESTRICTED/BANNED),
+  `ShopRequest` (with chosen username + bcrypt password hash, currently cleared on approval).
+- `server/services/onboarding.ts` — slug/username/credential generation. **This is where account
+  creation currently happens on approval — it must move to request time.**
+- `server/policies/storeAccess.policy.ts` — THE single store-isolation decision point.
+- `server/routes/{storefront,platform,admin}.routes.ts`, `server/validators.ts`,
+  `server/serializers.ts`, `server/audit.ts`.
+- `src/lib/images.ts` — client-side image resize/compress **to data URLs** (this is how product
+  images are already stored — reuse it for the payment proof).
+- `src/routes/admin/NewStore.tsx` — public "request a website" form.
+- `src/routes/admin/Admin.tsx` — admin shell.
+- `src/routes/platform/ShopRequests.tsx` — platform requests screen.
+- `src/api/{shopRequests,admin,platform,bootstrap}.api.ts`.
+
+**Hard invariants — do not break any of these:**
+
+1. Money stays integer minor units; only `shared/money.ts` divides (display only).
+2. Authorization stays centralized in `policies/` — every store-scoped route flows through the
+   single decision point. No endpoint may forget the guard.
+3. The shared contract stays the single source of truth; add/extend enums there, not inline.
+4. Prisma Migrate is the only migration path (`npm run db:migrate` in dev).
+5. Existing tests must still pass (update the ones whose behavior you intentionally change).
+6. No new third-party services. Stay self-contained.
+
+---
+
+## 1. Goal (the feature, exactly)
+
+Change onboarding so a shop owner can prove payment **inside their own dashboard** before going
+live, and the platform owner approves based on that proof.
+
+1. **When a shop owner requests a website**, their account + store are created immediately in a
+   **restricted / offline** state. The owner can sign in and reach the admin dashboard, but the
+   **store is NOT online** and they **cannot do anything** in the dashboard **except attach a bill
+   payment (proof of payment)** and see their pending status — until the platform owner approves.
+2. **The platform owner** can open the request, see **all request details**, and **view the bill
+   payment attachment**.
+3. **On approval**, the shop owner's dashboard unlocks fully and **their store goes online**
+   (publicly visible). On rejection, the store stays offline with a reason and the owner can replace
+   the attachment and resubmit.
+
+---
+
+## 2. Current → target behavior
+
+| | Current | Target |
+| --- | --- | --- |
+| Account creation | On approval | **At request time** (restricted) |
+| Shop-owner login before approval | Not possible | **Possible**, but dashboard is gated |
+| Payment proof | Does not exist | **Uploaded by owner from the dashboard**, before approval |
+| Store visibility while pending | n/a | **Offline / not publicly served** |
+| Platform owner review | Sees text request | Sees request details **+ the attachment** |
+| Approval effect | Creates account | **Unlocks dashboard + sets store online** |
+| Rejection | Closes request | Keeps store offline + reason; **owner can resubmit proof** |
+
+---
+
+## 3. Decisions already made (defaults — keep unless you have a concrete reason)
+
+- **Create the Store at request time** (offline), alongside the restricted `SHOP_OWNER` user, so the
+  store-scoped admin dashboard has something to render. Slug is reserved at request time.
+- **Store the payment proof as a data URL string in the database**, exactly like product images are
+  stored today (reuse `src/lib/images.ts` to compress on the client). This keeps the single-file
+  SQLite backup (`VACUUM INTO`) complete — no separate disk store, consistent with the existing
+  pattern. Do **not** introduce a filesystem upload directory.
+- **Allowed proof types:** JPEG / PNG / WebP image (a photo/screenshot of the bank transfer or
+  receipt). Optionally accept PDF as base64 if trivial; otherwise images only is acceptable for v1.
+- **Size cap:** reject anything over ~3 MB after client compression; validate again server-side.
+- **"Cannot do anything"** precisely means: while restricted, the only mutations/reads a shop owner
+  may perform are: read own bootstrap/status, upload/replace the payment proof, change password,
+  logout/refresh. Everything else (products, orders, discounts, analytics, appearance, support,
+  data export) is rejected server-side with `403` and hidden in the UI.
+
+If you disagree with any default, state it in your first message and proceed with the alternative —
+do not silently change money/security/contract invariants.
+
+---
+
+## 4. Implementation plan
+
+Work through these in order. After each backend section, run `npm run typecheck` and the relevant
+test file.
+
+### 4.1 Shared contract & enums (`shared/contract.ts`)
+
+- Inspect the existing `Store.status` / `Store.reviewStatus` and `ShopRequest` status enums. Reuse
+  them; only add values if a clean state is genuinely missing. You likely need:
+  - A store online/offline notion. If `Store.status` already has e.g. `ACTIVE`/`SUSPENDED`, add a
+    **`PENDING`** state meaning "created but not yet live", and treat only `ACTIVE` as publicly
+    served. (Or use a dedicated `isOnline` boolean if that's cleaner with current usage — pick one
+    and be consistent everywhere.)
+  - A `ShopRequest` review state machine: `PENDING_PAYMENT` → `UNDER_REVIEW` (proof attached) →
+    `APPROVED` | `REJECTED`. Reuse existing values where they already exist.
+- Add the payment-proof shape to the `ShopRequest` entity type (e.g. `paymentProof?: { dataUrl,
+  mimeType, sizeBytes, uploadedAt } | null`). Keep `User.ownerStatus = RESTRICTED` as the
+  "pending approval" owner state.
+- Export any new enum from the contract; update the frontend `src/lib/types.ts` re-export and the
+  backend validators that import these enums.
+
+### 4.2 Database (`prisma/schema.prisma` + migration)
+
+- Add payment-proof storage to `ShopRequest` (store the data URL as `Text`, plus `mimeType`,
+  `sizeBytes`, `paymentProofUploadedAt`). Large blobs go in their own column so default request
+  listings don't always load them.
+- Ensure `ShopRequest` can link to the created `Store` and `User` (foreign keys) since they now
+  exist at request time. Add the review-status field if not present.
+- Add a `Store` field for online state per the decision in 4.1 (`PENDING` status value or
+  `isOnline` boolean), defaulting to **offline** on creation.
+- Generate the migration with `npm run db:migrate` (Prisma Migrate — the single path). Name it
+  e.g. `onboarding_payment_approval`. Do **not** hand-write SQL outside Prisma.
+- Keep the non-negative CHECK / index conventions already in the schema.
+
+### 4.3 Backend — move account creation to request time (`services/onboarding.ts`, `storefront.routes.ts`)
+
+- `POST /shop-requests` (public) must now, in **one transaction**:
+  1. Validate input (reuse Zod validators + `shared/phone.ts` for the +962 contact).
+  2. Generate slug/username (existing helpers) and bcrypt-hash the chosen password.
+  3. Create the `Store` in **offline/PENDING** state.
+  4. Create the `SHOP_OWNER` `User` with `ownerStatus = RESTRICTED`, linked to that store.
+  5. Create the `ShopRequest` with status `PENDING_PAYMENT`, linked to store + user.
+  6. Write an audit entry (`shop_request.created`).
+- The owner can now sign in immediately with their chosen credentials (no forced password change in
+  this path — they chose their own password).
+- Keep the **legacy one-time-password relay** path working if it still exists, or migrate it; don't
+  silently break existing reset behavior.
+- Enforce uniqueness (username/slug/email) and rate-limit this public endpoint as today.
+
+### 4.4 Backend — payment-proof upload (shop owner)
+
+- Add an authenticated endpoint for the **restricted owner** to attach/replace their proof, e.g.
+  `POST /api/admin/stores/:storeId/payment-proof` (store-scoped, so it flows through the policy
+  layer) **or** a dedicated `POST /api/onboarding/payment-proof` keyed to the caller's own pending
+  request. Pick the store-scoped path for consistency with the rest of admin.
+- Accept the data URL + mimeType; **server-side validate**: allowed mime, decode and check real
+  size against the cap, reject mismatched/oversized payloads (do not trust the client).
+- On success: store the proof on the `ShopRequest`, move its status `PENDING_PAYMENT → UNDER_REVIEW`,
+  set `paymentProofUploadedAt`, write audit `shop_request.payment_attached`.
+- Allow **replacing** the proof while still pending/rejected (resubmission). Rate-limit it.
+- This endpoint must be reachable by a `RESTRICTED` owner — it is the one store-scoped write they
+  are allowed (see 4.5).
+
+### 4.5 Backend — restricted-mode authorization gate (`policies/storeAccess.policy.ts`)
+
+This is the security core. **Do not rely on the frontend.**
+
+- In the single store-access decision point, add a check: if the authenticated owner's
+  `ownerStatus === RESTRICTED` **or** the store is offline/PENDING, then **deny all store-scoped
+  routes** with `403` **except** the payment-proof upload and own-status read.
+- The platform owner must still have full oversight access regardless of store state (they need to
+  view things to approve).
+- Add a small allowlist for restricted owners: `{ payment-proof upload, GET own store status }`.
+  Everything else (products/orders/discounts/analytics/appearance/support/data-export) → `403` with
+  a clear, typed error code the frontend can render (e.g. `STORE_PENDING_APPROVAL`).
+- Keep `change-password`, `logout`, `refresh`, and `bootstrap` working for restricted owners.
+
+### 4.6 Backend — storefront offline gate (`storefront.routes.ts`)
+
+- Public storefront reads (`GET /public/stores/:slug`, `/products`, analytics capture, COD checkout)
+  must return **404** (or a clean "not available") when the store is **not online**. A pending or
+  rejected store is invisible to the public and cannot take orders. Add/extend the existing
+  store-lookup helper so every public route honors this in one place.
+
+### 4.7 Backend — platform owner: review + approve/reject (`platform.routes.ts`)
+
+- `GET /platform/shop-requests` — include enough to triage (status, contact, store name, whether a
+  proof exists) **without** shipping the full base64 blob in the list (keep the list light).
+- Add `GET /platform/shop-requests/:id` — full request detail **including** the payment-proof data
+  URL so the platform UI can render/preview the attachment. Platform-owner only.
+- `POST /platform/shop-requests/:id/approve` — in one transaction: set `ShopRequest` `APPROVED`,
+  flip the owner `ownerStatus RESTRICTED → ACTIVE`, set the store **online/ACTIVE**, write audit
+  `shop_request.approved`. Make it **idempotent** (re-approving an approved request is a no-op or
+  `409`, never a double effect). Approval here can also trigger existing behavior (e.g. nothing
+  about invoices changes).
+- `POST /platform/shop-requests/:id/reject` — require a reason; set `REJECTED`, keep store offline,
+  keep owner `RESTRICTED`, persist the reason, write audit `shop_request.rejected`. Allow the owner
+  to replace the proof and move back to `UNDER_REVIEW`.
+
+### 4.8 Backend — serializers & validators
+
+- Update `serializers.ts` so request payloads expose the review status + a `hasPaymentProof` flag in
+  lists and the full proof in the single-request detail.
+- Update `validators.ts` Zod schemas for the upload (mime allowlist, size), approve (idempotent),
+  reject (reason required). Reuse shared enums.
+- Make sure `bootstrap` returns the owner's `ownerStatus`, store online state, and current request
+  status so the dashboard can render the correct gate on load.
+
+### 4.9 Frontend — request form (`src/routes/admin/NewStore.tsx`, `src/api/shopRequests.api.ts`)
+
+- The public form still collects what it does today (store name, contact +962, chosen username +
+  password). After a successful submit, tell the user their account is created and they can **sign in
+  now to upload the payment proof**, and that the store goes live after approval. Link to sign-in.
+- (Payment upload happens **after** login, per requirement #1 — not on the public form.)
+
+### 4.10 Frontend — admin pending gate + upload UI (`src/routes/admin/Admin.tsx` + a new component)
+
+- On load, read `ownerStatus` / store online state / request status from bootstrap.
+- If restricted/pending: render a **blocking dashboard state** — a clear banner ("Your store is
+  pending approval. Upload your payment proof and we'll review it.") and a **payment-proof upload
+  card** as the only interactive element. Disable/hide the sidebar nav items (Products, Orders, etc.)
+  or route them to the gate. Show current status: `PENDING_PAYMENT`, `UNDER_REVIEW`, or `REJECTED`
+  (with the reason) and allow re-upload when rejected.
+- Reuse `src/lib/images.ts` to compress the selected file to a data URL before sending. Use the
+  shared `ResourceFormDrawer`/`Field` primitives and the existing toast for success/error.
+- When approved, the gate disappears and the normal dashboard renders. Since there is no realtime
+  push (SSE is deferred), re-fetch bootstrap/`/auth/me` on focus or with a light poll while pending
+  so the owner sees the unlock without a hard reload. Respect i18n/RTL — add AR + EN strings.
+
+### 4.11 Frontend — platform review (`src/routes/platform/ShopRequests.tsx`, `src/api/platform.api.ts`)
+
+- The requests list shows status + a "proof attached" indicator.
+- Opening a request shows **all details** (store, contact, chosen username, timestamps, status) and
+  **renders the payment attachment** (image preview from the data URL; a download/zoom affordance).
+- Approve and Reject (reject requires a reason) call the new endpoints, then invalidate the relevant
+  TanStack Query keys so the list/badges update. Add the AR/EN strings and keep RTL correct.
+
+### 4.12 Audit logging (`server/audit.ts`)
+
+- Log: `shop_request.created`, `shop_request.payment_attached`, `shop_request.approved`,
+  `shop_request.rejected`. Mark approve/reject as security-relevant if that's the existing
+  convention so they survive `auditCap` pruning.
+
+---
+
+## 5. Security requirements (explicit — reviewer will check these)
+
+- A `RESTRICTED` owner **cannot** read or mutate any store data except the proof upload + own status,
+  enforced **server-side in the policy layer**, not just hidden in the UI. Add a test that a
+  restricted owner gets `403` on products/orders/discounts.
+- A pending/rejected store is **not** served by any public storefront route (returns 404) and
+  **cannot** receive COD orders.
+- Server **re-validates** the uploaded proof (mime + decoded size); never trusts client size/mime.
+- Approve/reject are **idempotent** and platform-owner-only; no double-flip of store/owner state.
+- One owner cannot view another owner's request or proof; only that owner + platform owner can.
+- The proof endpoint and the public request endpoint stay rate-limited.
+- No proof base64 leaks into list endpoints or logs (redact in pino).
+
+---
+
+## 6. Tests to add / update
+
+Add to the existing suites (`node --test` for API, Vitest for web). Match existing helpers in
+`tests/helpers.ts`.
+
+- **`tests/security.test.ts`** (update): the self-service path now creates the account **at request
+  time**; the owner can log in immediately but is `RESTRICTED`. Add: restricted owner is `403` on
+  store-scoped reads/writes; can upload proof; cannot touch products/orders.
+- **`tests/api.test.ts`** (add): full flow — request → owner login → upload proof
+  (`PENDING_PAYMENT → UNDER_REVIEW`) → platform approve → owner now has full access, store online,
+  storefront serves it; and the reject path (store stays offline, resubmit works).
+- **Storefront gate**: pending/rejected store returns 404 publicly and rejects checkout.
+- **Upload validation**: oversized / wrong-mime proof is rejected server-side.
+- **Idempotency**: double-approve is a no-op/409, not a double effect.
+- **`tests/policy.test.ts`** (add): policy denies a restricted owner and allows the proof upload.
+- **Web** (`tests/web/`): the admin gate renders the upload card and hides nav while pending; the
+  platform request detail renders the attachment. Keep i18n/RTL assertions.
+
+Run `npm run typecheck && npm run test` and make CI green.
+
+---
+
+## 7. Acceptance criteria (definition of done)
+
+- [ ] Submitting the "request a website" form creates an offline store + a `RESTRICTED` shop-owner
+      account; the owner can sign in right away.
+- [ ] A restricted owner sees only a pending gate + payment-proof upload; everything else is blocked
+      **server-side** (verified by tests), not just hidden.
+- [ ] Uploading a proof moves the request to `UNDER_REVIEW` and is visible to the platform owner.
+- [ ] The platform owner can open the request, see all details, and view the attachment.
+- [ ] Approving unlocks the owner's dashboard **and** puts the store online (publicly visible,
+      can take COD orders).
+- [ ] Rejecting keeps the store offline with a reason; the owner can replace the proof and resubmit.
+- [ ] Pending/rejected stores are invisible to the public storefront and cannot take orders.
+- [ ] All four audit events are written; approve/reject are idempotent and owner-only.
+- [ ] `npm run typecheck` clean; `npm run test` green; build passes.
+- [ ] AR + EN strings added for all new UI; RTL correct.
+
+---
+
+## 8. Out of scope (do not build)
+
+- Real payment gateways / automated payment verification (the proof is reviewed manually — keep the
+  `PaymentProvider` seam untouched).
+- Email/SMS notifications (no realtime; owner sees status on reload/poll).
+- SSE/websockets for live approval push.
+- Postgres migration, SEO/SSR.
+
+---
+
+## 9. Suggested implementation order
+
+1. Contract enums + Prisma migration (4.1, 4.2) — get the shape right first.
+2. Onboarding account-at-request-time (4.3) + restricted policy gate (4.5) + storefront offline gate
+   (4.6) — the security spine.
+3. Proof upload endpoint (4.4) + platform approve/reject + detail (4.7) + serializers/validators
+   (4.8) + audit (4.12).
+4. API modules + admin gate UI + platform review UI (4.9–4.11).
+5. Tests (section 6), then typecheck/test/build green.
+
+Before writing code, reply with: (a) the exact enum values you'll reuse vs. add, and (b) the route
+path you chose for the proof upload — then proceed.

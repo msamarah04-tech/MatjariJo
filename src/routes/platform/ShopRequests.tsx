@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, ClipboardList, Copy, Search, XCircle } from 'lucide-react';
+import { CheckCircle2, ClipboardList, Copy, FileImage, Search, XCircle } from 'lucide-react';
 import { useStore } from '@/lib/store';
+import * as platformApi from '@/api/platform.api';
 import { storefrontUrl } from '@/lib/tenant';
 import { THEMES } from '@/lib/themes';
 import { timeAgo } from '@/lib/format';
@@ -72,7 +73,7 @@ export default function ShopRequests() {
 
   const approve = (request: ShopRequest) => {
     const storeId = approveShopRequest(request.id);
-    if (storeId) toast({ title: 'Store created', description: `${request.storeName} is now live for its owner.`, type: 'success' });
+    if (storeId) toast({ title: 'Store activated', description: `${request.storeName} is now live for its owner.`, type: 'success' });
     setActiveId(null);
   };
 
@@ -92,7 +93,7 @@ export default function ShopRequests() {
       const request = shopRequests.find((r) => r.id === id);
       if (request && request.status !== 'APPROVED' && approveShopRequest(id)) created += 1;
     });
-    if (created) toast({ title: `${created} stores created`, type: 'success' });
+    if (created) toast({ title: `${created} stores activated`, type: 'success' });
     setSelected(new Set());
   };
 
@@ -100,7 +101,7 @@ export default function ShopRequests() {
     <div className="space-y-6">
       <PageHeader
         title="Shop Requests"
-        subtitle="Review merchant applications, then approve to create their store or reject with a reason."
+        subtitle="Review payment proofs, then approve to activate the owner's store or reject with a reason."
       />
 
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -196,7 +197,7 @@ export default function ShopRequests() {
         footer={active && active.status !== 'APPROVED' && active.status !== 'REJECTED' ? (
           <div className="flex gap-2">
             <Button variant="accent" className="flex-1" onClick={() => approve(active)}>
-              <CheckCircle2 className="mr-1.5 h-4 w-4" /> Approve & create store
+              <CheckCircle2 className="mr-1.5 h-4 w-4" /> Approve & activate store
             </Button>
             <Button variant="ghost" className="border border-line text-red-600" onClick={() => setRejecting({ ids: [active.id] })}>
               <XCircle className="mr-1.5 h-4 w-4" /> Reject
@@ -269,12 +270,45 @@ function CredentialRow({ label, value, copy = false, secret = false }: { label: 
 }
 
 function RequestDetail({ request, storeSlug, onMarkReview }: { request: ShopRequest; storeSlug?: string; onMarkReview: () => void }) {
+  const [proof, setProof] = useState<string | null>(null);
+  const [loadingProof, setLoadingProof] = useState(false);
+
+  // The list payload only flags whether a proof exists; fetch the full data URL on demand.
+  useEffect(() => {
+    let active = true;
+    if (!request.hasPaymentProof) { setProof(null); return; }
+    setLoadingProof(true);
+    platformApi.getShopRequest(request.id)
+      .then(({ request: full }) => { if (active) setProof(full.paymentProofDataUrl ?? null); })
+      .catch(() => { if (active) setProof(null); })
+      .finally(() => { if (active) setLoadingProof(false); });
+    return () => { active = false; };
+  }, [request.id, request.hasPaymentProof, request.paymentProofUploadedAt]);
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap gap-2">
         <StatusPill label={request.status} tone={statusTone(request.status)} />
         {request.plan && <StatusPill label={`${request.plan} plan`} tone="neutral" />}
       </div>
+
+      {request.hasPaymentProof && (
+        <div>
+          <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-muted">Payment proof</p>
+          {loadingProof ? (
+            <p className="rounded-xl border border-line bg-paper p-3 text-sm text-muted">Loading proof…</p>
+          ) : proof ? (
+            <a href={proof} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-xl border border-line bg-paper">
+              <img src={proof} alt="Payment proof" className="max-h-80 w-full object-contain" />
+            </a>
+          ) : (
+            <p className="flex items-center gap-2 rounded-xl border border-line bg-paper p-3 text-sm text-muted"><FileImage className="h-4 w-4" /> Could not load proof image.</p>
+          )}
+          {request.paymentProofUploadedAt && (
+            <p className="mt-1 text-xs text-muted">Uploaded {timeAgo(request.paymentProofUploadedAt)}</p>
+          )}
+        </div>
+      )}
 
       <DetailField label="Requested store">{request.storeName} · /{request.storeName.toLowerCase().replace(/\s+/g, '-')}</DetailField>
       <DetailField label="Category">{request.category}</DetailField>
@@ -294,7 +328,7 @@ function RequestDetail({ request, storeSlug, onMarkReview }: { request: ShopRequ
       )}
       {request.storeId && storeSlug && (
         <div className="rounded-xl border border-green-200 bg-green-50 p-3">
-          <p className="text-sm font-bold text-green-800">Store created — /{storeSlug}</p>
+          <p className="text-sm font-bold text-green-800">Store is live — /{storeSlug}</p>
           <Button size="sm" variant="ghost" className="mt-2 border border-green-200 bg-white/70 text-green-800" onClick={() => window.open(storefrontUrl(storeSlug), '_blank')}>
             Open storefront
           </Button>

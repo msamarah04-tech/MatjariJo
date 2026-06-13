@@ -88,8 +88,6 @@ export function serializeStore(store: Store) {
     isFeatured: store.isFeatured,
     welcomeDismissed: store.welcomeDismissed,
     paymentConfirmed: store.paymentConfirmed,
-    paymentReceiptUrl: store.paymentReceiptUrl ?? undefined,
-    paymentReceiptNote: store.paymentReceiptNote,
     ownerId: store.ownerId,
     createdAt: ms(store.createdAt)!,
   };
@@ -105,8 +103,6 @@ export function serializePublicStore(store: Store) {
     plan: _plan,
     planStatus: _planStatus,
     planPaidUntil: _planPaidUntil,
-    paymentReceiptUrl: _paymentReceiptUrl,
-    paymentReceiptNote: _paymentReceiptNote,
     ...publicStore
   } = serialized;
   return publicStore;
@@ -133,8 +129,6 @@ export function serializeStorePlatformView(store: Store, agg?: { count: number; 
     internalNote: store.internalNote,
     isFeatured: store.isFeatured,
     paymentConfirmed: store.paymentConfirmed,
-    paymentReceiptUrl: store.paymentReceiptUrl ?? undefined,
-    paymentReceiptNote: store.paymentReceiptNote,
     ownerId: store.ownerId,
     createdAt: ms(store.createdAt)!,
     ordersTotal: agg?.count ?? 0,
@@ -329,8 +323,21 @@ export function serializeShopRequest(request: ShopRequest) {
     rejectionReason: request.rejectionReason ?? undefined,
     status: request.status,
     storeId: request.storeId ?? undefined,
+    userId: request.userId ?? undefined,
+    // Light flag only — the heavy data URL is never included in list payloads.
+    hasPaymentProof: !!request.paymentProofUploadedAt,
+    paymentProofMime: request.paymentProofMime ?? undefined,
+    paymentProofUploadedAt: ms(request.paymentProofUploadedAt),
     reviewedAt: ms(request.reviewedAt),
     createdAt: ms(request.createdAt)!,
+  };
+}
+
+/** Detail payload — adds the full payment-proof data URL. Use for single-request views only. */
+export function serializeShopRequestDetail(request: ShopRequest) {
+  return {
+    ...serializeShopRequest(request),
+    paymentProofDataUrl: request.paymentProofDataUrl ?? undefined,
   };
 }
 

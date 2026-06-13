@@ -4,6 +4,7 @@ import { apiFetch } from './client';
 export const getOverview = () => apiFetch('/platform/overview');
 
 export const listShopRequests = () => apiFetch<{ shopRequests: ShopRequest[] }>('/platform/shop-requests');
+export const getShopRequest = (id: string) => apiFetch<{ request: ShopRequest }>(`/platform/shop-requests/${id}`);
 export const approveShopRequest = (id: string) => apiFetch<{ request: ShopRequest; store: Store; owner: User; selfService?: boolean; credentials?: { email?: string; username: string; password?: string } }>(`/platform/shop-requests/${id}/approve`, { method: 'POST' });
 export const rejectShopRequest = (id: string, reason: string) => apiFetch<{ request: ShopRequest }>(`/platform/shop-requests/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) });
 
@@ -17,7 +18,6 @@ export const featureStore = (storeId: string) => apiFetch<{ store: Store }>(`/pl
 export const unfeatureStore = (storeId: string) => apiFetch<{ store: Store }>(`/platform/stores/${storeId}/unfeature`, { method: 'POST' });
 
 export const setStorePlan = (storeId: string, plan: StorePlan) => apiFetch<{ store: Store }>(`/platform/stores/${storeId}/plan`, { method: 'PATCH', body: JSON.stringify({ plan }) });
-export const confirmStorePayment = (storeId: string) => apiFetch<{ store: Store }>(`/platform/stores/${storeId}/confirm-payment`, { method: 'PATCH' });
 export const recordStorePlanPayment = (storeId: string) => apiFetch<{ store: Store }>(`/platform/stores/${storeId}/plan/record-payment`, { method: 'POST' });
 export const setOwnerStatus = (storeId: string, ownerStatus: OwnerStatus) => apiFetch<{ owner: User }>(`/platform/stores/${storeId}/owner-status`, { method: 'PATCH', body: JSON.stringify({ ownerStatus }) });
 

@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../db.js';
 import { env } from '../env.js';
-import { authenticate, blockIfMustChangePassword, requireStoreAccess } from '../auth.js';
+import { authenticate, blockIfMustChangePassword, requireStoreAccess, requireStoreAccessForPaymentProof } from '../auth.js';
 import { openSseStream, broadcastTicketUpdate } from '../sse.js';
 import { auditSecurity } from '../audit.js';
 import { conflict, forbidden, notFound } from '../errors.js';
@@ -22,7 +22,7 @@ import {
   discountPatchSchema,
   flagCreateSchema,
   orderIdParamSchema,
-  paymentReceiptSchema,
+  paymentProofSchema,
   productCreateSchema,
   productIdParamSchema,
   productPatchSchema,
@@ -36,9 +36,12 @@ import {
   serializeOrder,
   serializeProduct,
   serializeProductFlag,
+  serializeShopRequestDetail,
   serializeStore,
   serializeSupportTicket,
 } from '../serializers.js';
+import { broadcastShopRequestNew } from '../sse.js';
+import { badRequest } from '../errors.js';
 import { normalizeProductDetails } from '../../shared/productCategorySchemas.js';
 
 export const adminRouter = Router();
@@ -102,16 +105,44 @@ adminRouter.patch('/admin/stores/:storeId', requireStoreAccess, asyncRoute(async
   res.json({ store: serializeStore(store) });
 }));
 
-// Shop owner attaches the bank-transfer bill from their dashboard. This does NOT
-// activate the store — a platform admin must review it and confirm the first payment.
-adminRouter.post('/admin/stores/:storeId/payment-receipt', requireStoreAccess, asyncRoute(async (req, res) => {
-  const input = paymentReceiptSchema.parse(req.body);
-  const store = await prisma.store.update({
-    where: { id: req.params.storeId },
-    data: { paymentReceiptUrl: input.url, paymentReceiptNote: input.note ?? '' },
+// Onboarding gate: a RESTRICTED owner reads their own request to render the gate
+// (status, rejection reason, whether a proof is already attached + its preview).
+adminRouter.get('/admin/stores/:storeId/payment-proof', requireStoreAccessForPaymentProof, asyncRoute(async (req, res) => {
+  const request = await prisma.shopRequest.findFirst({
+    where: { storeId: req.params.storeId },
+    orderBy: { createdAt: 'desc' },
   });
-  await auditSecurity(req.user!, 'Attached payment bill for review', store.name, { targetType: 'Store', targetId: store.id, ip: req.ip });
-  res.json({ store: serializeStore(store) });
+  if (!request) throw notFound('No onboarding request found for this store.');
+  res.json({ request: serializeShopRequestDetail(request) });
+}));
+
+// Onboarding gate: the owner uploads a payment proof (base64 image data URL). This
+// does NOT activate the store — a platform admin must review and approve. Moves the
+// request to IN_REVIEW (and clears any prior rejection so resubmits work cleanly).
+adminRouter.post('/admin/stores/:storeId/payment-proof', requireStoreAccessForPaymentProof, asyncRoute(async (req, res) => {
+  const proof = paymentProofSchema.parse(req.body);
+  const request = await prisma.shopRequest.findFirst({
+    where: { storeId: req.params.storeId },
+    orderBy: { createdAt: 'desc' },
+  });
+  if (!request) throw notFound('No onboarding request found for this store.');
+  if (request.status === 'APPROVED') throw badRequest('This store is already approved.');
+
+  const updated = await prisma.shopRequest.update({
+    where: { id: request.id },
+    data: {
+      paymentProofDataUrl: proof.dataUrl,
+      paymentProofMime: proof.mime,
+      paymentProofSizeBytes: proof.sizeBytes,
+      paymentProofUploadedAt: new Date(),
+      status: 'IN_REVIEW',
+      rejectionReason: null,
+    },
+  });
+  await auditSecurity(req.user!, 'Submitted payment proof for review', updated.storeName, { targetType: 'ShopRequest', targetId: updated.id, ip: req.ip });
+  // Nudge the platform review queue to refetch.
+  broadcastShopRequestNew({ request: serializeShopRequestDetail(updated) });
+  res.json({ request: serializeShopRequestDetail(updated) });
 }));
 
 // Shop owners can export their own store's records (PDPL data-subject requests).
