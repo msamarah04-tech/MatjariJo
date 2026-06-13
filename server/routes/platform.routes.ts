@@ -143,7 +143,7 @@ platformRouter.post('/platform/shop-requests/:id/approve', asyncRoute(async (req
   });
   await auditSecurity(req.user!, 'Approved first payment — store activated', result.store.name, { targetType: 'ShopRequest', targetId: request.id, ip: req.ip });
   notifyShopApproved(result.store, result.owner);
-  res.json({
+  res.status(201).json({
     request: serializeShopRequest(result.request),
     store: serializeStorePlatformView(result.store),
     owner: serializeUser(result.owner),

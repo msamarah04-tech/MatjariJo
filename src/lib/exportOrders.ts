@@ -29,7 +29,7 @@ function fill(argb: RGB): ExcelJS.Fill {
   return { type: 'pattern', pattern: 'solid', fgColor: { argb } };
 }
 
-function border(color = C.border): Partial<ExcelJS.Borders> {
+function border(color: string = C.border): Partial<ExcelJS.Borders> {
   const side: ExcelJS.BorderStyle = 'thin';
   return {
     top:    { style: side, color: { argb: color } },

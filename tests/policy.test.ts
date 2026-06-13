@@ -33,9 +33,11 @@ test('store access policy enforces per-store isolation', async () => {
   const storeA = await prisma.store.create({ data: { ownerId: ownerA.id, slug: 'store-a', name: 'A' } });
   const storeB = await prisma.store.create({ data: { ownerId: ownerB.id, slug: 'store-b', name: 'B' } });
 
-  // Platform owner reaches any store.
-  assert.equal(await assertStoreAccess(platform, storeA.id), true);
-  assert.equal(await assertStoreAccess(platform, storeB.id), true);
+  // Platform owners operate through /platform routes only — assertStoreAccess
+  // intentionally denies them at the shop-content layer.
+  assert.equal(await canAccessStore(platform, storeA.id), false);
+  assert.equal(await canAccessStore(platform, storeB.id), false);
+  await assert.rejects(() => assertStoreAccess(platform, storeA.id), /do not have access/);
 
   // Owner A reaches only their store.
   assert.equal(await assertStoreAccess(ownerA, storeA.id), true);

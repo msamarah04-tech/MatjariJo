@@ -106,6 +106,7 @@ export const seedSupportTickets: SupportTicket[] = [
     storeId: 'store-1',
     subject: 'Question about a large plant order',
     message: 'Customer asked whether local delivery is available for a large order this week.',
+    category: 'OTHER',
     status: 'OPEN',
     priority: 'MEDIUM',
     messages: [
@@ -118,6 +119,7 @@ export const seedSupportTickets: SupportTicket[] = [
     storeId: 'store-2',
     subject: 'Payout timing for last week',
     message: 'When will payouts be processed for orders fulfilled last Friday?',
+    category: 'BILLING',
     status: 'IN_PROGRESS',
     priority: 'HIGH',
     assignedTo: 'System Admin',

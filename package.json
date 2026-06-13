@@ -16,7 +16,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "npm run test:api && npm run test:web -- --run",
-    "test:api": "node --import tsx --test tests/*.test.ts",
+    "test:api": "node --import tsx --test --test-concurrency=1 tests/*.test.ts",
     "test:web": "vitest",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",

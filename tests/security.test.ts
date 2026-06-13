@@ -43,12 +43,16 @@ test('logout revokes the access token (server-side revocation)', async () => {
 });
 
 test('changing password revokes previously issued tokens', async () => {
-  const { body } = await login('platform-admin', 'ChangeMe123!');
+  // Platform owners use the email reset flow — use a shop owner for this test.
+  const platform = await login('platform-admin', 'ChangeMe123!');
+  const shop = await approveShop(platform.body.token, 'PwChange Store', 'pwchange@test.local', 'pwchange-owner', 'InitialPass1');
+
+  const { body } = await login('pwchange-owner', 'InitialPass1');
   const oldToken = body.token as string;
 
   const changed = await request('/auth/change-password', authed(oldToken, {
     method: 'POST',
-    body: JSON.stringify({ currentPassword: 'ChangeMe123!', newPassword: 'BrandNewPass99' }),
+    body: JSON.stringify({ currentPassword: 'InitialPass1', newPassword: 'BrandNewPass99' }),
   }));
   assert.equal(changed.response.status, 200);
   const newToken = changed.body.token as string;
@@ -59,11 +63,13 @@ test('changing password revokes previously issued tokens', async () => {
   const newAfter = await request('/auth/me', authed(newToken));
   assert.equal(newAfter.response.status, 200, 'the session that changed the password stays signed in');
 
-  // Restore the seeded password for other tests in this file.
-  await request('/auth/change-password', authed(newToken, {
+  // Platform owner is blocked from using change-password — must use email reset.
+  const platformToken = platform.body.token as string;
+  const platformBlocked = await request('/auth/change-password', authed(platformToken, {
     method: 'POST',
-    body: JSON.stringify({ currentPassword: 'BrandNewPass99', newPassword: 'ChangeMe123!' }),
+    body: JSON.stringify({ currentPassword: 'ChangeMe123!', newPassword: 'SomethingNew1' }),
   }));
+  assert.equal(platformBlocked.response.status, 403);
 });
 
 test('repeated failed logins lock the account', async () => {
