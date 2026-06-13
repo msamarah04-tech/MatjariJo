@@ -30,6 +30,7 @@ const envSchema = z.object({
   SMTP_PORT: z.coerce.number().int().positive().optional(),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
+  SUPPORT_EMAIL: z.string().email().optional(),
   // Server-side error tracking; disabled when unset.
   SENTRY_DSN: z.string().optional(),
   REQUEST_BODY_LIMIT: z.string().default('50mb'),

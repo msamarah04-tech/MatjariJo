@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "outDir": "server-dist",
+    "rootDir": ".",
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "experimentalDecorators": true,
+    "useDefineForClassFields": false,
+    "allowJs": true,
+    "resolveJsonModule": true
+  },
+  "include": ["server/**/*", "shared/**/*"],
+  "exclude": ["src", "node_modules", "dist", "server-dist"]
+}

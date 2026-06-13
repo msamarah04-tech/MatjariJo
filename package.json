@@ -12,6 +12,7 @@
     "db:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
     "db:backup": "tsx scripts/backup.ts",
+    "build:server": "tsc -p tsconfig.server.json",
     "build": "vite build",
     "preview": "vite preview",
     "test": "npm run test:api && npm run test:web -- --run",

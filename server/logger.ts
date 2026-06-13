@@ -22,7 +22,8 @@ export const logger = pino({
 });
 
 /** Request logging with a per-request id (echoed back as X-Request-Id). */
-export const httpLogger = pinoHttp({
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const httpLogger = (pinoHttp as any)({
   logger,
   // Skip CORS preflight noise.
   autoLogging: { ignore: (req) => req.method === 'OPTIONS' },

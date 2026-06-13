@@ -70,8 +70,8 @@ externalPort = 3002
 
 [deployment]
 deploymentTarget = "vm"
-run = ["npx", "tsx", "server/index.ts"]
-build = ["bash", "-c", "npx prisma generate && npm run build"]
+run = ["node", "server-dist/server/index.js"]
+build = ["bash", "-c", "npx prisma generate && npm run build:server && npm run build"]
 
 [postMerge]
 path = "scripts/post-merge.sh"
