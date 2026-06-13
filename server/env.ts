@@ -14,7 +14,11 @@ const envSchema = z.object({
   // Signs the httpOnly refresh cookie. Required in production (see fail-closed below).
   COOKIE_SECRET: z.string().min(16).optional(),
   PORT: z.coerce.number().int().positive().default(4000),
-  FRONTEND_ORIGIN: z.string().default('http://localhost:3000'),
+  FRONTEND_ORIGIN: z.string().default(
+    process.env.REPLIT_DEV_DOMAIN
+      ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+      : 'http://localhost:3000',
+  ),
   // Multi-tenant storefronts: when set (e.g. "matjari.jo"), every <slug>.matjari.jo
   // subdomain is accepted as a trusted browser origin alongside FRONTEND_ORIGIN.
   PUBLIC_BASE_DOMAIN: z.string().trim().toLowerCase().optional(),
