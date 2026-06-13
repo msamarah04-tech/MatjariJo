@@ -51,7 +51,7 @@ test('approving an order assigns a sequential invoice number', async () => {
   assert.equal(seqOf(second.invoiceNumber!), seqOf(first.invoiceNumber!) + 1);
 });
 
-test('invoice JSON includes the GST line and totals', async () => {
+test('invoice JSON includes subtotal and totals', async () => {
   const order = await placeAndApprove();
   const { response, body } = await request(`/admin/stores/${store.id}/orders/${order.id}/invoice?format=json`, authed(ownerToken));
   assert.equal(response.status, 200);
@@ -67,7 +67,7 @@ test('invoice renders printable HTML (and Arabic RTL)', async () => {
   const en = await request(`/admin/stores/${store.id}/orders/${order.id}/invoice`, authed(ownerToken));
   assert.equal(en.response.status, 200);
   assert.match(en.response.headers.get('content-type') ?? '', /text\/html/);
-  assert.match(en.body as string, /Tax Invoice/);
+  assert.match(en.body as string, /Invoice/);
 
   const ar = await request(`/admin/stores/${store.id}/orders/${order.id}/invoice?lang=ar`, authed(ownerToken));
   assert.match(ar.response.headers.get('content-type') ?? '', /text\/html/);

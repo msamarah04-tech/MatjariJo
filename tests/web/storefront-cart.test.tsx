@@ -41,7 +41,7 @@ const discount: Discount = {
 };
 
 describe('storefront cart summary display', () => {
-  it('renders server-mirrored subtotal, discount, GST, shipping, and total in JOD', () => {
+  it('renders subtotal, discount, shipping, and total in JOD (no GST)', () => {
     const summary = computeOrderSummary(store, [product], [{ productId: product.id, quantity: 2 }], discount);
 
     render(
@@ -52,10 +52,10 @@ describe('storefront cart summary display', () => {
 
     expect(screen.getByText(/Subtotal/i)).toBeInTheDocument();
     expect(screen.getByText(/Discount \(SAVE10\)/i)).toBeInTheDocument();
-    expect(screen.getByText(/GST/i)).toBeInTheDocument();
+    expect(screen.getByText(/Shipping/i)).toBeInTheDocument();
     expect(screen.getByText(/JOD\s*20\.000/)).toBeInTheDocument();
     expect(screen.getByText(/JOD\s*2\.000/)).toBeInTheDocument();
-    expect(screen.getByText(/JOD\s*2\.880/)).toBeInTheDocument();
-    expect(screen.getByText(/JOD\s*22\.380/)).toBeInTheDocument();
+    expect(screen.getByText(/JOD\s*1\.500/)).toBeInTheDocument();
+    expect(screen.getByText(/JOD\s*19\.500/)).toBeInTheDocument();
   });
 });

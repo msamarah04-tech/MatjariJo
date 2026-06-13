@@ -120,7 +120,7 @@ test('idempotency key prevents duplicate orders on retry', async () => {
   assert.equal(after?.stock, 8, 'stock decremented once (10 - 2), not twice');
 });
 
-test('GST is computed server-side on top of the recomputed subtotal', async () => {
+test('order total matches server-recomputed subtotal (no tax)', async () => {
   const platform = await login('platform-admin', 'ChangeMe123!');
   const { store, ownerToken } = await newShop(platform, 'Tax Store', 'tax@test.local');
   const product = await addProduct(ownerToken, store.id, 10_000, 10);
