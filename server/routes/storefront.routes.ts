@@ -48,7 +48,7 @@ storefrontRouter.get('/public/stores/:slug', asyncRoute(async (req, res) => {
 }));
 
 storefrontRouter.get('/public/stores/:slug/products', asyncRoute(async (req, res) => {
-  const store = await prisma.store.findFirst({ where: { slug: req.params.slug, status: 'ACTIVE' } });
+  const store = await prisma.store.findFirst({ where: { slug: req.params.slug, status: 'ACTIVE', paymentConfirmed: true } });
   if (!store) throw notFound('Store not found.');
   const products = await prisma.product.findMany({ where: { storeId: store.id, isActive: true }, orderBy: { createdAt: 'desc' } });
   res.json({ products: products.filter(productPubliclyActive).map(serializeProductForStorefront) });
@@ -56,7 +56,7 @@ storefrontRouter.get('/public/stores/:slug/products', asyncRoute(async (req, res
 
 storefrontRouter.post('/public/stores/:slug/analytics', publicWriteRateLimiter, asyncRoute(async (req, res) => {
   const input = analyticsEventSchema.parse(req.body);
-  const store = await prisma.store.findFirst({ where: { slug: req.params.slug, status: 'ACTIVE' } });
+  const store = await prisma.store.findFirst({ where: { slug: req.params.slug, status: 'ACTIVE', paymentConfirmed: true } });
   if (!store) throw notFound('Store not found.');
   if (input.productId) {
     const product = await prisma.product.findFirst({ where: { id: input.productId, storeId: store.id, isActive: true } });
@@ -79,7 +79,7 @@ storefrontRouter.post('/public/stores/:slug/orders', publicWriteRateLimiter, asy
   const headerKey = req.header('Idempotency-Key');
   const idempotencyKey = input.idempotencyKey ?? (headerKey && headerKey.length >= 8 ? headerKey : undefined);
 
-  const store = await prisma.store.findFirst({ where: { slug: req.params.slug, status: 'ACTIVE' } });
+  const store = await prisma.store.findFirst({ where: { slug: req.params.slug, status: 'ACTIVE', paymentConfirmed: true } });
   if (!store) throw notFound('Store not found.');
 
   // Idempotent replay: a retried POST with the same key returns the original order

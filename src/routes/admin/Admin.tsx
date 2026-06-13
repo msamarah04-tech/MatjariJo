@@ -1,15 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTicketEvents } from '@/lib/useTicketEvents';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   ArrowLeft,
   BadgePercent,
-  CheckCircle2,
   ChevronsUpDown,
   ClipboardList,
   ExternalLink,
-  FileText,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -20,7 +18,6 @@ import {
   Search,
   Settings as SettingsIcon,
   TriangleAlert,
-  Upload,
   X,
 } from 'lucide-react';
 import { useStore } from '@/lib/store';
@@ -35,9 +32,6 @@ import { AdminContextValue, StoreBadges, useStoreBadges } from './shared';
 import { CommandPalette } from './CommandPalette';
 import { useI18n } from '@/lib/i18n';
 import { LangToggle } from '@/components/ui/LangToggle';
-import { toast } from '@/components/ui/Toast';
-import { API_BASE } from '@/api/client';
-import { createSupportTicket, replyToSupportTicket } from '@/api/admin.api';
 
 import Overview from './Overview';
 import Products from './Products';
@@ -164,11 +158,10 @@ function AdminShell() {
         <AdminTopBar store={store} onMenu={() => setMobileOpen(true)} />
         <MaintenanceBanner />
         <PlanPastDueBanner store={store} />
+        {!isPlatformViewer && <PaymentPendingBanner store={store} storeId={storeId} />}
         <main className="flex-1 px-5 py-6 md:px-8 md:py-8">
           <div className="mx-auto max-w-6xl">
-            {!store.paymentConfirmed && !isPlatformViewer
-              ? <PaymentGate store={store} storeId={storeId} />
-              : <Outlet context={context} />}
+            <Outlet context={context} />
           </div>
         </main>
       </div>
@@ -176,111 +169,20 @@ function AdminShell() {
   );
 }
 
-function PaymentGate({ store, storeId }: { store: Store; storeId: string }) {
-  const token = useStore((s) => s.token);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [file, setFile] = useState<File | null>(null);
-  const [note, setNote] = useState('');
-  const [uploading, setUploading] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-
-  const handleSubmit = async () => {
-    if (!file) return;
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      const uploadRes = await fetch(`${API_BASE}/uploads/ticket-attachment`, { method: 'POST', headers, body: formData });
-      if (!uploadRes.ok) throw new Error('Upload failed');
-      const { url: attachmentUrl } = await uploadRes.json() as { url: string };
-
-      const body = note.trim() || `Payment receipt for the ${store.plan ?? 'STARTER'} plan.`;
-      const { ticket } = await createSupportTicket(storeId, { subject: `Payment receipt — ${store.name}`, body, category: 'BILLING' });
-      await replyToSupportTicket(storeId, ticket.id, { body: '', attachmentUrl });
-      setSubmitted(true);
-    } catch {
-      toast({ title: 'Submission failed', description: 'Please try again or contact support.', type: 'error' });
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  if (submitted) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="max-w-md w-full text-center space-y-4">
-          <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-green-100 text-green-600 mx-auto">
-            <CheckCircle2 className="h-8 w-8" />
-          </div>
-          <h2 className="font-heading text-3xl font-black text-ink">Receipt submitted!</h2>
-          <p className="text-muted">Our team will review your payment and activate your store. This usually takes a few hours.</p>
-          <Link to={`/admin/${storeId}/messages`} className="inline-flex items-center gap-2 rounded-xl bg-ink px-5 py-2.5 text-sm font-bold text-canvas hover:bg-ink/80 transition-colors">
-            <MessageSquare className="h-4 w-4" /> Check messages
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
+function PaymentPendingBanner({ store, storeId }: { store: Store; storeId: string }) {
+  if (store.paymentConfirmed) return null;
   return (
-    <div className="flex min-h-[60vh] items-center justify-center py-12">
-      <div className="w-full max-w-lg">
-        <div className="rounded-3xl border border-line bg-surface p-8 shadow-sm space-y-6">
-          <div className="text-center space-y-2">
-            <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-accent/10 text-accent mb-2">
-              <Upload className="h-8 w-8" />
-            </div>
-            <h2 className="font-heading text-3xl font-black text-ink">One last step!</h2>
-            <p className="text-muted">Your store has been approved. To go live, please attach proof of your bank transfer below.</p>
-          </div>
-
-          <div className="rounded-2xl border border-line bg-paper px-4 py-3">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted">Your plan</p>
-            <p className="font-black text-2xl text-ink mt-1">{store.plan ?? 'STARTER'}</p>
-          </div>
-
-          <div className="space-y-3">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*,application/pdf"
-              className="hidden"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            />
-            {file ? (
-              <div className="flex items-center gap-2 rounded-xl border border-accent/30 bg-accent/5 px-3 py-2.5">
-                <FileText className="h-5 w-5 text-accent shrink-0" />
-                <span className="flex-1 truncate text-sm font-bold text-ink">{file.name}</span>
-                <button onClick={() => setFile(null)} className="text-muted hover:text-ink">
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full rounded-xl border-2 border-dashed border-line hover:border-accent/40 bg-paper py-8 text-center transition-colors"
-              >
-                <Upload className="h-8 w-8 text-muted mx-auto mb-2" />
-                <p className="font-bold text-ink">Click to attach receipt</p>
-                <p className="text-xs text-muted mt-1">Image or PDF, up to 5 MB</p>
-              </button>
-            )}
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              rows={2}
-              placeholder="Optional note (e.g. transfer reference number)"
-              className="w-full resize-none rounded-xl border border-line bg-surface px-3 py-2.5 text-sm font-semibold text-ink placeholder:font-normal focus:outline-none focus:ring-1 focus:ring-accent"
-            />
-          </div>
-
-          <Button variant="accent" className="w-full gap-2" onClick={handleSubmit} disabled={!file || uploading}>
-            {uploading ? 'Sending…' : 'Submit receipt'}
-          </Button>
-        </div>
-      </div>
+    <div className="flex flex-wrap items-center gap-2 border-b border-amber-200 bg-amber-50 px-5 py-2.5 text-sm font-bold text-amber-800 md:px-8">
+      <TriangleAlert className="h-4 w-4 shrink-0" />
+      <span className="flex-1 min-w-0">
+        Your store isn’t live yet. Attach your bank transfer receipt so we can review it and activate your store.
+      </span>
+      <Link
+        to={`/admin/${storeId}/messages`}
+        className="inline-flex items-center gap-1.5 rounded-lg bg-amber-800 px-3 py-1.5 text-xs font-bold text-amber-50 transition-colors hover:bg-amber-900"
+      >
+        <MessageSquare className="h-3.5 w-3.5" /> Attach payment receipt
+      </Link>
     </div>
   );
 }
