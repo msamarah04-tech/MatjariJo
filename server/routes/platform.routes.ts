@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import { Prisma } from '@prisma/client';
 import { prisma, withTransaction } from '../db.js';
@@ -29,6 +30,7 @@ import {
   rejectSchema,
   storePlanSchema,
   ticketReplySchema,
+  ticketAttachmentUrlSchema,
   ticketStatusSchema,
 } from '../validators.js';
 import { TRIAL_DAYS, addOneMonth } from '../../shared/plans.js';
@@ -378,11 +380,19 @@ platformRouter.patch('/platform/support/tickets/:ticketId/assign-to-me', asyncRo
   res.json({ ticket: serializeSupportTicket(ticket) });
 }));
 
+// Dedicated schema for resolve — avoids calling .partial() on a refined schema.
+const resolveTicketInputSchema = z.object({
+  // Accept both `body` (standard reply field) and legacy `replyBody` for compat.
+  body: z.string().trim().max(4000).optional(),
+  replyBody: z.string().trim().max(4000).optional(),
+  attachmentUrl: ticketAttachmentUrlSchema,
+});
+
 // Resolve ticket with optional reply email to the shop owner.
 platformRouter.patch('/platform/support/tickets/:ticketId/resolve', asyncRoute(async (req, res) => {
-  const input = ticketReplySchema.partial().safeParse(req.body);
-  const replyBody: string | undefined = input.success ? (input.data.body?.trim() || req.body?.replyBody?.trim() || undefined) : (req.body?.replyBody?.trim() || undefined);
-  const attachmentUrl: string | undefined = input.success ? input.data.attachmentUrl ?? undefined : undefined;
+  const input = resolveTicketInputSchema.parse(req.body);
+  const replyBody: string | undefined = (input.body?.trim() || input.replyBody?.trim()) || undefined;
+  const attachmentUrl: string | undefined = input.attachmentUrl ?? undefined;
   const hasMessage = !!(replyBody || attachmentUrl);
   const ticket = await prisma.supportTicket.update({
     where: { id: req.params.ticketId },

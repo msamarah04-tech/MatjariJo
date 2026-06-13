@@ -422,7 +422,7 @@ export const directMessageSchema = z.object({
 }).strict();
 
 // Only accept server-hosted upload paths — never arbitrary external URLs.
-const ticketAttachmentUrlSchema = z
+export const ticketAttachmentUrlSchema = z
   .string()
   .regex(
     /^\/uploads\/ticket-attachments\/[a-zA-Z0-9._-]+$/,
