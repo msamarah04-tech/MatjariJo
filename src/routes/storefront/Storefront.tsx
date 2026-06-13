@@ -118,6 +118,11 @@ const text = {
     shippingReturns: 'Shipping and returns',
     emptyCart: 'Your cart is empty',
     emptyCartHint: 'Browse the shop and add something you love.',
+    from: 'From',
+    loadMore: 'Load more',
+    placingOrder: 'Placing order…',
+    chooseVariant: 'Choose',
+    productNotFound: 'Product not found',
     subtotal: 'Subtotal',
     discount: 'Discount',
     shipping: 'Shipping',
@@ -2129,7 +2134,7 @@ function CheckoutForm({ form, store, submitCheckout, backToCart }: { form: UseFo
     <form id="cod-checkout-form" className="space-y-5" onSubmit={form.handleSubmit(submitCheckout)}>
       <div className="rounded-xl bg-[var(--c-soft)] p-4 border border-[var(--c-line)]/20">
         <p className="flex items-center gap-2.5 text-sm font-black"><ShieldCheck className="h-5 w-5 shrink-0" /> {c.cod}</p>
-        <p className="mt-1.5 text-xs font-medium leading-relaxed opacity-55">Stock, discount, GST, and shipping are verified server-side before the order is created.</p>
+        <p className="mt-1.5 text-xs font-medium leading-relaxed opacity-55">Stock, discounts, and shipping are verified server-side before the order is confirmed.</p>
       </div>
       <Field form={form} name="customerName" label={c.fullName} />
       <Field form={form} name="customerPhone" label={c.phone} type="tel" placeholder="0790000000" />

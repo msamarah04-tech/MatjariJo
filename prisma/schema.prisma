@@ -78,7 +78,7 @@ model Store {
   freeOverCents         Int?
   contactPhone          String?
   address               String?
-  // Monotonic per-store counter that backs sequential internal tax-invoice numbers.
+  // Monotonic per-store counter that backs sequential invoice numbers.
   nextInvoiceSeq        Int      @default(1)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
@@ -145,7 +145,7 @@ model Order {
   rejectionReason String?
   // Checkout idempotency: a retried POST with the same key returns the original order.
   idempotencyKey  String?
-  // Sequential internal tax-invoice number, assigned once the order is approved.
+  // Sequential invoice number, assigned once the order is approved.
   invoiceNumber   String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

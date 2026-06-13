@@ -33,7 +33,7 @@ export async function changeOrderStatus(user: User, orderId: string, next: Order
     where: { id: order.id },
     data: { status: next, rejectionReason: next === 'REJECTED' ? reason ?? null : order.rejectionReason },
   });
-  // Issue the sequential internal tax invoice when the order is approved.
+  // Issue the sequential invoice number when the order is approved.
   if (next === 'APPROVED' && !order.invoiceNumber) {
     await assignInvoiceNumber(order.id);
   }

@@ -41,7 +41,7 @@ export function Privacy() {
     {
       heading: '2. Data we collect',
       body: [
-        'Shoppers: when you place a Cash on Delivery order we collect your name, phone number, delivery address, and optionally your email — solely so the store can fulfil and deliver your order and issue an internal tax invoice.',
+        'Shoppers: when you place a Cash on Delivery order we collect your name, phone number, delivery address, and optionally your email — solely so the store can fulfil and deliver your order and issue an order confirmation.',
         'Store owners: when you request a store we collect your name, email, chosen username, and a securely hashed password. We also keep operational records (orders, products, audit logs) needed to run your store.',
         'We do not collect card details — payment is cash on delivery. We do not sell personal data to anyone.',
       ],
@@ -49,7 +49,7 @@ export function Privacy() {
     {
       heading: '3. How we use it',
       body: [
-        'Order data is used to process, deliver, and account for purchases, including computing GST for internal tax invoices. Store owner data is used to operate the platform, bill subscriptions (paid by CliQ or bank transfer), and provide support.',
+        'Order data is used to process, deliver, and account for purchases. Store owner data is used to operate the platform, bill subscriptions (paid by CliQ or bank transfer), and provide support.',
       ],
     },
     {
@@ -80,7 +80,7 @@ export function Privacy() {
     {
       heading: '2. البيانات التي نجمعها',
       body: [
-        'المتسوقون: عند تقديم طلب بالدفع عند الاستلام نجمع اسمك ورقم هاتفك وعنوان التوصيل وبريدك الإلكتروني اختيارياً — فقط ليتمكن المتجر من تجهيز طلبك وتوصيله وإصدار فاتورة ضريبية داخلية.',
+        'المتسوقون: عند تقديم طلب بالدفع عند الاستلام نجمع اسمك ورقم هاتفك وعنوان التوصيل وبريدك الإلكتروني اختيارياً — فقط ليتمكن المتجر من تجهيز طلبك وتوصيله وإصدار تأكيد الطلب.',
         'أصحاب المتاجر: عند طلب متجر نجمع الاسم والبريد الإلكتروني واسم المستخدم وكلمة مرور مشفرة. كما نحتفظ بالسجلات التشغيلية (الطلبات والمنتجات وسجلات التدقيق) اللازمة لتشغيل متجرك.',
         'لا نجمع بيانات البطاقات — الدفع عند الاستلام. ولا نبيع البيانات الشخصية لأي جهة.',
       ],
@@ -88,7 +88,7 @@ export function Privacy() {
     {
       heading: '3. كيف نستخدمها',
       body: [
-        'تُستخدم بيانات الطلبات لمعالجة المشتريات وتوصيلها واحتسابها، بما في ذلك احتساب ضريبة المبيعات للفواتير الداخلية. وتُستخدم بيانات أصحاب المتاجر لتشغيل المنصة وفوترة الاشتراكات (عبر كليك أو حوالة بنكية) وتقديم الدعم.',
+        'تُستخدم بيانات الطلبات لمعالجة المشتريات وتوصيلها وتسجيلها. وتُستخدم بيانات أصحاب المتاجر لتشغيل المنصة وفوترة الاشتراكات (عبر كليك أو حوالة بنكية) وتقديم الدعم.',
       ],
     },
     {
@@ -144,7 +144,7 @@ export function Terms() {
     {
       heading: '4. Orders & payments',
       body: [
-        'Shopper payments are Cash on Delivery between the shopper and the store. Matjari computes totals, GST, and internal tax invoices, but is not a party to the sale and does not process card payments.',
+        'Shopper payments are Cash on Delivery between the shopper and the store. Matjari computes order totals and generates order records, but is not a party to the sale and does not process card payments.',
       ],
     },
     {

@@ -164,7 +164,7 @@ const en: Dict = {
   adminPastDueMsg: 'Your subscription payment is overdue — your storefront is still live. Contact support to settle your invoice.',
   // ── pricing page ─────────────────────────────────────────────────────────
   pricingTitle: 'Simple monthly pricing',
-  pricingSubtitle: 'Keep everything you sell — no commission, no hidden fees. Start with a free 14-day trial.',
+  pricingSubtitle: 'Keep everything you sell — no hidden fees. Start with a free 14-day trial.',
   pricingPerMonth: '/month',
   pricingMostPopular: 'Most popular',
   pricingTrialNote: 'Every store starts with a free 14-day trial. Pay by CliQ or bank transfer.',

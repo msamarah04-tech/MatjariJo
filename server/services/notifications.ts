@@ -69,7 +69,7 @@ export function notifyOrderPlaced(store: Store, order: OrderWithItems): void {
 
 /**
  * Order approved by the owner: the customer gets the confirmation plus the
- * internal tax invoice (the bill) attached in English and Arabic.
+ * order invoice attached in English and Arabic.
  */
 export function notifyOrderApproved(store: Store, order: OrderWithItems): void {
   if (!order.customerEmail) return; // legacy orders may predate the required-email checkout
@@ -87,7 +87,7 @@ export function notifyOrderApproved(store: Store, order: OrderWithItems): void {
         <p style="font-size:14px;line-height:1.6"><strong>${store.name}</strong> approved your order and it is being prepared. Invoice: <code>${model.number}</code></p>
         ${orderLinesHtml(order)}
         <p style="font-size:14px;line-height:1.6;margin-top:16px">Please have <strong>${money(order.totalCents, order.currency)}</strong> ready — payment is cash on delivery.</p>
-        <p style="font-size:14px;line-height:1.6">Your tax invoice is attached in English and Arabic. فاتورتك الضريبية مرفقة بالعربية والإنجليزية.</p>`),
+        <p style="font-size:14px;line-height:1.6">Your order invoice is attached in English and Arabic. فاتورتك مرفقة بالعربية والإنجليزية.</p>`),
       attachments,
     });
   })().catch((error) => logger.error({ err: error, orderId: order.id }, 'Order approval email failed'));

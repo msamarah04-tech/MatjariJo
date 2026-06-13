@@ -16,7 +16,7 @@ app.set('trust proxy', isProduction ? 1 : false);
 app.use(httpLogger);
 
 // Security headers + strict CSP. styleSrc allows inline styles for printable
-// tax invoices; imgSrc allows data: URLs for store/product images.
+// order invoices; imgSrc allows data: URLs for store/product images.
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
