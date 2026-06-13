@@ -89,7 +89,7 @@ export default function Settings() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 pb-24">
-      <PageHeader title="Settings" subtitle="Global marketplace defaults. Payout fields arrive with the backend integration." />
+      <PageHeader title="Settings" subtitle="Global marketplace defaults." />
 
       {maintenanceOn && (
         <div className="flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
