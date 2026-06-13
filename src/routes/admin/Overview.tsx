@@ -215,10 +215,10 @@ export default function Overview() {
         <section className="xl:col-span-2">
           <SectionHeader title="Top products" sub="Last 30 days" to={`${base}/products`} toLabel="All products" />
           {insights.topProducts.length === 0 ? (
-            <EmptyState icon={PackageSearch} title="No sales yet" description="Top products by units sold will appear here." />
+            <EmptyState icon={PackageSearch} title="No sales yet" description="Top products by revenue will appear here once you get orders." />
           ) : (
             <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
-              {insights.topProducts.slice(0, 5).map((product, i) => (
+              {[...insights.topProducts].sort((a, b) => b.revenueCents - a.revenueCents || b.units - a.units).slice(0, 5).map((product, i) => (
                 <div
                   key={product.product}
                   className={cn(
