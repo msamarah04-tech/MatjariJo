@@ -27,6 +27,11 @@ MAIL_FROM = "Matjari Jordan <no-reply@matjarijo.store>"
 PUBLIC_BASE_DOMAIN = "matjarijo.com"
 VITE_PUBLIC_BASE_DOMAIN = "matjarijo.com"
 
+[userenv.production]
+NODE_ENV = "production"
+PORT = "3000"
+FRONTEND_ORIGIN = "https://matjarijo.replit.app"
+
 [workflows]
 runButton = "Project"
 
@@ -65,8 +70,8 @@ externalPort = 3002
 
 [deployment]
 deploymentTarget = "vm"
-run = ["bash", "-c", "DATABASE_URL=file:./dev.db node -e \"const {execSync}=require('child_process'); execSync('npm run api:dev', {stdio:'inherit'})\" & npx vite preview --port 5000 --host 0.0.0.0"]
-build = ["bash", "-c", "DATABASE_URL=file:./dev.db npx prisma migrate deploy && DATABASE_URL=file:./dev.db npm run db:seed && npm run build"]
+run = ["npx", "tsx", "server/index.ts"]
+build = ["bash", "-c", "npx prisma generate && npm run build"]
 
 [postMerge]
 path = "scripts/post-merge.sh"

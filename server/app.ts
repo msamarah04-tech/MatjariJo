@@ -63,5 +63,17 @@ app.use(express.urlencoded({ extended: true, limit: env.REQUEST_BODY_LIMIT }));
 // Serve uploaded files (ticket attachments etc.) as static assets.
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 app.use('/api', router);
-app.use((_req, _res, next) => next(notFound('Route not found.')));
+
+// In production, serve the Vite-built SPA and fall back to index.html for
+// client-side routing. This also satisfies the deployer's GET / health probe.
+if (isProduction) {
+  const distPath = path.join(process.cwd(), 'dist');
+  app.use(express.static(distPath));
+  app.get('*', (_req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+} else {
+  app.use((_req, _res, next) => next(notFound('Route not found.')));
+}
+
 app.use(errorHandler);
