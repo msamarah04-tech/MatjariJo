@@ -106,6 +106,33 @@ export function serializePublicStore(store: Store) {
   return publicStore;
 }
 
+/**
+ * Platform admin view of a store. Metadata and aggregate counts only —
+ * no customer PII, no shipping config, no theme overrides, no contact details.
+ * The `agg` argument carries per-store order totals; omit it to get zeros
+ * (appropriate for single-store detail responses after a mutation).
+ */
+export function serializeStorePlatformView(store: Store, agg?: { count: number; gmv: number }) {
+  return {
+    id: store.id,
+    name: store.name,
+    slug: store.slug,
+    category: store.category,
+    plan: store.plan,
+    planStatus: derivePlanStatus(store.planStatus as PlanStatus, ms(store.planPaidUntil)),
+    planPaidUntil: ms(store.planPaidUntil),
+    status: store.status,
+    reviewStatus: store.reviewStatus,
+    suspensionReason: store.suspensionReason,
+    internalNote: store.internalNote,
+    isFeatured: store.isFeatured,
+    ownerId: store.ownerId,
+    createdAt: ms(store.createdAt)!,
+    ordersTotal: agg?.count ?? 0,
+    gmvCents: agg?.gmv ?? 0,
+  };
+}
+
 export function serializeProduct(product: Product) {
   const details = parseProductDetails(product.details);
   return {

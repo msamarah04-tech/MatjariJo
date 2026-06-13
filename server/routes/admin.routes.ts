@@ -8,7 +8,6 @@ import { PLAN_DEFS } from '../../shared/plans.js';
 import type { StorePlan } from '../../shared/contract.js';
 import { parseRange, storeInsights } from '../analytics.js';
 import { asyncRoute, dateFromMs, shippingPatch } from '../http.js';
-import { isPlatformOwner } from '../policies/roles.policy.js';
 import { changeOrderStatus } from '../services/orders.js';
 import { buildStoreDataExport } from '../services/dataPrivacy.js';
 import { buildInvoiceModel, renderInvoiceHtml } from '../services/invoices.js';
@@ -44,11 +43,13 @@ export const adminRouter = Router();
 adminRouter.use('/admin', authenticate, blockIfMustChangePassword);
 
 adminRouter.get('/admin/stores', asyncRoute(async (req, res) => {
+  // Platform owners own no stores — they manage stores via /platform routes.
+  // Shop owners are hard-limited to their first assigned store.
   const stores = await prisma.store.findMany({
-    where: isPlatformOwner(req.user!) ? undefined : { ownerId: req.user!.id },
+    where: { ownerId: req.user!.id },
     orderBy: { createdAt: 'asc' },
   });
-  res.json({ stores: (isPlatformOwner(req.user!) ? stores : stores.slice(0, 1)).map(serializeStore) });
+  res.json({ stores: stores.slice(0, 1).map(serializeStore) });
 }));
 
 adminRouter.get('/admin/stores/:storeId', requireStoreAccess, asyncRoute(async (req, res) => {

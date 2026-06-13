@@ -15,7 +15,7 @@ import {
   uniqueUsername,
   usernameFromShopSlug,
 } from '../services/onboarding.js';
-import { buildStoreDataExport, eraseStoreCustomerData } from '../services/dataPrivacy.js';
+import { eraseStoreCustomerData } from '../services/dataPrivacy.js';
 import { notifyAnnouncement, notifyDirectMessage, notifyPlanPayment, notifyShopApproved } from '../services/notifications.js';
 import {
   announcementSchema,
@@ -31,12 +31,11 @@ import {
 import { TRIAL_DAYS, addOneMonth } from '../../shared/plans.js';
 import {
   serializeAuditLog,
-  serializeOrder,
   serializePlatformSettings,
   serializeProduct,
   serializeProductFlag,
   serializeShopRequest,
-  serializeStore,
+  serializeStorePlatformView,
   serializeSupportTicket,
   serializeUser,
 } from '../serializers.js';
@@ -132,7 +131,7 @@ platformRouter.post('/platform/shop-requests/:id/approve', asyncRoute(async (req
   notifyShopApproved(result.store, result.user);
   res.status(201).json({
     request: serializeShopRequest(result.request),
-    store: serializeStore(result.store),
+    store: serializeStorePlatformView(result.store),
     owner: serializeUser(result.user),
     selfService,
     ...(tempPassword ? { temporaryPassword: tempPassword } : {}),
@@ -156,46 +155,53 @@ platformRouter.post('/platform/shop-requests/:id/reject', asyncRoute(async (req,
 }));
 
 platformRouter.get('/platform/stores', asyncRoute(async (_req, res) => {
-  const stores = await prisma.store.findMany({ orderBy: { createdAt: 'desc' } });
-  res.json({ stores: stores.map(serializeStore) });
+  const [stores, orderAggs] = await Promise.all([
+    prisma.store.findMany({ orderBy: { createdAt: 'desc' } }),
+    prisma.order.groupBy({ by: ['storeId'], _count: { id: true }, _sum: { totalCents: true } }),
+  ]);
+  const aggMap = new Map(orderAggs.map((a) => [a.storeId, { count: a._count.id, gmv: a._sum.totalCents ?? 0 }]));
+  res.json({ stores: stores.map((s) => serializeStorePlatformView(s, aggMap.get(s.id))) });
 }));
 
 platformRouter.get('/platform/stores/:storeId', asyncRoute(async (req, res) => {
-  const store = await prisma.store.findUnique({ where: { id: req.params.storeId } });
+  const [store, agg] = await Promise.all([
+    prisma.store.findUnique({ where: { id: req.params.storeId } }),
+    prisma.order.aggregate({ where: { storeId: req.params.storeId }, _count: { id: true }, _sum: { totalCents: true } }),
+  ]);
   if (!store) throw notFound('Store not found.');
-  res.json({ store: serializeStore(store) });
+  res.json({ store: serializeStorePlatformView(store, { count: agg._count.id, gmv: agg._sum.totalCents ?? 0 }) });
 }));
 
 platformRouter.patch('/platform/stores/:storeId', asyncRoute(async (req, res) => {
   const input = platformStorePatchSchema.parse(req.body);
   const store = await prisma.store.update({ where: { id: req.params.storeId }, data: input });
   await audit(req.user!, 'Updated platform store controls', store.name, { targetType: 'Store', targetId: store.id, detail: input });
-  res.json({ store: serializeStore(store) });
+  res.json({ store: serializeStorePlatformView(store) });
 }));
 
 platformRouter.post('/platform/stores/:storeId/suspend', asyncRoute(async (req, res) => {
   const input = rejectSchema.parse(req.body);
   const store = await prisma.store.update({ where: { id: req.params.storeId }, data: { status: 'SUSPENDED', suspensionReason: input.reason } });
   await audit(req.user!, 'Suspended store', store.name, { targetType: 'Store', targetId: store.id, detail: input.reason });
-  res.json({ store: serializeStore(store) });
+  res.json({ store: serializeStorePlatformView(store) });
 }));
 
 platformRouter.post('/platform/stores/:storeId/reactivate', asyncRoute(async (req, res) => {
   const store = await prisma.store.update({ where: { id: req.params.storeId }, data: { status: 'ACTIVE', suspensionReason: '' } });
   await audit(req.user!, 'Reactivated store', store.name, { targetType: 'Store', targetId: store.id });
-  res.json({ store: serializeStore(store) });
+  res.json({ store: serializeStorePlatformView(store) });
 }));
 
 platformRouter.post('/platform/stores/:storeId/feature', asyncRoute(async (req, res) => {
   const store = await prisma.store.update({ where: { id: req.params.storeId }, data: { isFeatured: true } });
   await audit(req.user!, 'Featured store', store.name, { targetType: 'Store', targetId: store.id });
-  res.json({ store: serializeStore(store) });
+  res.json({ store: serializeStorePlatformView(store) });
 }));
 
 platformRouter.post('/platform/stores/:storeId/unfeature', asyncRoute(async (req, res) => {
   const store = await prisma.store.update({ where: { id: req.params.storeId }, data: { isFeatured: false } });
   await audit(req.user!, 'Unfeatured store', store.name, { targetType: 'Store', targetId: store.id });
-  res.json({ store: serializeStore(store) });
+  res.json({ store: serializeStorePlatformView(store) });
 }));
 
 
@@ -203,7 +209,7 @@ platformRouter.patch('/platform/stores/:storeId/plan', asyncRoute(async (req, re
   const input = storePlanSchema.parse(req.body);
   const store = await prisma.store.update({ where: { id: req.params.storeId }, data: { plan: input.plan } });
   await audit(req.user!, `Changed subscription plan to ${input.plan}`, store.name, { targetType: 'Store', targetId: store.id, detail: input });
-  res.json({ store: serializeStore(store) });
+  res.json({ store: serializeStorePlatformView(store) });
 }));
 
 // Manual billing: the platform owner records an off-platform payment (CliQ/bank
@@ -221,7 +227,7 @@ platformRouter.post('/platform/stores/:storeId/plan/record-payment', asyncRoute(
   });
   await auditSecurity(req.user!, `Recorded subscription payment (${store.plan})`, store.name, { targetType: 'Store', targetId: store.id, ip: req.ip });
   notifyPlanPayment(store);
-  res.json({ store: serializeStore(store) });
+  res.json({ store: serializeStorePlatformView(store) });
 }));
 
 platformRouter.patch('/platform/stores/:storeId/owner-status', asyncRoute(async (req, res) => {
@@ -281,14 +287,9 @@ platformRouter.delete('/platform/stores/:storeId', asyncRoute(async (req, res) =
   res.status(204).end();
 }));
 
-// PDPL data hygiene: export and erase a store's customer/owner records. Both are
-// security-audited (access to sensitive data is logged).
-platformRouter.get('/platform/stores/:storeId/data-export', asyncRoute(async (req, res) => {
-  const data = await buildStoreDataExport(req.params.storeId);
-  await auditSecurity(req.user!, 'Exported store customer/owner data', data.store.name, { targetType: 'Store', targetId: req.params.storeId, ip: req.ip });
-  res.json(data);
-}));
-
+// PDPL data hygiene: erase a store's customer PII (platform-initiated compliance action).
+// The platform admin may erase but NOT read individual customer records — use the
+// store owner's own /admin/stores/:id/data-export for subject-access-request exports.
 platformRouter.post('/platform/stores/:storeId/erase-customer-data', asyncRoute(async (req, res) => {
   const store = await prisma.store.findUnique({ where: { id: req.params.storeId } });
   if (!store) throw notFound('Store not found.');
@@ -297,14 +298,9 @@ platformRouter.post('/platform/stores/:storeId/erase-customer-data', asyncRoute(
   res.json(result);
 }));
 
-platformRouter.get('/platform/orders', asyncRoute(async (_req, res) => {
-  const orders = await prisma.order.findMany({ include: { items: true }, orderBy: { createdAt: 'desc' } });
-  res.json({ orders: orders.map(serializeOrder) });
-}));
-
-// NOTE: order lifecycle transitions (approve/reject/fulfill) have a single authority —
-// the store-scoped endpoints under /admin/stores/:storeId/orders. Platform owners act
-// through those via their oversight store access. The platform keeps read-only orders.
+// NOTE: individual order records (customer names, emails, addresses) are shop-private.
+// The platform has no cross-store order list endpoint. Aggregated GMV and order counts
+// are available on GET /platform/stores and GET /platform/stores/:storeId.
 
 platformRouter.get('/platform/moderation/flags', asyncRoute(async (_req, res) => {
   const flags = await prisma.productFlag.findMany({ orderBy: { createdAt: 'desc' } });

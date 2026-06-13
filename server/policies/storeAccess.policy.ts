@@ -1,18 +1,16 @@
 import type { User } from '@prisma/client';
 import { prisma } from '../db.js';
 import { forbidden } from '../errors.js';
-import { isPlatformOwner } from './roles.policy.js';
 
 /**
  * Store access policy — the single decision point for "may this user act on this
  * store?". Per-store isolation is sacred: a shop owner may only touch their one
- * assigned store; a platform owner may touch any store (oversight). Every
- * store-scoped route flows through this, so no endpoint can forget the guard.
+ * assigned store. Platform owners have NO implicit access to shop content; they
+ * operate exclusively through /platform routes which return privacy-safe metadata only.
  *
  * Throws ApiError(403) on denial; returns true on success.
  */
 export async function assertStoreAccess(user: User, storeId: string): Promise<true> {
-  if (isPlatformOwner(user)) return true;
   if (user.ownerStatus !== 'ACTIVE') throw forbidden('Owner account is not active.');
 
   const store = await prisma.store.findFirst({ where: { id: storeId, ownerId: user.id } });
@@ -24,6 +22,15 @@ export async function assertStoreAccess(user: User, storeId: string): Promise<tr
     throw forbidden('This shop-admin account is limited to its assigned store.');
   }
   return true;
+}
+
+/**
+ * Explicit shop-owner-only guard. Use on any route that reads or mutates shop
+ * content (products, orders, customers, discounts). Platform owners get 403 —
+ * they must use the /platform routes which expose only privacy-safe metadata.
+ */
+export async function assertShopOwnerOnly(user: User, storeId: string): Promise<true> {
+  return assertStoreAccess(user, storeId);
 }
 
 /** Non-throwing variant for read-time checks / selectors. */
