@@ -1,9 +1,9 @@
 import { FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Eye, EyeOff, Lock, User } from 'lucide-react';
 import { useStore } from '@/lib/store';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
+import { cn } from '@/lib/cn';
 import { useI18n } from '@/lib/i18n';
 import { LangToggle } from '@/components/ui/LangToggle';
 
@@ -13,8 +13,9 @@ export default function SignIn() {
   const apiError = useStore((s) => s.apiError);
   const navigate = useNavigate();
   const { t } = useI18n();
-  const [identifier, setIdentifier] = useState('platform-admin');
-  const [password, setPassword] = useState('ChangeMe123!');
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -33,66 +34,171 @@ export default function SignIn() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-paper relative overflow-hidden">
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-accent/5 blur-[100px]" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-accent-soft/40 blur-[100px]" />
+    <div className="min-h-screen flex bg-paper">
+      {/* ── Left brand panel (hidden on mobile) ─────────────────── */}
+      <div className="hidden lg:flex lg:w-1/2 xl:w-[55%] relative flex-col justify-between overflow-hidden bg-ink p-12">
+        {/* Background texture */}
+        <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '32px 32px' }} />
+        <div className="absolute top-[-20%] right-[-10%] w-[60%] h-[60%] rounded-full bg-accent/20 blur-[120px]" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-accent/10 blur-[100px]" />
 
-      {/* lang toggle – top right */}
-      <div className="absolute top-5 end-5 z-10">
-        <LangToggle variant="light" />
+        {/* Logo */}
+        <div className="relative z-10">
+          <img src="/logo.png" alt="Matjari" className="h-14 w-auto brightness-0 invert" />
+        </div>
+
+        {/* Center copy */}
+        <div className="relative z-10 space-y-6">
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 backdrop-blur-sm">
+            <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
+            <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/60">Jordan's Commerce Platform</span>
+          </div>
+          <h1 className="text-5xl font-black leading-[1.1] tracking-tight text-white">
+            Your brand.<br />
+            <span className="text-accent">Your storefront.</span>
+          </h1>
+          <p className="max-w-sm text-base leading-relaxed text-white/50">
+            Launch a premium online store in minutes. Built for Jordanian entrepreneurs who mean business.
+          </p>
+        </div>
+
+        {/* Bottom stat row */}
+        <div className="relative z-10 flex gap-8 border-t border-white/10 pt-8">
+          {[
+            { value: '50+', label: 'Brands live' },
+            { value: 'JOD', label: 'Native currency' },
+            { value: '24/7', label: 'Uptime' },
+          ].map((stat) => (
+            <div key={stat.label}>
+              <p className="text-2xl font-black text-white">{stat.value}</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">{stat.label}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
-      <Card className="w-full max-w-md relative z-10 animate-fade-up">
-        <CardHeader className="text-center pb-8 pt-10">
-          <CardTitle>
-            <img src="/logo.png" alt="Matjari Jordan" className="mx-auto h-24 w-auto -my-4" />
-          </CardTitle>
-          <p className="text-muted mt-4 text-[10px] uppercase font-bold tracking-widest">{t('backendConnected')}</p>
-        </CardHeader>
-        <CardContent className="pb-10 px-8">
-          <form onSubmit={submit} className="flex flex-col gap-4">
-            <label className="space-y-2">
-              <span className="text-xs font-black uppercase tracking-widest text-muted">{t('usernameOrEmail')}</span>
-              <Input value={identifier} onChange={(e) => setIdentifier(e.target.value)} autoComplete="username" />
-            </label>
-            <label className="space-y-2">
-              <span className="text-xs font-black uppercase tracking-widest text-muted">{t('password')}</span>
-              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
-            </label>
+      {/* ── Right form panel ─────────────────────────────────────── */}
+      <div className="flex flex-1 flex-col">
+        {/* Top bar */}
+        <div className="flex items-center justify-between px-6 py-5 sm:px-10">
+          {/* Mobile logo */}
+          <img src="/logo.png" alt="Matjari" className="h-10 w-auto lg:hidden" />
+          <div className="hidden lg:block" />
+          <LangToggle variant="light" />
+        </div>
 
-            {(error || apiError) && (
-              <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{error || apiError}</p>
-            )}
-
-            <Button size="lg" variant="solid" type="submit" disabled={loading}>
-              {loading ? t('signingIn') : t('signIn')}
-            </Button>
-
-            <div className="text-center">
-              <Link to="/forgot-password" className="text-sm text-muted hover:text-ink font-semibold transition-colors">
-                Forgot your password?
-              </Link>
+        {/* Form centered */}
+        <div className="flex flex-1 items-center justify-center px-6 py-12 sm:px-10">
+          <div className="w-full max-w-sm space-y-8">
+            {/* Heading */}
+            <div className="space-y-2">
+              <h2 className="text-3xl font-black tracking-tight text-ink">Welcome back</h2>
+              <p className="text-sm text-muted">Sign in to manage your store dashboard.</p>
             </div>
-          </form>
 
-          <div className="mt-8 rounded-xl border border-line bg-paper p-4 text-xs font-semibold leading-6 text-muted">
-            Platform: <span className="font-mono text-ink">platform-admin</span> / <span className="font-mono text-ink">ChangeMe123!</span>
-            <br />
-            Shop owners use the username and one-time password returned when their shop request is approved.
-          </div>
+            {/* Form */}
+            <form onSubmit={submit} className="space-y-5">
+              {/* Username */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-black uppercase tracking-widest text-muted">
+                  {t('usernameOrEmail')}
+                </label>
+                <div className="relative">
+                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted pointer-events-none" />
+                  <input
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    autoComplete="username"
+                    placeholder="username or email"
+                    required
+                    className={cn(
+                      'w-full rounded-xl border bg-surface py-3 pl-10 pr-4 text-sm font-medium text-ink placeholder:text-muted/60 transition-all',
+                      'focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent',
+                      'border-line hover:border-ink/20'
+                    )}
+                  />
+                </div>
+              </div>
 
-          <div className="mt-8 pt-8 border-t border-line text-center">
-            <p className="text-sm text-muted mb-4">{t('clearSessionPrompt')}</p>
-            <Button
-              variant="quiet"
-              size="sm"
-              onClick={() => { clearSession(); window.location.reload(); }}
-            >
-              {t('clearLocalSession')}
-            </Button>
+              {/* Password */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-black uppercase tracking-widest text-muted">
+                    {t('password')}
+                  </label>
+                  <Link to="/forgot-password" className="text-[11px] font-bold text-accent hover:text-accent/80 transition-colors">
+                    Forgot password?
+                  </Link>
+                </div>
+                <div className="relative">
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted pointer-events-none" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="current-password"
+                    placeholder="••••••••"
+                    required
+                    className={cn(
+                      'w-full rounded-xl border bg-surface py-3 pl-10 pr-11 text-sm font-medium text-ink placeholder:text-muted/60 transition-all',
+                      'focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent',
+                      'border-line hover:border-ink/20'
+                    )}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted hover:text-ink transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Error */}
+              {(error || apiError) && (
+                <div className="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+                  <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-red-500" />
+                  <p className="text-sm font-semibold text-red-700">{error || apiError}</p>
+                </div>
+              )}
+
+              {/* Submit */}
+              <button
+                type="submit"
+                disabled={loading}
+                className={cn(
+                  'w-full rounded-xl bg-ink py-3.5 text-sm font-black text-white tracking-wide transition-all',
+                  'hover:bg-ink/90 active:scale-[0.99]',
+                  'focus:outline-none focus:ring-2 focus:ring-ink/40 focus:ring-offset-2',
+                  'disabled:opacity-60 disabled:cursor-not-allowed'
+                )}
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                    Signing in…
+                  </span>
+                ) : t('signIn')}
+              </button>
+            </form>
+
+            {/* Divider + session reset */}
+            <div className="space-y-4 border-t border-line pt-6">
+              <p className="text-center text-xs text-muted">{t('clearSessionPrompt')}</p>
+              <Button
+                variant="quiet"
+                size="sm"
+                className="w-full"
+                onClick={() => { clearSession(); window.location.reload(); }}
+              >
+                {t('clearLocalSession')}
+              </Button>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
