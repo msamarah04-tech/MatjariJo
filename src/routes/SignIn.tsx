@@ -1,11 +1,38 @@
 import { FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Lock, User } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/cn';
 import { useI18n } from '@/lib/i18n';
 import { LangToggle } from '@/components/ui/LangToggle';
+
+const FLOAT_CARDS = [
+  {
+    id: 1,
+    emoji: '🌹',
+    store: 'Sultan Oud',
+    label: 'New order',
+    sub: 'Rose Oud · JOD 45',
+    pos: 'top-[18%] right-8',
+  },
+  {
+    id: 2,
+    emoji: '✨',
+    store: 'Nour Modest',
+    label: 'Order fulfilled',
+    sub: '2 items shipped',
+    pos: 'top-[44%] left-8',
+  },
+  {
+    id: 3,
+    emoji: '🌿',
+    store: 'Baraka Herbs',
+    label: 'New customer',
+    sub: 'Lana Al-Amin joined',
+    pos: 'bottom-[20%] right-10',
+  },
+];
 
 export default function SignIn() {
   const signIn = useStore((s) => s.signIn);
@@ -34,122 +61,161 @@ export default function SignIn() {
   };
 
   return (
-    <div className="min-h-screen flex bg-paper">
-      {/* ── Left brand panel (hidden on mobile) ─────────────────── */}
-      <div className="hidden lg:flex lg:w-1/2 xl:w-[55%] relative flex-col justify-between overflow-hidden bg-ink p-12">
-        {/* Background texture */}
-        <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '32px 32px' }} />
-        <div className="absolute top-[-20%] right-[-10%] w-[60%] h-[60%] rounded-full bg-accent/20 blur-[120px]" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-accent/10 blur-[100px]" />
+    <div className="min-h-screen flex bg-white">
+
+      {/* ── Left visual panel ──────────────────────────────────────── */}
+      <div className="hidden lg:flex lg:w-[52%] xl:w-[56%] relative flex-col justify-between overflow-hidden p-12"
+        style={{ background: 'linear-gradient(135deg, #0a1a18 0%, #0d2b26 40%, #0f3d35 70%, #0a2820 100%)' }}>
+
+        {/* Layered glow orbs */}
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute top-[-15%] right-[-5%] h-[55%] w-[55%] rounded-full opacity-30"
+            style={{ background: 'radial-gradient(circle, #0F766E 0%, transparent 70%)' }} />
+          <div className="absolute bottom-[-10%] left-[-5%] h-[45%] w-[45%] rounded-full opacity-20"
+            style={{ background: 'radial-gradient(circle, #134e4a 0%, transparent 70%)' }} />
+          <div className="absolute top-[40%] left-[30%] h-[30%] w-[30%] rounded-full opacity-15"
+            style={{ background: 'radial-gradient(circle, #0F766E 0%, transparent 70%)' }} />
+        </div>
+
+        {/* Subtle grid */}
+        <div className="pointer-events-none absolute inset-0 opacity-[0.035]"
+          style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.8) 1px, transparent 1px)', backgroundSize: '48px 48px' }} />
 
         {/* Logo */}
         <div className="relative z-10">
-          <img src="/logo.png" alt="Matjari" className="h-14 w-auto brightness-0 invert" />
+          <img src="/logo.png" alt="Matjari" className="h-12 w-auto brightness-0 invert opacity-90" />
         </div>
 
-        {/* Center copy */}
-        <div className="relative z-10 space-y-6">
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 backdrop-blur-sm">
-            <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
-            <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/60">Jordan's Commerce Platform</span>
+        {/* Floating notification cards */}
+        {FLOAT_CARDS.map((card) => (
+          <div
+            key={card.id}
+            className={cn('absolute z-20 flex items-center gap-3 rounded-2xl border border-white/10 px-4 py-3 backdrop-blur-md', card.pos)}
+            style={{ background: 'rgba(255,255,255,0.07)' }}
+          >
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-lg"
+              style={{ background: 'rgba(255,255,255,0.1)' }}>
+              {card.emoji}
+            </div>
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-widest text-white/40">{card.label}</p>
+              <p className="text-sm font-bold text-white/90">{card.store}</p>
+              <p className="text-[11px] text-white/50">{card.sub}</p>
+            </div>
+            <span className="ml-1 h-2 w-2 shrink-0 rounded-full bg-emerald-400" />
           </div>
-          <h1 className="text-5xl font-black leading-[1.1] tracking-tight text-white">
-            Your brand.<br />
-            <span className="text-accent">Your storefront.</span>
+        ))}
+
+        {/* Center headline */}
+        <div className="relative z-10 space-y-5">
+          <div className="inline-flex items-center gap-2.5 rounded-full px-4 py-1.5"
+            style={{ background: 'rgba(15,118,110,0.25)', border: '1px solid rgba(15,118,110,0.4)' }}>
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-300">Jordan's No.1 Commerce Platform</span>
+          </div>
+
+          <h1 className="text-[3.25rem] font-black leading-[1.08] tracking-tight text-white">
+            Your brand.{' '}
+            <br />
+            <span style={{ background: 'linear-gradient(90deg, #2dd4bf, #0F766E)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              Your storefront.
+            </span>
           </h1>
-          <p className="max-w-sm text-base leading-relaxed text-white/50">
-            Launch a premium online store in minutes. Built for Jordanian entrepreneurs who mean business.
+
+          <p className="max-w-xs text-[15px] leading-relaxed text-white/45">
+            Launch a premium store in minutes. Built for Jordanian entrepreneurs who mean business.
           </p>
         </div>
 
-        {/* Bottom stat row */}
-        <div className="relative z-10 flex gap-8 border-t border-white/10 pt-8">
+        {/* Stats row */}
+        <div className="relative z-10 flex gap-10 border-t pt-8" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
           {[
-            { value: '50+', label: 'Brands live' },
+            { value: '50+', label: 'Live stores' },
             { value: 'JOD', label: 'Native currency' },
-            { value: '24/7', label: 'Uptime' },
+            { value: '99.9%', label: 'Uptime SLA' },
           ].map((stat) => (
             <div key={stat.label}>
               <p className="text-2xl font-black text-white">{stat.value}</p>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">{stat.label}</p>
+              <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.16em] text-white/35">{stat.label}</p>
             </div>
           ))}
         </div>
       </div>
 
-      {/* ── Right form panel ─────────────────────────────────────── */}
-      <div className="flex flex-1 flex-col">
+      {/* ── Right form panel ────────────────────────────────────────── */}
+      <div className="flex flex-1 flex-col bg-white">
+
         {/* Top bar */}
-        <div className="flex items-center justify-between px-6 py-5 sm:px-10">
-          {/* Mobile logo */}
-          <img src="/logo.png" alt="Matjari" className="h-10 w-auto lg:hidden" />
+        <div className="flex items-center justify-between px-8 py-6">
+          <img src="/logo.png" alt="Matjari" className="h-9 w-auto lg:hidden" />
           <div className="hidden lg:block" />
           <LangToggle variant="light" />
         </div>
 
-        {/* Form centered */}
-        <div className="flex flex-1 items-center justify-center px-6 py-12 sm:px-10">
-          <div className="w-full max-w-sm space-y-8">
+        {/* Centered form */}
+        <div className="flex flex-1 items-center justify-center px-8 py-10">
+          <div className="w-full max-w-[360px]">
+
             {/* Heading */}
-            <div className="space-y-2">
-              <h2 className="text-3xl font-black tracking-tight text-ink">Welcome back</h2>
-              <p className="text-sm text-muted">Sign in to manage your store dashboard.</p>
+            <div className="mb-9">
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.2em] text-muted">Store dashboard</p>
+              <h2 className="text-[2rem] font-black leading-tight tracking-tight text-ink">Welcome back</h2>
+              <p className="mt-1.5 text-sm text-muted/80">Sign in to your account to continue.</p>
             </div>
 
             {/* Form */}
-            <form onSubmit={submit} className="space-y-5">
-              {/* Username */}
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-black uppercase tracking-widest text-muted">
+            <form onSubmit={submit} className="space-y-4">
+
+              {/* Username field */}
+              <div>
+                <label className="mb-2 block text-[11px] font-black uppercase tracking-[0.15em] text-ink/50">
                   {t('usernameOrEmail')}
                 </label>
-                <div className="relative">
-                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted pointer-events-none" />
-                  <input
-                    value={identifier}
-                    onChange={(e) => setIdentifier(e.target.value)}
-                    autoComplete="username"
-                    placeholder="username or email"
-                    required
-                    className={cn(
-                      'w-full rounded-xl border bg-surface py-3 pl-10 pr-4 text-sm font-medium text-ink placeholder:text-muted/60 transition-all',
-                      'focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent',
-                      'border-line hover:border-ink/20'
-                    )}
-                  />
-                </div>
+                <input
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  autoComplete="username"
+                  placeholder="your username or email"
+                  required
+                  className={cn(
+                    'w-full rounded-2xl border-2 bg-[#F8F8F8] px-4 py-3.5 text-sm font-medium text-ink',
+                    'placeholder:text-ink/25 transition-all duration-200',
+                    'border-transparent hover:border-ink/10',
+                    'focus:border-accent focus:bg-white focus:outline-none focus:shadow-[0_0_0_4px_rgba(15,118,110,0.08)]'
+                  )}
+                />
               </div>
 
-              {/* Password */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-[11px] font-black uppercase tracking-widest text-muted">
+              {/* Password field */}
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <label className="text-[11px] font-black uppercase tracking-[0.15em] text-ink/50">
                     {t('password')}
                   </label>
-                  <Link to="/forgot-password" className="text-[11px] font-bold text-accent hover:text-accent/80 transition-colors">
-                    Forgot password?
+                  <Link to="/forgot-password" className="text-[11px] font-bold text-accent transition-opacity hover:opacity-70">
+                    Forgot?
                   </Link>
                 </div>
                 <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted pointer-events-none" />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     autoComplete="current-password"
-                    placeholder="••••••••"
+                    placeholder="••••••••••"
                     required
                     className={cn(
-                      'w-full rounded-xl border bg-surface py-3 pl-10 pr-11 text-sm font-medium text-ink placeholder:text-muted/60 transition-all',
-                      'focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent',
-                      'border-line hover:border-ink/20'
+                      'w-full rounded-2xl border-2 bg-[#F8F8F8] px-4 py-3.5 pr-12 text-sm font-medium text-ink',
+                      'placeholder:text-ink/25 transition-all duration-200',
+                      'border-transparent hover:border-ink/10',
+                      'focus:border-accent focus:bg-white focus:outline-none focus:shadow-[0_0_0_4px_rgba(15,118,110,0.08)]'
                     )}
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPassword((v) => !v)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted hover:text-ink transition-colors"
                     tabIndex={-1}
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-ink/30 transition-colors hover:text-ink/70"
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -158,9 +224,9 @@ export default function SignIn() {
 
               {/* Error */}
               {(error || apiError) && (
-                <div className="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
-                  <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-red-500" />
-                  <p className="text-sm font-semibold text-red-700">{error || apiError}</p>
+                <div className="flex items-center gap-3 rounded-2xl bg-red-50 px-4 py-3 ring-1 ring-red-200">
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" />
+                  <p className="text-sm font-semibold text-red-600">{error || apiError}</p>
                 </div>
               )}
 
@@ -169,28 +235,37 @@ export default function SignIn() {
                 type="submit"
                 disabled={loading}
                 className={cn(
-                  'w-full rounded-xl bg-ink py-3.5 text-sm font-black text-white tracking-wide transition-all',
-                  'hover:bg-ink/90 active:scale-[0.99]',
-                  'focus:outline-none focus:ring-2 focus:ring-ink/40 focus:ring-offset-2',
-                  'disabled:opacity-60 disabled:cursor-not-allowed'
+                  'group relative mt-2 w-full overflow-hidden rounded-2xl py-4 text-sm font-black tracking-wide text-white transition-all duration-200',
+                  'focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2',
+                  'disabled:cursor-not-allowed disabled:opacity-60',
+                  'active:scale-[0.985]'
                 )}
+                style={{ background: 'linear-gradient(135deg, #0F766E 0%, #0d6560 50%, #0a5550 100%)' }}
               >
-                {loading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                    Signing in…
-                  </span>
-                ) : t('signIn')}
+                <span className="absolute inset-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+                  style={{ background: 'linear-gradient(135deg, #0d6560 0%, #0a5550 50%, #083f3a 100%)' }} />
+                <span className="relative flex items-center justify-center gap-2">
+                  {loading ? (
+                    <>
+                      <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                      Signing in…
+                    </>
+                  ) : (
+                    <>
+                      {t('signIn')}
+                      <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                    </>
+                  )}
+                </span>
               </button>
             </form>
 
-            {/* Divider + session reset */}
-            <div className="space-y-4 border-t border-line pt-6">
-              <p className="text-center text-xs text-muted">{t('clearSessionPrompt')}</p>
+            {/* Session reset */}
+            <div className="mt-10 border-t border-ink/6 pt-6 text-center">
+              <p className="mb-3 text-xs text-ink/35">{t('clearSessionPrompt')}</p>
               <Button
                 variant="quiet"
                 size="sm"
-                className="w-full"
                 onClick={() => { clearSession(); window.location.reload(); }}
               >
                 {t('clearLocalSession')}
