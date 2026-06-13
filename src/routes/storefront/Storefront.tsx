@@ -1810,6 +1810,7 @@ function ProductImageGallery({ product, activeImage }: { product: Product; activ
 }
 
 function ProductOptionSelector({ product, selections, setSelections }: { product: Product; selections: Record<string, string>; setSelections: React.Dispatch<React.SetStateAction<Record<string, string>>> }) {
+  const c = useCopy();
   const options = productOptions(product);
   return (
     <div className="mb-6 space-y-5">
