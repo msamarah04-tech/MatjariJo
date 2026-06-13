@@ -16,8 +16,10 @@ import {
   usernameFromShopSlug,
 } from '../services/onboarding.js';
 import { buildStoreDataExport, eraseStoreCustomerData } from '../services/dataPrivacy.js';
-import { notifyPlanPayment, notifyShopApproved } from '../services/notifications.js';
+import { notifyAnnouncement, notifyDirectMessage, notifyPlanPayment, notifyShopApproved } from '../services/notifications.js';
 import {
+  announcementSchema,
+  directMessageSchema,
   ownerStatusSchema,
   platformSettingsPatchSchema,
   platformStorePatchSchema,
@@ -368,6 +370,112 @@ platformRouter.patch('/platform/support/tickets/:ticketId/assign-to-me', asyncRo
   res.json({ ticket: serializeSupportTicket(ticket) });
 }));
 
+// Resolve ticket with optional reply email to the shop owner.
+platformRouter.patch('/platform/support/tickets/:ticketId/resolve', asyncRoute(async (req, res) => {
+  const replyBody: string | undefined = req.body?.replyBody?.trim() || undefined;
+  const ticket = await prisma.supportTicket.update({
+    where: { id: req.params.ticketId },
+    data: {
+      status: 'RESOLVED',
+      ...(replyBody ? { messages: { create: { from: 'PLATFORM', body: replyBody, authorId: req.user!.id } } } : {}),
+    },
+    include: { messages: { orderBy: { createdAt: 'asc' } }, store: { include: { owner: { select: { email: true, name: true } } } } },
+  });
+  if (replyBody && ticket.store?.owner?.email) {
+    notifyDirectMessage(
+      `Re: ${ticket.subject}`,
+      replyBody,
+      { email: ticket.store.owner.email, name: ticket.store.owner.name },
+      ticket.store.name,
+    );
+  }
+  await audit(req.user!, 'Resolved support ticket', ticket.subject, {
+    targetType: 'SupportTicket',
+    targetId: ticket.id,
+    detail: replyBody ? 'with reply' : 'no reply sent',
+  });
+  res.json({ ticket: serializeSupportTicket(ticket) });
+}));
+
+// Revenue summary: MRR, plan status counts, upcoming renewals, overdue stores.
+platformRouter.get('/platform/revenue', asyncRoute(async (_req, res) => {
+  const now = new Date();
+  const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+  const stores = await prisma.store.findMany({
+    include: { owner: { select: { email: true, name: true } } },
+    orderBy: { planPaidUntil: 'asc' },
+  });
+
+  const { PLAN_DEFS, derivePlanStatus } = await import('../../shared/plans.js');
+
+  let mrrJod = 0;
+  const counts = { TRIAL: 0, ACTIVE: 0, PAST_DUE: 0, SUSPENDED: 0 };
+  const upcomingRenewals: unknown[] = [];
+  const overdueStores: unknown[] = [];
+
+  for (const store of stores) {
+    if (store.status === 'SUSPENDED') { counts.SUSPENDED += 1; continue; }
+    const planStatus = derivePlanStatus(store.planStatus as any, store.planPaidUntil?.getTime());
+    if (planStatus === 'ACTIVE') {
+      counts.ACTIVE += 1;
+      const planDef = PLAN_DEFS[store.plan as keyof typeof PLAN_DEFS];
+      if (planDef) mrrJod += planDef.priceMonthlyJod;
+      if (store.planPaidUntil && store.planPaidUntil <= in30Days) {
+        const daysRemaining = Math.ceil((store.planPaidUntil.getTime() - now.getTime()) / 86400000);
+        upcomingRenewals.push({ storeId: store.id, name: store.name, ownerEmail: store.owner.email, ownerName: store.owner.name, plan: store.plan, planPaidUntil: store.planPaidUntil.getTime(), daysRemaining });
+      }
+    } else if (planStatus === 'TRIAL') {
+      counts.TRIAL += 1;
+    } else if (planStatus === 'PAST_DUE') {
+      counts.PAST_DUE += 1;
+      const daysOverdue = store.planPaidUntil ? Math.floor((now.getTime() - store.planPaidUntil.getTime()) / 86400000) : null;
+      overdueStores.push({ storeId: store.id, name: store.name, ownerEmail: store.owner.email, ownerName: store.owner.name, plan: store.plan, planPaidUntil: store.planPaidUntil?.getTime(), daysOverdue });
+    }
+  }
+
+  upcomingRenewals.sort((a: any, b: any) => a.daysRemaining - b.daysRemaining);
+
+  res.json({ mrrJod, counts, upcomingRenewals, overdueStores });
+}));
+
+// Broadcast announcement to all active + trial plan store owners via email.
+platformRouter.post('/platform/announcements', asyncRoute(async (req, res) => {
+  const input = announcementSchema.parse(req.body);
+  const { derivePlanStatus } = await import('../../shared/plans.js');
+  const stores = await prisma.store.findMany({
+    where: { status: 'ACTIVE' },
+    include: { owner: { select: { email: true, name: true } } },
+  });
+  const recipients = stores
+    .filter((s) => {
+      const ps = derivePlanStatus(s.planStatus as any, s.planPaidUntil?.getTime());
+      return ps === 'ACTIVE' || ps === 'TRIAL';
+    })
+    .map((s) => ({ email: s.owner.email, name: s.owner.name }));
+  notifyAnnouncement(input.subject, input.body, recipients);
+  await audit(req.user!, 'Sent platform announcement', input.subject, {
+    targetType: 'PlatformSettings',
+    targetId: 'platform',
+    detail: `${recipients.length} recipients`,
+  });
+  res.json({ sent: recipients.length });
+}));
+
+// Send a direct message to a specific store owner and log it.
+platformRouter.post('/platform/stores/:storeId/message', asyncRoute(async (req, res) => {
+  const input = directMessageSchema.parse(req.body);
+  const store = await prisma.store.findUnique({ where: { id: req.params.storeId }, include: { owner: { select: { email: true, name: true } } } });
+  if (!store) throw notFound('Store not found.');
+  notifyDirectMessage(input.subject, input.body, { email: store.owner.email, name: store.owner.name }, store.name);
+  await audit(req.user!, 'Sent direct message to store owner', store.name, {
+    targetType: 'Store',
+    targetId: store.id,
+    detail: input.subject,
+  });
+  res.json({ ok: true });
+}));
+
 platformRouter.get('/platform/analytics', asyncRoute(async (req, res) => {
   const range = parseRange(String(req.query.range ?? '30'));
   const [stores, orders, events, settings] = await Promise.all([
@@ -384,11 +492,15 @@ platformRouter.get('/platform/audit', asyncRoute(async (req, res) => {
   const pageSize = Math.min(100, Math.max(1, Number(req.query.pageSize ?? 25)));
   const q = typeof req.query.q === 'string' ? req.query.q : undefined;
   const actor = typeof req.query.actor === 'string' ? req.query.actor : undefined;
+  const targetType = typeof req.query.targetType === 'string' ? req.query.targetType : undefined;
+  const targetId = typeof req.query.targetId === 'string' ? req.query.targetId : undefined;
   const from = typeof req.query.from === 'string' ? new Date(req.query.from) : undefined;
   const to = typeof req.query.to === 'string' ? new Date(req.query.to) : undefined;
   const where: Prisma.AuditLogWhereInput = {
     ...(actor ? { OR: [{ actorEmail: { contains: actor } }, { actorName: { contains: actor } }] } : {}),
     ...(q ? { OR: [{ action: { contains: q } }, { target: { contains: q } }] } : {}),
+    ...(targetType ? { targetType } : {}),
+    ...(targetId ? { targetId } : {}),
     ...(from || to ? { createdAt: { gte: from, lte: to } } : {}),
   };
   const [total, logs] = await Promise.all([

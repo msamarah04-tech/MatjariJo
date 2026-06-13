@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Inbox, Search, Send, UserCheck } from 'lucide-react';
+import { CheckCircle2, Inbox, Search, Send, UserCheck } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { timeAgo } from '@/lib/format';
 import { SupportTicket, TicketPriority, TicketStatus } from '@/lib/types';
@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { toast } from '@/components/ui/Toast';
 import { cn } from '@/lib/cn';
 import { PageHeader, SegmentedControl, StatusPill, useFocusParam } from './shared';
+import { apiFetch } from '@/api/client';
 
 type StatusFilter = 'OPEN_ANY' | TicketStatus | 'ALL';
 type PriorityFilter = 'ALL' | TicketPriority;
@@ -143,6 +144,15 @@ export default function Support() {
             onReply={(body) => replyToTicket(active.id, body)}
             onStatus={(next) => { setTicketStatus(active.id, next); toast({ title: `Marked ${next.replace('_', ' ').toLowerCase()}`, type: 'success' }); }}
             onAssign={(name) => { assignTicket(active.id, name); toast({ title: 'Assigned to you', type: 'success' }); }}
+            onResolve={async (replyBody) => {
+              try {
+                await apiFetch(`/platform/support/tickets/${active.id}/resolve`, { method: 'PATCH', body: JSON.stringify({ replyBody: replyBody || undefined }) });
+                setTicketStatus(active.id, 'RESOLVED');
+                toast({ title: replyBody ? 'Resolved — reply sent to owner' : 'Ticket resolved', type: 'success' });
+              } catch {
+                toast({ title: 'Could not resolve ticket', type: 'error' });
+              }
+            }}
           />
         )}
       </Drawer>
@@ -156,14 +166,17 @@ function Conversation({
   onReply,
   onStatus,
   onAssign,
+  onResolve,
 }: {
   ticket: SupportTicket;
   operatorName: string;
   onReply: (body: string) => void;
   onStatus: (next: TicketStatus) => void;
   onAssign: (name: string) => void;
+  onResolve: (replyBody: string) => Promise<void>;
 }) {
   const [reply, setReply] = useState('');
+  const [resolving, setResolving] = useState(false);
   const messages = ticket.messages || [];
 
   const send = () => {
@@ -171,6 +184,16 @@ function Conversation({
     if (!body) return;
     onReply(body);
     setReply('');
+  };
+
+  const handleResolve = async () => {
+    setResolving(true);
+    try {
+      await onResolve(reply.trim());
+      setReply('');
+    } finally {
+      setResolving(false);
+    }
   };
 
   return (
@@ -202,22 +225,30 @@ function Conversation({
         })}
       </div>
 
-      {/* Reply box */}
+      {/* Reply + resolve box */}
       <div className="mt-4 space-y-3 border-t border-line pt-4">
-        <Textarea value={reply} onChange={(event) => setReply(event.target.value)} rows={3} placeholder="Write a reply…" />
+        <Textarea value={reply} onChange={(event) => setReply(event.target.value)} rows={3} placeholder="Write a reply (optional when resolving)…" />
         <div className="flex items-center justify-between gap-2">
-          <SegmentedControl<TicketStatus>
-            value={ticket.status}
-            onChange={onStatus}
-            options={[
-              { label: 'Open', value: 'OPEN' },
-              { label: 'In progress', value: 'IN_PROGRESS' },
-              { label: 'Resolved', value: 'RESOLVED' },
-            ]}
-          />
-          <Button variant="accent" className="gap-1.5" onClick={send} disabled={!reply.trim()}>
-            <Send className="h-4 w-4" /> Send
-          </Button>
+          {ticket.status !== 'RESOLVED' ? (
+            <>
+              <div className="flex gap-2">
+                <Button variant="ghost" className="gap-1.5 border border-line" onClick={send} disabled={!reply.trim()}>
+                  <Send className="h-4 w-4" /> Send
+                </Button>
+                <Button variant="ghost" className="gap-1.5 border border-line text-muted" onClick={() => onStatus(ticket.status === 'OPEN' ? 'IN_PROGRESS' : 'OPEN')}>
+                  {ticket.status === 'OPEN' ? 'Mark in progress' : 'Reopen'}
+                </Button>
+              </div>
+              <Button variant="accent" className="gap-1.5" onClick={handleResolve} disabled={resolving}>
+                <CheckCircle2 className="h-4 w-4" /> {resolving ? 'Resolving…' : reply.trim() ? 'Resolve & reply' : 'Resolve'}
+              </Button>
+            </>
+          ) : (
+            <div className="flex w-full items-center justify-between">
+              <StatusPill label="RESOLVED" tone="green" />
+              <Button variant="ghost" className="border border-line" onClick={() => onStatus('OPEN')}>Reopen</Button>
+            </div>
+          )}
         </div>
       </div>
     </div>

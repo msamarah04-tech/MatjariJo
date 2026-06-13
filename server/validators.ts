@@ -373,10 +373,23 @@ export const analyticsEventSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
+export const ticketCategoryEnum = z.enum(['BILLING', 'TECHNICAL', 'ACCOUNT', 'FEATURE_REQUEST', 'OTHER']);
+
 export const supportTicketCreateSchema = z.object({
   subject: z.string().trim().min(1).max(180),
+  category: ticketCategoryEnum.default('OTHER'),
   message: z.string().trim().min(1).max(4000),
   priority: ticketPriorityEnum.default('MEDIUM'),
+}).strict();
+
+export const announcementSchema = z.object({
+  subject: z.string().trim().min(1).max(200),
+  body: z.string().trim().min(1).max(8000),
+}).strict();
+
+export const directMessageSchema = z.object({
+  subject: z.string().trim().min(1).max(200),
+  body: z.string().trim().min(1).max(8000),
 }).strict();
 
 export const ticketReplySchema = z.object({

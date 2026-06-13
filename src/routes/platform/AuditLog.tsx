@@ -11,6 +11,39 @@ type RangeKey = 7 | 30 | 90 | 'all';
 const DAY = 86400000;
 const PAGE_SIZE = 20;
 
+const EVENT_TYPES = [
+  { label: 'All events', value: 'ALL' },
+  { label: 'Store', value: 'store' },
+  { label: 'Order', value: 'order' },
+  { label: 'Product', value: 'product' },
+  { label: 'Payment', value: 'payment' },
+  { label: 'Ticket', value: 'ticket' },
+  { label: 'User / account', value: 'user' },
+  { label: 'Request', value: 'request' },
+  { label: 'Settings', value: 'settings' },
+  { label: 'Announcement', value: 'announcement' },
+] as const;
+
+type EventTypeKey = typeof EVENT_TYPES[number]['value'];
+
+const EVENT_KEYWORDS: Record<Exclude<EventTypeKey, 'ALL'>, string[]> = {
+  store: ['store', 'suspend', 'reactivat', 'featur'],
+  order: ['order'],
+  product: ['product', 'flag', 'moderat'],
+  payment: ['payment', 'plan', 'billing'],
+  ticket: ['ticket', 'support'],
+  user: ['user', 'password', 'owner', 'account', 'login'],
+  request: ['request', 'approv', 'reject'],
+  settings: ['settings', 'config'],
+  announcement: ['announc', 'message', 'notif'],
+};
+
+function matchesEventType(action: string, eventType: EventTypeKey): boolean {
+  if (eventType === 'ALL') return true;
+  const lower = action.toLowerCase();
+  return EVENT_KEYWORDS[eventType].some((kw) => lower.includes(kw));
+}
+
 function download(filename: string, content: string, type: string) {
   const blob = new Blob([content], { type });
   const url = URL.createObjectURL(blob);
@@ -33,9 +66,12 @@ function toCsv(rows: AuditLogEntry[]) {
 export default function AuditLog() {
   const auditLogs = useStore((s) => s.auditLogs);
   const auditCap = useStore((s) => s.platformSettings.auditCap);
+  const stores = useStore((s) => s.stores);
 
   const [query, setQuery] = useState('');
   const [actor, setActor] = useState('ALL');
+  const [storeFilter, setStoreFilter] = useState('ALL');
+  const [eventType, setEventType] = useState<EventTypeKey>('ALL');
   const [range, setRange] = useState<RangeKey>('all');
   const [page, setPage] = useState(0);
 
@@ -44,12 +80,15 @@ export default function AuditLog() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     const cutoff = range === 'all' ? 0 : Date.now() - range * DAY;
+    const storeName = storeFilter !== 'ALL' ? stores.find((s) => s.id === storeFilter)?.name?.toLowerCase() : null;
     return auditLogs
       .filter((log) => log.ts >= cutoff)
       .filter((log) => actor === 'ALL' || log.actor === actor)
+      .filter((log) => !storeName || log.target.toLowerCase().includes(storeName))
+      .filter((log) => matchesEventType(log.action, eventType))
       .filter((log) => !q || `${log.action} ${log.target} ${log.detail || ''}`.toLowerCase().includes(q))
       .sort((a, b) => b.ts - a.ts);
-  }, [auditLogs, query, actor, range]);
+  }, [auditLogs, query, actor, storeFilter, eventType, range, stores]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
@@ -78,27 +117,19 @@ export default function AuditLog() {
         }
       />
 
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <SegmentedControl<RangeKey>
-          value={range}
-          onChange={(value) => { setRange(value); setPage(0); }}
-          options={[
-            { label: '7D', value: 7 },
-            { label: '30D', value: 30 },
-            { label: '90D', value: 90 },
-            { label: 'All', value: 'all' },
-          ]}
-        />
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <select
-            value={actor}
-            onChange={(event) => { setActor(event.target.value); setPage(0); }}
-            className="h-10 rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:outline-none focus:ring-1 focus:ring-accent"
-          >
-            <option value="ALL">All actors</option>
-            {actors.map((name) => <option key={name} value={name}>{name}</option>)}
-          </select>
-          <label className="relative block w-full sm:w-64">
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-3">
+          <SegmentedControl<RangeKey>
+            value={range}
+            onChange={(value) => { setRange(value); setPage(0); }}
+            options={[
+              { label: '7D', value: 7 },
+              { label: '30D', value: 30 },
+              { label: '90D', value: 90 },
+              { label: 'All', value: 'all' },
+            ]}
+          />
+          <label className="relative block w-full max-w-xs">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
             <input
               value={query}
@@ -107,6 +138,31 @@ export default function AuditLog() {
               className="h-10 w-full rounded-xl border border-line bg-surface pl-9 pr-3 text-sm font-semibold text-ink focus:outline-none focus:ring-1 focus:ring-accent"
             />
           </label>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <select
+            value={actor}
+            onChange={(e) => { setActor(e.target.value); setPage(0); }}
+            className="h-10 rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:outline-none focus:ring-1 focus:ring-accent"
+          >
+            <option value="ALL">All actors</option>
+            {actors.map((name) => <option key={name} value={name}>{name}</option>)}
+          </select>
+          <select
+            value={storeFilter}
+            onChange={(e) => { setStoreFilter(e.target.value); setPage(0); }}
+            className="h-10 rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:outline-none focus:ring-1 focus:ring-accent"
+          >
+            <option value="ALL">All stores</option>
+            {stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+          <select
+            value={eventType}
+            onChange={(e) => { setEventType(e.target.value as EventTypeKey); setPage(0); }}
+            className="h-10 rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:outline-none focus:ring-1 focus:ring-accent"
+          >
+            {EVENT_TYPES.map((et) => <option key={et.value} value={et.value}>{et.label}</option>)}
+          </select>
         </div>
       </div>
 

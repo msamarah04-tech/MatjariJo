@@ -254,6 +254,7 @@ export function serializeSupportTicket(ticket: TicketWithMessages) {
     id: ticket.id,
     storeId: ticket.storeId ?? undefined,
     subject: ticket.subject,
+    category: ticket.category ?? 'OTHER',
     message: ticket.message,
     status: ticket.status,
     priority: ticket.priority,

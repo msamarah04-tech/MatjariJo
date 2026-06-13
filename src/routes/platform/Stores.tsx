@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Copy, ExternalLink, KeyRound, LayoutGrid, Search, Settings2, Star, Trash2 } from 'lucide-react';
+import { Copy, ExternalLink, KeyRound, LayoutGrid, MessageCircle, Search, Settings2, Star, Trash2 } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { storefrontUrl } from '@/lib/tenant';
 import { money } from '@/lib/format';
@@ -14,7 +14,7 @@ import { Modal } from '@/components/ui/Modal';
 import { toast } from '@/components/ui/Toast';
 import { cn } from '@/lib/cn';
 import { PageHeader, SegmentedControl, StatusPill, StoreAvatar, useFocusParam } from './shared';
-import { resetStoreOwnerPassword } from '@/api/platform.api';
+import { resetStoreOwnerPassword, sendDirectMessage } from '@/api/platform.api';
 
 type StatusFilter = 'ALL' | StoreStatus;
 type SortKey = 'newest' | 'gmv' | 'orders' | 'name';
@@ -351,6 +351,26 @@ function StoreDetail({
   onDelete: () => void;
 }) {
   const { store } = row;
+  const [msgOpen, setMsgOpen] = useState(false);
+  const [msgSubject, setMsgSubject] = useState('');
+  const [msgBody, setMsgBody] = useState('');
+  const [msgSending, setMsgSending] = useState(false);
+
+  const handleSendMessage = async () => {
+    if (!msgSubject.trim() || !msgBody.trim()) return;
+    setMsgSending(true);
+    try {
+      await sendDirectMessage(store.id, { subject: msgSubject, body: msgBody });
+      toast({ title: 'Message sent', type: 'success' });
+      setMsgOpen(false);
+      setMsgSubject('');
+      setMsgBody('');
+    } catch {
+      toast({ title: 'Could not send message', type: 'error' });
+    } finally {
+      setMsgSending(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -374,7 +394,29 @@ function StoreDetail({
         <Button variant="ghost" className="flex-1 gap-2 border border-line" onClick={() => window.open(`/#/admin/${store.id}`, '_blank')}>
           <Settings2 className="h-4 w-4" /> Admin
         </Button>
+        <Button variant="ghost" className="flex-1 gap-2 border border-line" onClick={() => setMsgOpen(true)}>
+          <MessageCircle className="h-4 w-4" /> Message
+        </Button>
       </div>
+
+      <Modal isOpen={msgOpen} onClose={() => setMsgOpen(false)} title={`Message owner of ${store.name}`} description="This email will be sent directly to the store owner and logged in the audit trail.">
+        <div className="space-y-4">
+          <label className="block">
+            <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-muted">Subject</span>
+            <input value={msgSubject} onChange={(e) => setMsgSubject(e.target.value)} placeholder="e.g. Action required: overdue payment" className="h-10 w-full rounded-lg border border-line bg-surface px-3 text-sm font-semibold text-ink focus:outline-none focus:ring-1 focus:ring-accent" />
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-muted">Message</span>
+            <textarea value={msgBody} onChange={(e) => setMsgBody(e.target.value)} rows={5} placeholder="Write your message here…" className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm font-semibold text-ink focus:outline-none focus:ring-1 focus:ring-accent" />
+          </label>
+          <div className="flex gap-2">
+            <Button variant="ghost" className="flex-1 border border-line" onClick={() => setMsgOpen(false)}>Cancel</Button>
+            <Button variant="accent" className="flex-1 gap-1.5" disabled={!msgSubject.trim() || !msgBody.trim() || msgSending} onClick={handleSendMessage}>
+              {msgSending ? 'Sending…' : 'Send message'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Subscription (manual billing) */}
       <div className="rounded-xl border border-line bg-paper p-4">

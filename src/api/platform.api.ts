@@ -41,3 +41,9 @@ export const getPlatformSettings = () => apiFetch<{ platformSettings: PlatformSe
 export const updatePlatformSettings = (payload: Partial<PlatformSettings>) => apiFetch<{ platformSettings: PlatformSettings }>('/platform/settings', { method: 'PATCH', body: JSON.stringify(payload) });
 export const resetStoreOwnerPassword = (storeId: string) => apiFetch<{ credentials: { email: string; username: string; password: string } }>(`/platform/stores/${storeId}/reset-owner-password`, { method: 'POST' });
 
+export type RevenueStore = { storeId: string; name: string; ownerEmail: string; ownerName: string | null; plan: string; planPaidUntil: number; daysRemaining?: number; daysOverdue?: number | null };
+export type RevenueSummary = { mrrJod: number; counts: { TRIAL: number; ACTIVE: number; PAST_DUE: number; SUSPENDED: number }; upcomingRenewals: RevenueStore[]; overdueStores: RevenueStore[] };
+export const getRevenueSummary = () => apiFetch<RevenueSummary>('/platform/revenue');
+export const sendAnnouncement = (payload: { subject: string; body: string }) => apiFetch<{ sent: number }>('/platform/announcements', { method: 'POST', body: JSON.stringify(payload) });
+export const sendDirectMessage = (storeId: string, payload: { subject: string; body: string }) => apiFetch<{ ok: boolean }>(`/platform/stores/${storeId}/message`, { method: 'POST', body: JSON.stringify(payload) });
+

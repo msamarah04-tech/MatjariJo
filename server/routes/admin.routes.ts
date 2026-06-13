@@ -12,7 +12,7 @@ import { isPlatformOwner } from '../policies/roles.policy.js';
 import { changeOrderStatus } from '../services/orders.js';
 import { buildStoreDataExport } from '../services/dataPrivacy.js';
 import { buildInvoiceModel, renderInvoiceHtml } from '../services/invoices.js';
-import { notifyOrderApproved, notifyOrderFulfilled, notifyOrderRejected } from '../services/notifications.js';
+import { notifyOrderApproved, notifyOrderFulfilled, notifyOrderRejected, notifySupportTicketCreated } from '../services/notifications.js';
 import {
   adminStorePatchSchema,
   discountBaseSchema,
@@ -320,15 +320,22 @@ adminRouter.get('/admin/stores/:storeId/support/tickets', requireStoreAccess, as
 
 adminRouter.post('/admin/stores/:storeId/support/tickets', requireStoreAccess, asyncRoute(async (req, res) => {
   const input = supportTicketCreateSchema.parse(req.body);
-  const ticket = await prisma.supportTicket.create({
-    data: {
-      ...input,
-      storeId: req.params.storeId,
-      createdById: req.user!.id,
-      messages: { create: { from: 'OWNER', body: input.message, authorId: req.user!.id } },
-    },
-    include: { messages: true },
-  });
+  const [ticket, store] = await Promise.all([
+    prisma.supportTicket.create({
+      data: {
+        ...input,
+        storeId: req.params.storeId,
+        createdById: req.user!.id,
+        messages: { create: { from: 'OWNER', body: input.message, authorId: req.user!.id } },
+      },
+      include: { messages: true },
+    }),
+    prisma.store.findUnique({ where: { id: req.params.storeId }, select: { name: true } }),
+  ]);
+  notifySupportTicketCreated(
+    { subject: ticket.subject, message: ticket.message, category: ticket.category, ownerName: req.user!.name },
+    store?.name ?? req.params.storeId,
+  );
   res.status(201).json({ ticket: serializeSupportTicket(ticket) });
 }));
 

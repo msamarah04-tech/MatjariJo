@@ -1,17 +1,19 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Area, AreaChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 import {
   AlertTriangle,
   ArrowRight,
+  Bell,
   CheckCircle2,
   ClipboardList,
   Clock,
-
   LucideIcon,
   MessageSquare,
+  Send,
   ShoppingBag,
   Store as StoreIcon,
+  TrendingUp,
   Wallet,
   XCircle,
 } from 'lucide-react';
@@ -21,8 +23,12 @@ import { getPlatformInsights } from '@/lib/analytics';
 import { toast } from '@/components/ui/Toast';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Textarea } from '@/components/ui/Textarea';
+import { Input } from '@/components/ui/Input';
+import { Modal } from '@/components/ui/Modal';
 import { cn } from '@/lib/cn';
 import { CHART_COLORS, ChartCard, PageHeader, Sparkline } from './shared';
+import { getRevenueSummary, sendAnnouncement, RevenueSummary, RevenueStore } from '@/api/platform.api';
 
 export default function Overview() {
   const stores = useStore((s) => s.stores);
@@ -36,6 +42,17 @@ export default function Overview() {
   const approveOrder = useStore((s) => s.approveOrder);
   const rejectOrder = useStore((s) => s.rejectOrder);
 
+  const [revenue, setRevenue] = useState<RevenueSummary | null>(null);
+  const [announcementOpen, setAnnouncementOpen] = useState(false);
+  const [announcementSubject, setAnnouncementSubject] = useState('');
+  const [announcementBody, setAnnouncementBody] = useState('');
+  const [announcementSending, setAnnouncementSending] = useState(false);
+  const [reminderStoreId, setReminderStoreId] = useState<string | null>(null);
+
+  useEffect(() => {
+    getRevenueSummary().then(setRevenue).catch(() => {});
+  }, []);
+
   const insights = useMemo(() => getPlatformInsights(30, stores, orders, events), [stores, orders, events]);
 
   const openTickets = supportTickets.filter((t) => t.status !== 'RESOLVED');
@@ -45,6 +62,38 @@ export default function Overview() {
   const highPriorityTickets = openTickets.filter((t) => t.priority === 'HIGH');
 
   const storeName = (id?: string) => stores.find((s) => s.id === id)?.name || 'Unknown store';
+
+  const sendReminder = async (store: RevenueStore) => {
+    setReminderStoreId(store.storeId);
+    try {
+      const { sendDirectMessage } = await import('@/api/platform.api');
+      await sendDirectMessage(store.storeId, {
+        subject: `Subscription renewal reminder — ${store.name}`,
+        body: `Hi ${store.ownerName || 'there'},\n\nYour ${store.plan} plan subscription for ${store.name} is due for renewal in ${store.daysRemaining} day(s).\n\nTo keep your store live, please arrange payment by CliQ or bank transfer at your earliest convenience.\n\nThank you,\nThe Matjari Team`,
+      });
+      toast({ title: 'Reminder sent', type: 'success' });
+    } catch {
+      toast({ title: 'Could not send reminder', type: 'error' });
+    } finally {
+      setReminderStoreId(null);
+    }
+  };
+
+  const handleSendAnnouncement = async () => {
+    if (!announcementSubject.trim() || !announcementBody.trim()) return;
+    setAnnouncementSending(true);
+    try {
+      const { sent } = await sendAnnouncement({ subject: announcementSubject, body: announcementBody });
+      toast({ title: `Announcement sent to ${sent} store owner(s)`, type: 'success' });
+      setAnnouncementOpen(false);
+      setAnnouncementSubject('');
+      setAnnouncementBody('');
+    } catch {
+      toast({ title: 'Could not send announcement', type: 'error' });
+    } finally {
+      setAnnouncementSending(false);
+    }
+  };
 
   const kpis: { label: string; value: string; icon: LucideIcon; spark?: number[]; sparkColor?: string; tone?: 'amber' | 'red' }[] = [
     { label: 'Total GMV', value: money(insights.kpis.totalGmvCents), icon: Wallet, spark: insights.gmvSpark, sparkColor: CHART_COLORS[0] },
@@ -188,6 +237,108 @@ export default function Overview() {
         </ChartCard>
       </div>
 
+      {/* Revenue dashboard */}
+      {revenue && (
+        <section>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="font-heading text-2xl font-black tracking-tight text-ink">Revenue</h2>
+            <Button variant="ghost" className="gap-1.5 border border-line" onClick={() => setAnnouncementOpen(true)}>
+              <Bell className="h-4 w-4" /> Announce to all owners
+            </Button>
+          </div>
+
+          {/* MRR + status counts */}
+          <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4 xl:grid-cols-5">
+            <div className="xl:col-span-2 rounded-2xl border border-line bg-surface p-5 shadow-sm">
+              <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-muted flex items-center gap-1.5"><TrendingUp className="h-3 w-3" /> Monthly Recurring Revenue</p>
+              <p className="font-black text-3xl text-ink">JOD {revenue.mrrJod.toFixed(0)}</p>
+              <p className="mt-1 text-xs text-muted">{revenue.counts.ACTIVE} paying store{revenue.counts.ACTIVE !== 1 ? 's' : ''}</p>
+            </div>
+            {(['TRIAL', 'ACTIVE', 'PAST_DUE', 'SUSPENDED'] as const).map((key) => (
+              <div key={key} className={cn('rounded-2xl border p-5 shadow-sm', key === 'PAST_DUE' ? 'border-amber-200 bg-amber-50/40' : key === 'SUSPENDED' ? 'border-red-200 bg-red-50/40' : 'border-line bg-surface')}>
+                <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-muted">{key.replace('_', ' ')}</p>
+                <p className="font-black text-3xl text-ink">{revenue.counts[key]}</p>
+                <p className="mt-1 text-xs text-muted">store{revenue.counts[key] !== 1 ? 's' : ''}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Upcoming renewals */}
+          {revenue.upcomingRenewals.length > 0 && (
+            <div className="mb-6">
+              <h3 className="mb-3 text-sm font-black uppercase tracking-widest text-muted">Upcoming renewals — next 30 days</h3>
+              <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-line text-left text-[10px] font-bold uppercase tracking-widest text-muted">
+                      <th className="px-4 py-3">Store</th>
+                      <th className="px-4 py-3">Plan</th>
+                      <th className="px-4 py-3">Due date</th>
+                      <th className="px-4 py-3 text-right">Days left</th>
+                      <th className="px-4 py-3" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {revenue.upcomingRenewals.map((store) => (
+                      <tr key={store.storeId} className="border-b border-line/60 last:border-b-0">
+                        <td className="px-4 py-3 font-bold text-ink">{store.name}<p className="text-xs font-normal text-muted">{store.ownerEmail}</p></td>
+                        <td className="px-4 py-3 text-muted">{store.plan}</td>
+                        <td className="px-4 py-3 text-muted">{new Date(store.planPaidUntil).toLocaleDateString()}</td>
+                        <td className="px-4 py-3 text-right"><span className={cn('font-black', (store.daysRemaining ?? 99) <= 7 ? 'text-amber-600' : 'text-ink')}>{store.daysRemaining}d</span></td>
+                        <td className="px-4 py-3 text-right">
+                          <Button size="sm" variant="ghost" className="border border-line" disabled={reminderStoreId === store.storeId} onClick={() => sendReminder(store)}>
+                            <Send className="me-1.5 h-3.5 w-3.5" /> {reminderStoreId === store.storeId ? 'Sending…' : 'Send reminder'}
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Overdue / suspended */}
+          {revenue.overdueStores.length > 0 && (
+            <div>
+              <h3 className="mb-3 text-sm font-black uppercase tracking-widest text-muted">Overdue accounts</h3>
+              <div className="overflow-hidden rounded-2xl border border-amber-200 bg-surface shadow-sm">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-amber-200 text-left text-[10px] font-bold uppercase tracking-widest text-muted">
+                      <th className="px-4 py-3">Store</th>
+                      <th className="px-4 py-3">Plan</th>
+                      <th className="px-4 py-3">Last paid until</th>
+                      <th className="px-4 py-3 text-right">Days overdue</th>
+                      <th className="px-4 py-3" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {revenue.overdueStores.map((store) => (
+                      <tr key={store.storeId} className="border-b border-amber-100 last:border-b-0">
+                        <td className="px-4 py-3 font-bold text-ink">{store.name}<p className="text-xs font-normal text-muted">{store.ownerEmail}</p></td>
+                        <td className="px-4 py-3 text-muted">{store.plan}</td>
+                        <td className="px-4 py-3 text-muted">{store.planPaidUntil ? new Date(store.planPaidUntil).toLocaleDateString() : '—'}</td>
+                        <td className="px-4 py-3 text-right font-black text-amber-700">{store.daysOverdue != null ? `${store.daysOverdue}d` : '—'}</td>
+                        <td className="px-4 py-3 text-right">
+                          <Link to={`/platform/stores?focus=${store.storeId}`}>
+                            <Button size="sm" variant="accent" className="gap-1.5">Confirm payment</Button>
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {revenue.upcomingRenewals.length === 0 && revenue.overdueStores.length === 0 && (
+            <p className="py-4 text-sm text-muted">No upcoming renewals or overdue accounts in the next 30 days.</p>
+          )}
+        </section>
+      )}
+
       {/* Activity feed */}
       <section>
         <div className="mb-4 flex items-center justify-between">
@@ -214,6 +365,26 @@ export default function Overview() {
           ))}
         </div>
       </section>
+
+      {/* Announcement modal */}
+      <Modal isOpen={announcementOpen} onClose={() => setAnnouncementOpen(false)} title="Send announcement to all store owners" description="This will send an email to all active store owners via BCC.">
+        <div className="space-y-4">
+          <label className="block">
+            <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-muted">Subject</span>
+            <Input value={announcementSubject} onChange={(e) => setAnnouncementSubject(e.target.value)} placeholder="e.g. Scheduled maintenance on Saturday" />
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-muted">Message</span>
+            <Textarea value={announcementBody} onChange={(e) => setAnnouncementBody(e.target.value)} rows={6} placeholder="Write your announcement here…" />
+          </label>
+          <div className="flex gap-2">
+            <Button variant="ghost" className="flex-1 border border-line" onClick={() => setAnnouncementOpen(false)}>Cancel</Button>
+            <Button variant="accent" className="flex-1 gap-1.5" disabled={!announcementSubject.trim() || !announcementBody.trim() || announcementSending} onClick={handleSendAnnouncement}>
+              <Send className="h-4 w-4" /> {announcementSending ? 'Sending…' : 'Send to all owners'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

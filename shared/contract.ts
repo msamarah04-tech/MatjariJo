@@ -349,10 +349,14 @@ export interface TicketMessage {
   ts: number;
 }
 
+export const ticketCategoryEnum = z.enum(['BILLING', 'TECHNICAL', 'ACCOUNT', 'FEATURE_REQUEST', 'OTHER']);
+export type TicketCategory = z.infer<typeof ticketCategoryEnum>;
+
 export interface SupportTicket {
   id: string;
   storeId?: string;
   subject: string;
+  category: TicketCategory;
   message: string;
   status: TicketStatus;
   priority: TicketPriority;

@@ -15,6 +15,7 @@ export type {
   OwnerStatus,
   TicketStatus,
   TicketPriority,
+  TicketCategory,
   FlagStatus,
   FlagSeverity,
   TicketAuthor,

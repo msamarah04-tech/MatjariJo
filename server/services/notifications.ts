@@ -133,6 +133,52 @@ export function notifyShopApproved(store: Store, owner: User): void {
   });
 }
 
+/** Platform broadcast announcement: send individual emails to each active store owner. */
+export function notifyAnnouncement(subject: string, body: string, recipients: { email: string; name: string | null }[]): void {
+  if (recipients.length === 0) return;
+  for (const recipient of recipients) {
+    sendMail({
+      to: recipient.email,
+      subject,
+      html: wrap(subject, `
+        <p style="font-size:14px;line-height:1.6">Hi ${recipient.name || 'there'},</p>
+        <div style="font-size:14px;line-height:1.7;white-space:pre-wrap">${body}</div>
+        <p style="font-size:12px;color:#a8a29e;margin-top:24px">This announcement was sent by the Matjari platform team to all store owners.</p>`),
+    });
+  }
+  logger.info({ recipientCount: recipients.length, subject }, 'Platform announcement sent');
+}
+
+/** Notify platform support team when a shop owner submits a support ticket. */
+export function notifySupportTicketCreated(ticket: { subject: string; message: string; category?: string | null; ownerName?: string | null }, storeName: string): void {
+  const supportEmail = env.SUPPORT_EMAIL;
+  if (!supportEmail) {
+    logger.info({ storeName, subject: ticket.subject }, 'No SUPPORT_EMAIL configured — skipping ticket notification');
+    return;
+  }
+  sendMail({
+    to: supportEmail,
+    subject: `[Support ticket] ${ticket.subject} — ${storeName}`,
+    html: wrap(`New support ticket: ${ticket.subject}`, `
+      <p style="font-size:14px;line-height:1.6"><strong>Store:</strong> ${storeName}</p>
+      <p style="font-size:14px;line-height:1.6"><strong>Submitted by:</strong> ${ticket.ownerName || 'unknown'}</p>
+      <p style="font-size:14px;line-height:1.6"><strong>Category:</strong> ${ticket.category || 'OTHER'}</p>
+      <div style="font-size:14px;line-height:1.7;white-space:pre-wrap;margin-top:12px;padding:12px;background:#f5f5f4;border-radius:8px">${ticket.message}</div>`),
+  });
+}
+
+/** One-off direct message to a specific store owner, logged in audit trail. */
+export function notifyDirectMessage(subject: string, body: string, owner: { email: string; name: string | null }, storeName: string): void {
+  sendMail({
+    to: owner.email,
+    subject: `[${storeName}] ${subject}`,
+    html: wrap(subject, `
+      <p style="font-size:14px;line-height:1.6">Hi ${owner.name || 'there'},</p>
+      <div style="font-size:14px;line-height:1.7;white-space:pre-wrap">${body}</div>
+      <p style="font-size:12px;color:#a8a29e;margin-top:16px">This message was sent by the Matjari platform team regarding your store <strong>${storeName}</strong>.</p>`),
+  });
+}
+
 /** Manual subscription payment recorded: receipt with the new paid-until date. */
 export function notifyPlanPayment(store: Store): void {
   prisma.user.findUnique({ where: { id: store.ownerId }, select: { email: true, name: true } })

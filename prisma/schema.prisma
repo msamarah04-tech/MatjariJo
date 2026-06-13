@@ -225,6 +225,7 @@ model SupportTicket {
   storeId      String?
   store        Store?   @relation(fields: [storeId], references: [id], onDelete: Cascade)
   subject      String
+  category     String   @default("OTHER")
   message      String
   priority     String   @default("MEDIUM")
   status       String   @default("OPEN")
@@ -239,6 +240,7 @@ model SupportTicket {
 
   @@index([storeId])
   @@index([status])
+  @@index([category])
 }
 
 model TicketMessage {
