@@ -346,7 +346,7 @@ export default function HowItWorks() {
       title: lang === 'ar' ? 'اطلب متجرك في دقيقتين' : 'Request your store in 2 minutes',
       description: lang === 'ar'
         ? 'أرسل طلبك مع اسم متجرك وفئتك وبريدك الإلكتروني. يراجع فريق متجري كل طلب يدويًا لضمان الجودة، ثم يُنشئ لك متجرك الإلكتروني.'
-        : 'Fill out a quick form with your store name, category, and contact details. The Matjari team reviews every request manually to ensure quality, then sets up your storefront.',
+        : 'Fill out a quick form with your store name, category, and contact details. The Matjari team reviews every request manually to ensure quality, then sets up your shop.',
       bullets: lang === 'ar'
         ? ['نموذج سريع — أقل من دقيقتين', 'مراجعة يدوية من قِبَل فريقنا', 'إشعار فوري عبر البريد عند الموافقة', 'اختر اسم مستخدم مميزًا لمتجرك']
         : ['Quick form — under 2 minutes', 'Manual review by our team', 'Instant email notification on approval', 'Reserve your unique store username'],
@@ -356,7 +356,7 @@ export default function HowItWorks() {
     {
       number: '02',
       subtitle: lang === 'ar' ? 'الهوية البصرية' : 'Visual Identity',
-      title: lang === 'ar' ? 'صمّم هوية متجرك بحرية' : 'Design your storefront identity',
+      title: lang === 'ar' ? 'صمّم هوية متجرك بحرية' : 'Design your shop identity',
       description: lang === 'ar'
         ? 'اختر من بين ثيمات احترافية متعددة، ارفع شعارك، وخصّص الألوان والنصوص. لا حاجة لمصمم أو مطور.'
         : 'Choose from multiple professional themes, upload your logo, and customize colors and text. No designer or developer needed.',

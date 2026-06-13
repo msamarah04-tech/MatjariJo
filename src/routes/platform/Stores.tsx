@@ -284,7 +284,7 @@ export default function Stores() {
         }
         description={
           confirm?.kind === 'suspend'
-            ? 'The storefront will go offline immediately. You can reactivate it later.'
+            ? 'The shop will go offline immediately. You can reactivate it later.'
             : confirm?.kind === 'ban'
               ? 'The owner loses access to all their stores. This is logged.'
               : confirm?.kind === 'restrict'
@@ -369,7 +369,7 @@ function StoreDetail({
 
       <div className="flex gap-2">
         <Button variant="ghost" className="flex-1 gap-2 border border-line" onClick={() => window.open(storefrontUrl(store.slug), '_blank')}>
-          <ExternalLink className="h-4 w-4" /> Storefront
+          <ExternalLink className="h-4 w-4" /> Shop
         </Button>
         <Button variant="ghost" className="flex-1 gap-2 border border-line" onClick={() => window.open(`/#/admin/${store.id}`, '_blank')}>
           <Settings2 className="h-4 w-4" /> Admin

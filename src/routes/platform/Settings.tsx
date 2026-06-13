@@ -93,7 +93,7 @@ export default function Settings() {
 
       {maintenanceOn && (
         <div className="flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
-          <TriangleAlert className="h-4 w-4 shrink-0" /> Preview: customers will see a maintenance notice on every storefront.
+          <TriangleAlert className="h-4 w-4 shrink-0" /> Preview: customers will see a maintenance notice on every shop.
         </div>
       )}
 
@@ -109,7 +109,7 @@ export default function Settings() {
             <input {...register('supportEmail')} type="email" className={inputCls} />
           </FormField>
           <FormField label="Global announcement" error={errors.globalAnnouncement?.message}>
-            <input {...register('globalAnnouncement')} placeholder="Optional banner across storefronts" className={inputCls} />
+            <input {...register('globalAnnouncement')} placeholder="Optional banner across shops" className={inputCls} />
           </FormField>
         </Grid>
 
@@ -145,7 +145,7 @@ export default function Settings() {
           <input type="checkbox" {...register('maintenanceMode')} className="h-4 w-4 accent-accent" />
           <span>
             <span className="block text-sm font-bold text-ink">Maintenance mode</span>
-            <span className="block text-xs text-muted">Show a maintenance notice to customers across all storefronts.</span>
+            <span className="block text-xs text-muted">Show a maintenance notice to customers across all shops.</span>
           </span>
         </label>
       </Section>

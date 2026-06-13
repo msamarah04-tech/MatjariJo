@@ -89,9 +89,9 @@ type CheckoutValues = z.infer<typeof checkoutSchema>;
 const text = {
   en: {
     unavailableTitle: 'Store unavailable',
-    unavailableBody: 'This storefront is currently inactive or under maintenance.',
+    unavailableBody: 'This shop is currently inactive or under maintenance.',
     notFoundTitle: 'Store not found',
-    notFoundBody: 'We could not find that public storefront.',
+    notFoundBody: 'We could not find that public shop.',
     retry: 'Retry',
     shop: 'Shop',
     about: 'About',
@@ -382,7 +382,7 @@ class StorefrontErrorBoundary extends Component<{ children: React.ReactNode }, {
         <div className="min-h-screen bg-neutral-100 p-6 text-neutral-950 flex items-center justify-center">
           <div className="w-full max-w-md rounded-2xl bg-white p-10 text-center shadow-xl border border-black/5">
             <AlertCircle className="mx-auto mb-6 h-12 w-12 text-red-500" />
-            <h1 className="mb-3 text-3xl font-black tracking-tight">Storefront error</h1>
+            <h1 className="mb-3 text-3xl font-black tracking-tight">Shop error</h1>
             <p className="mb-8 text-sm text-neutral-500">Something went wrong while rendering this store.</p>
             <button type="button" className="w-full rounded-xl bg-black px-5 py-4 text-sm font-bold text-white transition-transform active:scale-95" onClick={() => this.setState({ failed: false })}>
               Try again

@@ -35,7 +35,7 @@ export function Privacy() {
     {
       heading: '1. Who we are',
       body: [
-        'Matjari is a multi-store e-commerce platform that lets local businesses in Jordan open online storefronts. This policy explains what personal data we collect, why, and the rights you have under the Jordanian Personal Data Protection Law (PDPL, Law No. 24 of 2023).',
+        'Matjari is a multi-store e-commerce platform that lets local businesses in Jordan open online shops. This policy explains what personal data we collect, why, and the rights you have under the Jordanian Personal Data Protection Law (PDPL, Law No. 24 of 2023).',
       ],
     },
     {
@@ -124,14 +124,14 @@ export function Terms() {
     {
       heading: '1. The service',
       body: [
-        'Matjari provides hosted online storefronts for approved businesses. Stores are created after a request is reviewed and approved by the platform operator. Each store gets its own address and an admin dashboard for products, orders, discounts, and appearance.',
+        'Matjari provides hosted online shops for approved businesses. Stores are created after a request is reviewed and approved by the platform operator. Each store gets its own address and an admin dashboard for products, orders, discounts, and appearance.',
       ],
     },
     {
       heading: '2. Subscriptions & billing',
       body: [
         'Stores are billed monthly per the published pricing plans. Every new store starts with a free 14-day trial. Payments are made manually by CliQ or bank transfer and recorded by the platform operator; there is no automatic card charge.',
-        'If a payment lapses, the store is marked past due. The storefront stays live during a reasonable grace period, after which the platform operator may suspend it until the balance is settled.',
+        'If a payment lapses, the store is marked past due. The shop stays live during a reasonable grace period, after which the platform operator may suspend it until the balance is settled.',
       ],
     },
     {
