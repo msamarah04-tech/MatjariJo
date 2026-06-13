@@ -11,7 +11,7 @@ Last updated: 2026-06-09
 market.** One **platform owner** runs the whole tenant: they review incoming "request a website"
 applications, approve the ones they want, and oversee every store from a single control center.
 Each approved **shop owner** gets exactly one storefront they manage end to end — products,
-orders, discounts, appearance, analytics, support, and tax invoices. The **public** browses those
+orders, discounts, appearance, analytics, and support. The **public** browses those
 storefronts and checks out with Cash on Delivery; no shopper account is required.
 
 There are three actors, and the whole product is organized around them:
@@ -19,7 +19,7 @@ There are three actors, and the whole product is organized around them:
 | Actor | What they do |
 | --- | --- |
 | **Public customer** | Browse a storefront, add to cart, place a COD order, submit a "request a website" application. No login. |
-| **Shop owner** | Manage their **one** assigned store: catalog (incl. variants), orders, discounts, storefront appearance, analytics, support tickets, tax invoices, data export. |
+| **Shop owner** | Manage their **one** assigned store: catalog (incl. variants), orders, discounts, storefront appearance, analytics, support tickets, data export. |
 | **Platform owner** | Manage **all** stores: approve/reject requests, suspend/feature/delete stores, moderate flagged products, run support, read platform-wide analytics + the audit log, edit platform settings, reset owner passwords. |
 
 Two principles define the codebase:
@@ -323,7 +323,7 @@ cannot drift.
 | Role | Access |
 | --- | --- |
 | **Public customer** | Storefront browsing, cart, COD checkout, public analytics events, shop-request submission. No account. |
-| **Shop owner** | One assigned store only: products (incl. variants), orders, discounts, appearance, analytics, support, tax invoices, data export. |
+| **Shop owner** | One assigned store only: products (incl. variants), orders, discounts, appearance, analytics, support, data export. |
 | **Platform owner** | All stores: requests/approvals, store controls, moderation, support, analytics, audit log, settings, owner status, password reset, store deletion. |
 
 Per-store isolation is enforced server-side through the single policy layer; the frontend also limits

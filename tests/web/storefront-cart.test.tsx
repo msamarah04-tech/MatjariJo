@@ -41,7 +41,7 @@ const discount: Discount = {
 };
 
 describe('storefront cart summary display', () => {
-  it('renders subtotal, discount, shipping, and total in JOD (no GST)', () => {
+  it('renders subtotal, discount, shipping, and total in JOD', () => {
     const summary = computeOrderSummary(store, [product], [{ productId: product.id, quantity: 2 }], discount);
 
     render(
