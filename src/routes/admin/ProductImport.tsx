@@ -18,7 +18,7 @@ import type { Product } from '@/lib/types';
 const COLUMNS = [
   { key: 'name',              label: 'name',                required: true,  hint: 'Product name' },
   { key: 'category',          label: 'category',            required: true,  hint: 'Category key (see "Categories" sheet)' },
-  { key: 'price',             label: 'price',               required: true,  hint: `Selling price in your store currency (e.g. 25.000)` },
+  { key: 'price',             label: 'price',               required: false, hint: `Selling price in your store currency (e.g. 25.000)` },
   { key: 'compare_at_price',  label: 'compare_at_price',    required: false, hint: 'Crossed-out "was" price' },
   { key: 'cost_price',        label: 'cost_price',          required: false, hint: 'Private cost (not shown to customers)' },
   { key: 'sku',               label: 'sku',                 required: false, hint: 'Stock keeping unit' },
@@ -57,6 +57,8 @@ type ParsedRow = {
   /** Any extra columns not in the standard template (e.g. fragranceFamily, gender). */
   extras: Record<string, string>;
   errors: string[];
+  /** Non-blocking issues: row will be imported but product saved as hidden with "needs-details" tag. */
+  warnings: string[];
 };
 
 type ImportResult = {
@@ -67,13 +69,21 @@ type ImportResult = {
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
-function validateRow(row: ParsedRow, currency: string): string[] {
+function validateRow(row: ParsedRow): string[] {
   const errs: string[] = [];
   if (!row.name.trim()) errs.push('Name is required');
   if (!row.category.trim()) errs.push('Category is required');
-  const price = parseFloat(row.price);
-  if (!row.price || isNaN(price) || price <= 0) errs.push('Price must be a number > 0');
   return errs;
+}
+
+/** Non-blocking warnings — row will still be imported, but product is saved as hidden
+ *  and tagged "needs-details" so the owner can complete it from the products page. */
+function warnRow(row: ParsedRow): string[] {
+  const warns: string[] = [];
+  const price = parseFloat(row.price);
+  if (!row.price || isNaN(price) || price <= 0) warns.push('No price — will be saved as hidden');
+  if (!row.description.trim()) warns.push('No description');
+  return warns;
 }
 
 function toMinor(text: string, currency: string): number {
@@ -88,7 +98,9 @@ function rowToPayload(row: ParsedRow, store: { currency: string; category: strin
   const costPriceCents = row.cost_price ? toMinor(row.cost_price, store.currency) : undefined;
   const stock = row.stock ? Math.max(0, Math.floor(Number(row.stock) || 0)) : 10;
   const status = (row.status || 'ACTIVE').toUpperCase() === 'DRAFT' ? 'DRAFT' : 'ACTIVE';
-  const tags = row.tags ? row.tags.split(',').map((t) => t.trim()).filter(Boolean).slice(0, 12) : [];
+  const needsDetails = row.warnings.length > 0;
+  const tags = row.tags ? row.tags.split(',').map((t) => t.trim()).filter(Boolean).slice(0, 11) : [];
+  if (needsDetails && !tags.includes('needs-details')) tags.unshift('needs-details');
   const categorySchemas = listProductCategorySchemas();
   const matchedSchema = categorySchemas.find(
     (s) => s.key === row.category.trim() || tr(s.label, 'en').toLowerCase() === row.category.trim().toLowerCase()
@@ -131,7 +143,7 @@ function rowToPayload(row: ParsedRow, store: { currency: string; category: strin
     stock,
     imageEmoji: row.image_url.trim() ? undefined : '📦',
     imageUrl: row.image_url.trim() || undefined,
-    isActive: status === 'ACTIVE',
+    isActive: !needsDetails && status === 'ACTIVE',
     isFeatured: false,
     details: {
       // categoryKey is intentionally omitted — see comment above.
@@ -304,8 +316,10 @@ async function parseExcelFile(file: File, currency: string): Promise<ParsedRow[]
       dimensions: get('dimensions'),
       extras,
       errors: [],
+      warnings: [],
     };
-    parsed.errors = validateRow(parsed, currency);
+    parsed.errors = validateRow(parsed);
+    parsed.warnings = parsed.errors.length === 0 ? warnRow(parsed) : [];
     rows.push(parsed);
   });
   return rows;
@@ -397,8 +411,9 @@ export default function ProductImport() {
     if (fileRef.current) fileRef.current.value = '';
   };
 
-  const validCount = rows.filter((r) => r.errors.length === 0).length;
   const errorCount = rows.filter((r) => r.errors.length > 0).length;
+  const warnCount  = rows.filter((r) => r.errors.length === 0 && r.warnings.length > 0).length;
+  const validCount = rows.filter((r) => r.errors.length === 0).length;
 
   return (
     <div className="space-y-6">
@@ -439,7 +454,7 @@ export default function ProductImport() {
                 </span>
               ))}
             </div>
-            <p className="mt-2 text-[10px] text-muted"><span className="text-red-600 font-bold">* Required.</span> Currency: <strong>{store.currency}</strong> · The "Categories" sheet in the template lists all valid category keys.</p>
+            <p className="mt-2 text-[10px] text-muted"><span className="text-red-600 font-bold">* Required.</span> All other columns are optional — rows without a price are imported as hidden and tagged <strong>needs-details</strong> so you can complete them later. Currency: <strong>{store.currency}</strong></p>
           </div>
         </div>
 
@@ -484,7 +499,8 @@ export default function ProductImport() {
                 <FileSpreadsheet className="h-5 w-5 text-muted" />
                 <span className="font-bold text-ink text-sm">{fileName}</span>
                 <span className="ms-auto flex gap-2">
-                  <span className="rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-bold text-green-700 ring-1 ring-green-200">{validCount} valid</span>
+                  <span className="rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-bold text-green-700 ring-1 ring-green-200">{validCount} ready</span>
+                  {warnCount > 0 && <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-700 ring-1 ring-amber-200">{warnCount} incomplete</span>}
                   {errorCount > 0 && <span className="rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-bold text-red-700 ring-1 ring-red-200">{errorCount} errors</span>}
                 </span>
               </div>
@@ -506,16 +522,16 @@ export default function ProductImport() {
                   </thead>
                   <tbody className="divide-y divide-line">
                     {rows.map((row) => (
-                      <tr key={row.rowIndex} className={row.errors.length > 0 ? 'bg-red-50' : ''}>
+                      <tr key={row.rowIndex} className={row.errors.length > 0 ? 'bg-red-50' : row.warnings.length > 0 ? 'bg-amber-50/60' : ''}>
                         <td className="px-3 py-2 text-muted">{row.rowIndex}</td>
                         <td className="px-3 py-2 font-bold text-ink max-w-[160px] truncate">{row.name || '—'}</td>
                         <td className="px-3 py-2 text-muted">{row.category || '—'}</td>
-                        <td className="px-3 py-2 text-right font-bold text-ink">{row.price ? `${row.price} ${store.currency}` : '—'}</td>
+                        <td className={`px-3 py-2 text-right font-bold ${row.price ? 'text-ink' : 'text-muted'}`}>{row.price ? `${row.price} ${store.currency}` : '—'}</td>
                         <td className="px-3 py-2 text-right text-muted">{row.stock || '10'}</td>
                         <td className="px-3 py-2 font-mono text-muted">{row.sku || '—'}</td>
                         <td className="px-3 py-2">
-                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${(row.status || 'ACTIVE').toUpperCase() === 'DRAFT' ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'}`}>
-                            {(row.status || 'ACTIVE').toUpperCase()}
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${row.warnings.length > 0 ? 'bg-amber-100 text-amber-700' : (row.status || 'ACTIVE').toUpperCase() === 'DRAFT' ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'}`}>
+                            {row.warnings.length > 0 ? 'HIDDEN' : (row.status || 'ACTIVE').toUpperCase()}
                           </span>
                         </td>
                         <td className="px-3 py-2">
@@ -523,6 +539,11 @@ export default function ProductImport() {
                             <span className="flex items-center gap-1 text-red-600 font-semibold">
                               <AlertTriangle className="h-3 w-3 shrink-0" />
                               {row.errors.join('; ')}
+                            </span>
+                          ) : row.warnings.length > 0 ? (
+                            <span className="flex items-center gap-1 text-amber-700 font-semibold">
+                              <AlertTriangle className="h-3 w-3 shrink-0" />
+                              {row.warnings.join('; ')}
                             </span>
                           ) : (
                             <CheckCircle2 className="h-4 w-4 text-green-500" />
@@ -539,6 +560,7 @@ export default function ProductImport() {
                 <p className="text-sm text-muted">
                   {errorCount > 0 && `${errorCount} row${errorCount === 1 ? '' : 's'} with errors will be skipped. `}
                   <strong className="text-ink">{validCount} product{validCount === 1 ? '' : 's'} will be imported.</strong>
+                  {warnCount > 0 && <span className="text-amber-700"> {warnCount} incomplete (missing price) will be saved as hidden.</span>}
                 </p>
                 <Button
                   variant="accent"

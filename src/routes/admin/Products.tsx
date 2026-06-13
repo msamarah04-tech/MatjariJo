@@ -13,7 +13,7 @@ import { cn } from '@/lib/cn';
 import { LOW_STOCK_THRESHOLD, useAdminContext, useStoreProducts } from './shared';
 import { isVariableProduct, productPriceRange, productStock } from '@/lib/productOptions';
 
-type StatusFilter = 'ALL' | 'ACTIVE' | 'HIDDEN';
+type StatusFilter = 'ALL' | 'ACTIVE' | 'HIDDEN' | 'NEEDS_DETAILS';
 
 export default function Products() {
   const { storeId, store } = useAdminContext();
@@ -36,8 +36,15 @@ export default function Products() {
   ])).filter(Boolean).sort((a, b) => a.localeCompare(b)), [platformCategories, store.category, storeProducts]);
   const collections = useMemo(() => Array.from(new Set(storeProducts.map((p) => p.collection?.trim()).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b)), [storeProducts]);
 
+  const needsDetails = (p: Product) => (p.tags || []).includes('needs-details');
+
   const rows = useMemo(() => storeProducts
-    .filter((p) => status === 'ALL' || (status === 'ACTIVE' ? p.isActive : !p.isActive))
+    .filter((p) => {
+      if (status === 'NEEDS_DETAILS') return needsDetails(p);
+      if (status === 'ACTIVE') return p.isActive;
+      if (status === 'HIDDEN') return !p.isActive;
+      return true;
+    })
     .filter((p) => category === 'ALL' || (p.category || store.category) === category)
     .filter((p) => collection === 'ALL' || p.collection === collection),
   [storeProducts, status, category, collection, store.category]);
@@ -48,6 +55,7 @@ export default function Products() {
     HIDDEN: storeProducts.filter((p) => !p.isActive).length,
     FEATURED: storeProducts.filter((p) => p.isFeatured).length,
     LOW: storeProducts.filter((p) => p.isActive && productStock(p) <= LOW_STOCK_THRESHOLD).length,
+    NEEDS_DETAILS: storeProducts.filter(needsDetails).length,
   };
 
   const columns: Column<Product>[] = [
@@ -62,6 +70,7 @@ export default function Products() {
             <div className="flex items-center gap-1.5 font-bold text-ink">
               <span className="truncate">{p.name}</span>
               {p.isFeatured && <Star className="h-3.5 w-3.5 fill-accent text-accent" />}
+              {needsDetails(p) && <span title="Needs details — price or description missing"><TriangleAlert className="h-3.5 w-3.5 shrink-0 text-amber-500" /></span>}
             </div>
             <div className="truncate text-xs text-muted">{p.details?.brand ? `${p.details.brand} · ` : ''}{p.category || store.category} · {isVariableProduct(p) ? 'Variable' : 'Simple'} · {p.collection || 'No collection'}</div>
             {p.details?.sku && <div className="mt-0.5 font-mono text-[10px] font-bold text-muted">SKU {p.details.sku}</div>}
@@ -166,6 +175,7 @@ export default function Products() {
                 { label: 'All', value: 'ALL', count: counts.ALL },
                 { label: 'Active', value: 'ACTIVE', count: counts.ACTIVE },
                 { label: 'Hidden', value: 'HIDDEN', count: counts.HIDDEN },
+                ...(counts.NEEDS_DETAILS > 0 ? [{ label: 'Needs details', value: 'NEEDS_DETAILS' as StatusFilter, count: counts.NEEDS_DETAILS }] : []),
               ]}
             />
             {categories.length > 0 && (
