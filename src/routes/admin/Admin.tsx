@@ -1,10 +1,9 @@
-import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   ArrowLeft,
   BadgePercent,
-  BarChart3,
   ChevronsUpDown,
   ClipboardList,
   ExternalLink,
@@ -41,8 +40,6 @@ import Discounts from './Discounts';
 import Appearance from './Appearance';
 import Settings from './Settings';
 
-const Analytics = lazy(() => import('./Analytics'));
-
 interface NavItem {
   labelKey: string;
   to: string;
@@ -56,7 +53,6 @@ const NAV: NavItem[] = [
   { labelKey: 'navProducts', to: 'products', icon: PackageSearch, badge: 'lowStock' },
   { labelKey: 'navOrders', to: 'orders', icon: ClipboardList, badge: 'orders' },
   { labelKey: 'navDiscounts', to: 'discounts', icon: BadgePercent },
-  { labelKey: 'navAnalytics', to: 'analytics', icon: BarChart3 },
   { labelKey: 'navAppearance', to: 'appearance', icon: Paintbrush },
   { labelKey: 'navSettings', to: 'settings', icon: SettingsIcon },
 ];
@@ -75,10 +71,6 @@ export default function Admin() {
         </Route>
         <Route path="orders" element={<Orders />} />
         <Route path="discounts" element={<Discounts />} />
-        <Route
-          path="analytics"
-          element={<Suspense fallback={<div className="space-y-6"><SkeletonCards /></div>}><Analytics /></Suspense>}
-        />
         <Route path="appearance" element={<Appearance />} />
         <Route path="settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="." replace />} />

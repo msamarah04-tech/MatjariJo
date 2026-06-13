@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Area, AreaChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 import {
   AlertTriangle,
   ArrowRight,
@@ -8,12 +7,17 @@ import {
   CheckCircle2,
   Clock,
   ExternalLink,
+  Globe,
   LayoutGrid,
   LucideIcon,
   MousePointerClick,
+  Package,
   PackageSearch,
   Receipt,
   ShoppingBag,
+  Tag,
+  TrendingUp,
+  Users,
   Wallet,
   XCircle,
 } from 'lucide-react';
@@ -26,10 +30,11 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { StatusBadge } from '@/components/ui/Badge';
 import { toast } from '@/components/ui/Toast';
 import { cn } from '@/lib/cn';
-import { CHART_COLORS, ChartCard, PageHeader, Sparkline } from '@/components/ui/dashboard';
+import { PageHeader } from '@/components/ui/dashboard';
 import { LOW_STOCK_THRESHOLD, useAdminContext, useStoreDiscounts, useStoreOrders, useStoreProducts } from './shared';
 
 const WEEK_MS = 7 * 86400000;
+const REVENUE_STATUSES = ['APPROVED', 'FULFILLED'] as const;
 
 export default function Overview() {
   const { storeId, store } = useAdminContext();
@@ -42,32 +47,43 @@ export default function Overview() {
   const fulfillOrder = useStore((s) => s.fulfillOrder);
   const navigate = useNavigate();
 
-  const insights = useMemo(() => getStoreInsights(30, storeId, store.currency, scopedOrders, scopedProducts, events, store.createdAt), [storeId, store.currency, store.createdAt, scopedOrders, scopedProducts, events]);
+  const insights = useMemo(
+    () => getStoreInsights(30, storeId, store.currency, scopedOrders, scopedProducts, events, store.createdAt),
+    [storeId, store.currency, store.createdAt, scopedOrders, scopedProducts, events]
+  );
 
   const storeOrders = useMemo(() => [...scopedOrders].sort((a, b) => b.createdAt - a.createdAt), [scopedOrders]);
   const pendingOrders = storeOrders.filter((o) => o.status === 'PENDING');
   const approvedOrders = storeOrders.filter((o) => o.status === 'APPROVED');
   const lowStock = scopedProducts.filter((p) => p.isActive && p.stock <= LOW_STOCK_THRESHOLD).sort((a, b) => a.stock - b.stock);
   const expiringDiscounts = scopedDiscounts.filter((d) => d.active && d.expiresAt && d.expiresAt > Date.now() && d.expiresAt < Date.now() + WEEK_MS);
-
-  const kpis: { label: string; value: string; icon: LucideIcon; spark?: number[]; tone?: 'amber' }[] = [
-    { label: 'Revenue', value: money(insights.kpis.revenueCents, store.currency), icon: Wallet, spark: insights.revenueSpark },
-    { label: 'Orders', value: `${insights.kpis.ordersCount}`, icon: ShoppingBag, spark: insights.ordersSpark },
-    { label: 'Pending', value: `${pendingOrders.length}`, icon: Clock, tone: pendingOrders.length > 0 ? 'amber' : undefined },
-    { label: 'Products', value: `${insights.kpis.productCount}`, icon: PackageSearch },
-    { label: 'Conversion', value: `${(insights.kpis.conversionRate * 100).toFixed(1)}%`, icon: MousePointerClick },
-    { label: 'Avg order', value: money(insights.kpis.avgOrderValueCents, store.currency), icon: Receipt, spark: insights.aovSpark },
-  ];
-
-  const statusData = insights.statusCounts.filter((entry) => entry.value > 0);
   const actionTotal = pendingOrders.length + approvedOrders.length + lowStock.length + expiringDiscounts.length;
+
+  const allTimeRevenue = useMemo(
+    () => scopedOrders.filter((o) => (REVENUE_STATUSES as readonly string[]).includes(o.status)).reduce((sum, o) => sum + o.totalCents, 0),
+    [scopedOrders]
+  );
+  const uniqueCustomers = useMemo(
+    () => new Set(scopedOrders.map((o) => o.customerEmail || o.customerName)).size,
+    [scopedOrders]
+  );
+
   const base = `/admin/${storeId}`;
+
+  const kpis: { label: string; value: string; sub?: string; icon: LucideIcon; tone?: 'amber' | 'green' }[] = [
+    { label: 'Revenue (30d)', value: money(insights.kpis.revenueCents, store.currency), icon: Wallet, tone: insights.kpis.revenueCents > 0 ? 'green' : undefined },
+    { label: 'Orders (30d)', value: `${insights.kpis.ordersCount}`, icon: ShoppingBag },
+    { label: 'Avg order value', value: money(insights.kpis.avgOrderValueCents, store.currency), icon: Receipt },
+    { label: 'Pending review', value: `${pendingOrders.length}`, icon: Clock, tone: pendingOrders.length > 0 ? 'amber' : undefined },
+    { label: 'Ready to fulfill', value: `${approvedOrders.length}`, icon: Package, tone: approvedOrders.length > 0 ? 'green' : undefined },
+    { label: 'Active products', value: `${insights.kpis.productCount}`, icon: PackageSearch },
+  ];
 
   return (
     <div className="space-y-8">
       <PageHeader
         title="Overview"
-        subtitle={`How ${store.name} is doing across the last 30 days.`}
+        subtitle={`How ${store.name} is doing — last 30 days`}
         action={
           <Button variant="ghost" className="gap-2 border border-line" onClick={() => window.open(storefrontUrl(store.slug), '_blank')}>
             <ExternalLink className="h-4 w-4" /> View storefront
@@ -75,204 +91,259 @@ export default function Overview() {
         }
       />
 
-      {/* KPI row */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {/* ── KPI strip ───────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
         {kpis.map((kpi) => <KpiCard key={kpi.label} {...kpi} />)}
       </div>
 
-      {/* Action center */}
+      {/* ── Action center ───────────────────────────────────────────── */}
       <section>
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-heading text-2xl font-black tracking-tight text-ink">Needs your attention</h2>
-          <span className={cn('rounded-full px-3 py-1 text-xs font-black', actionTotal > 0 ? 'bg-accent text-white' : 'bg-paper text-muted')}>{actionTotal} open</span>
-        </div>
-
+        <SectionHeader title="Needs your attention" badge={actionTotal} badgeTone={actionTotal > 0 ? 'accent' : 'muted'} />
         {actionTotal === 0 ? (
           <EmptyState icon={CheckCircle2} title="All caught up" description="No pending orders, low stock, or expiring discounts right now." />
         ) : (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <ActionPanel icon={ShoppingBag} title="Orders to review" count={pendingOrders.length} to={`${base}/orders`}>
-              {pendingOrders.slice(0, 4).map((order) => (
-                <div key={order.id} className="flex items-center justify-between gap-3 py-2.5">
-                  <button onClick={() => navigate(`${base}/orders?focus=${order.id}`)} className="min-w-0 text-left">
-                    <p className="truncate text-sm font-bold text-ink">{order.customerName} · {money(order.totalCents, store.currency)}</p>
-                    <p className="truncate text-xs text-muted">{timeAgo(order.createdAt)}</p>
-                  </button>
-                  <div className="flex shrink-0 gap-1.5">
-                    <Button size="sm" variant="accent" className="h-8 px-2.5" onClick={() => { approveOrder(storeId, order.id); toast({ title: 'Order approved', type: 'success' }); }}>
-                      <CheckCircle2 className="h-4 w-4" />
-                    </Button>
-                    <Button size="sm" variant="ghost" className="h-8 border border-line px-2.5" onClick={() => { rejectOrder(storeId, order.id); toast({ title: 'Order rejected' }); }}>
-                      <XCircle className="h-4 w-4 text-red-600" />
+            {pendingOrders.length > 0 && (
+              <ActionPanel icon={ShoppingBag} title="Orders to review" count={pendingOrders.length} to={`${base}/orders`}>
+                {pendingOrders.slice(0, 5).map((order) => (
+                  <div key={order.id} className="flex items-center justify-between gap-3 py-2.5">
+                    <button onClick={() => navigate(`${base}/orders?focus=${order.id}`)} className="min-w-0 text-left">
+                      <p className="truncate text-sm font-bold text-ink">{order.customerName} · {money(order.totalCents, store.currency)}</p>
+                      <p className="truncate text-xs text-muted">{timeAgo(order.createdAt)}</p>
+                    </button>
+                    <div className="flex shrink-0 gap-1.5">
+                      <Button size="sm" variant="accent" className="h-8 px-2.5" onClick={() => { approveOrder(storeId, order.id); toast({ title: 'Order approved', type: 'success' }); }}>
+                        <CheckCircle2 className="h-4 w-4" />
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-8 border border-line px-2.5" onClick={() => { rejectOrder(storeId, order.id); toast({ title: 'Order rejected' }); }}>
+                        <XCircle className="h-4 w-4 text-red-500" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </ActionPanel>
+            )}
+
+            {approvedOrders.length > 0 && (
+              <ActionPanel icon={CheckCircle2} title="Ready to fulfill" count={approvedOrders.length} to={`${base}/orders`}>
+                {approvedOrders.slice(0, 5).map((order) => (
+                  <div key={order.id} className="flex items-center justify-between gap-3 py-2.5">
+                    <button onClick={() => navigate(`${base}/orders?focus=${order.id}`)} className="min-w-0 text-left">
+                      <p className="truncate text-sm font-bold text-ink">{order.customerName} · {money(order.totalCents, store.currency)}</p>
+                      <p className="truncate text-xs text-muted">{timeAgo(order.createdAt)}</p>
+                    </button>
+                    <Button size="sm" variant="accent" className="h-8 shrink-0 gap-1.5 px-2.5" onClick={() => { fulfillOrder(storeId, order.id); toast({ title: 'Order fulfilled', type: 'success' }); }}>
+                      Fulfill
                     </Button>
                   </div>
-                </div>
-              ))}
-            </ActionPanel>
+                ))}
+              </ActionPanel>
+            )}
 
-            <ActionPanel icon={CheckCircle2} title="Ready to fulfill" count={approvedOrders.length} to={`${base}/orders`}>
-              {approvedOrders.slice(0, 4).map((order) => (
-                <div key={order.id} className="flex items-center justify-between gap-3 py-2.5">
-                  <button onClick={() => navigate(`${base}/orders?focus=${order.id}`)} className="min-w-0 text-left">
-                    <p className="truncate text-sm font-bold text-ink">{order.customerName} · {money(order.totalCents, store.currency)}</p>
-                    <p className="truncate text-xs text-muted">{timeAgo(order.createdAt)}</p>
-                  </button>
-                  <Button size="sm" variant="accent" className="h-8 shrink-0 gap-1.5 px-2.5" onClick={() => { fulfillOrder(storeId, order.id); toast({ title: 'Order fulfilled', type: 'success' }); }}>
-                    Fulfill
-                  </Button>
-                </div>
-              ))}
-            </ActionPanel>
+            {lowStock.length > 0 && (
+              <ActionPanel icon={AlertTriangle} title="Low stock" count={lowStock.length} to={`${base}/products`}>
+                {lowStock.slice(0, 5).map((product) => (
+                  <div key={product.id} className="flex items-center justify-between gap-3 py-2.5">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-ink">{product.name}</p>
+                      <p className="truncate text-xs text-muted">{product.stock === 0 ? 'Out of stock' : `${product.stock} left`}</p>
+                    </div>
+                    <Button size="sm" variant="ghost" className="h-8 shrink-0 gap-1 border border-line" onClick={() => navigate(`${base}/products?focus=${product.id}`)}>
+                      Restock <ArrowRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </ActionPanel>
+            )}
 
-            <ActionPanel icon={AlertTriangle} title="Low stock" count={lowStock.length} to={`${base}/products`}>
-              {lowStock.slice(0, 4).map((product) => (
-                <ActionRow
-                  key={product.id}
-                  title={product.name}
-                  subtitle={product.stock === 0 ? 'Out of stock' : `${product.stock} left`}
-                  to={`${base}/products?focus=${product.id}`}
-                  cta="Restock"
-                />
-              ))}
-            </ActionPanel>
-
-            <ActionPanel icon={BadgePercent} title="Expiring discounts" count={expiringDiscounts.length} to={`${base}/discounts`}>
-              {expiringDiscounts.slice(0, 4).map((discount) => (
-                <ActionRow
-                  key={discount.id}
-                  title={discount.code}
-                  subtitle={`Expires ${new Date(discount.expiresAt!).toLocaleDateString()}`}
-                  to={`${base}/discounts?focus=${discount.id}`}
-                  cta="Edit"
-                />
-              ))}
-            </ActionPanel>
+            {expiringDiscounts.length > 0 && (
+              <ActionPanel icon={BadgePercent} title="Expiring soon" count={expiringDiscounts.length} to={`${base}/discounts`}>
+                {expiringDiscounts.slice(0, 5).map((discount) => (
+                  <div key={discount.id} className="flex items-center justify-between gap-3 py-2.5">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-ink font-mono">{discount.code}</p>
+                      <p className="truncate text-xs text-muted">Expires {new Date(discount.expiresAt!).toLocaleDateString()}</p>
+                    </div>
+                    <Button size="sm" variant="ghost" className="h-8 shrink-0 gap-1 border border-line" onClick={() => navigate(`${base}/discounts?focus=${discount.id}`)}>
+                      Edit <ArrowRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </ActionPanel>
+            )}
           </div>
         )}
       </section>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <div className="xl:col-span-2">
-          <ChartCard title="Sales — last 30 days" subtitle="Approved and fulfilled revenue">
-            <ResponsiveContainer width="100%" height={260}>
-              <AreaChart data={insights.series}>
-                <defs>
-                  <linearGradient id="adminSales" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={CHART_COLORS[0]} stopOpacity={0.4} />
-                    <stop offset="95%" stopColor={CHART_COLORS[0]} stopOpacity={0.03} />
-                  </linearGradient>
-                </defs>
-                <Tooltip formatter={(value) => money(Number(value), store.currency)} contentStyle={{ borderRadius: 12, borderColor: '#E7E0D3' }} labelStyle={{ fontWeight: 700 }} />
-                <Area type="monotone" dataKey="revenueCents" stroke={CHART_COLORS[0]} strokeWidth={3} fill="url(#adminSales)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </ChartCard>
-        </div>
-        <ChartCard title="Order status" subtitle="Outcomes in the last 30 days">
-          {statusData.length === 0 ? (
-            <p className="py-16 text-center text-sm text-muted">No orders yet.</p>
+      {/* ── Recent orders + Top products ────────────────────────────── */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
+        {/* Recent orders */}
+        <section className="xl:col-span-3">
+          <SectionHeader title="Recent orders" to={`${base}/orders`} toLabel="All orders" />
+          {storeOrders.length === 0 ? (
+            <EmptyState icon={LayoutGrid} title="No orders yet" description="Share your storefront link to start receiving orders." />
           ) : (
-            <>
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie data={statusData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={3}>
-                    {statusData.map((entry, index) => <Cell key={entry.name} fill={CHART_COLORS[index % CHART_COLORS.length]} />)}
-                  </Pie>
-                  <Tooltip contentStyle={{ borderRadius: 12, borderColor: '#E7E0D3' }} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="mt-2 flex flex-wrap gap-3">
-                {statusData.map((entry, index) => (
-                  <span key={entry.name} className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-muted">
-                    <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }} />
-                    {entry.name} {entry.value}
-                  </span>
-                ))}
-              </div>
-            </>
+            <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
+              {storeOrders.slice(0, 8).map((order, i) => (
+                <button
+                  key={order.id}
+                  onClick={() => navigate(`${base}/orders?focus=${order.id}`)}
+                  className={cn(
+                    'flex w-full items-center gap-3 border-b border-line/60 px-4 py-3.5 text-left transition-colors last:border-b-0 hover:bg-paper/60',
+                    i % 2 === 1 && 'bg-paper/30'
+                  )}
+                >
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink/5 text-[10px] font-black text-muted">
+                    #{i + 1}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold text-ink">{order.customerName}</p>
+                    <p className="truncate text-xs text-muted">{order.items.map((item) => item.productName).join(', ') || '—'}</p>
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <span className="text-sm font-black text-ink">{money(order.totalCents, store.currency)}</span>
+                    <StatusBadge status={order.status} />
+                  </div>
+                  <span className="hidden shrink-0 text-[10px] text-muted sm:block">{timeAgo(order.createdAt)}</span>
+                </button>
+              ))}
+            </div>
           )}
-        </ChartCard>
+        </section>
+
+        {/* Top products */}
+        <section className="xl:col-span-2">
+          <SectionHeader title="Top products" sub="Last 30 days" to={`${base}/products`} toLabel="All products" />
+          {insights.topProducts.length === 0 ? (
+            <EmptyState icon={PackageSearch} title="No sales yet" description="Top products by units sold will appear here." />
+          ) : (
+            <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
+              {insights.topProducts.slice(0, 5).map((product, i) => (
+                <div
+                  key={product.product}
+                  className={cn(
+                    'flex items-center gap-3 border-b border-line/60 px-4 py-3.5 last:border-b-0',
+                    i % 2 === 1 && 'bg-paper/30'
+                  )}
+                >
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/10 text-[11px] font-black text-accent">
+                    {i + 1}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold text-ink">{product.product}</p>
+                    <p className="text-xs text-muted">{product.units} unit{product.units !== 1 ? 's' : ''} sold</p>
+                  </div>
+                  <span className="shrink-0 text-sm font-black text-ink">{money(product.revenueCents, store.currency)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
 
-      {/* Recent orders */}
+      {/* ── Store at a glance ───────────────────────────────────────── */}
       <section>
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-heading text-2xl font-black tracking-tight text-ink">Recent orders</h2>
-          <Link to={`${base}/orders`} className="flex items-center gap-1 text-xs font-bold uppercase tracking-widest text-muted hover:text-ink">
-            All orders <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
+        <SectionHeader title="Store at a glance" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <GlanceCard icon={TrendingUp} label="All-time revenue" value={money(allTimeRevenue, store.currency)} />
+          <GlanceCard icon={ShoppingBag} label="Total orders" value={`${scopedOrders.length}`} />
+          <GlanceCard icon={Users} label="Unique customers" value={`${uniqueCustomers}`} />
+          <GlanceCard icon={MousePointerClick} label="Conversion rate" value={`${(insights.kpis.conversionRate * 100).toFixed(1)}%`} sub="Last 30 days" />
         </div>
-        {storeOrders.length === 0 ? (
-          <EmptyState icon={LayoutGrid} title="No orders yet" description="Share your storefront link to start receiving orders." />
-        ) : (
-          <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
-            {storeOrders.slice(0, 6).map((order) => (
-              <button
-                key={order.id}
-                onClick={() => navigate(`${base}/orders?focus=${order.id}`)}
-                className="flex w-full items-center justify-between gap-3 border-b border-line/60 p-4 text-left transition-colors last:border-b-0 hover:bg-paper/60"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-ink">{order.customerName}</p>
-                  <p className="truncate text-xs text-muted">{order.items.map((i) => i.productName).join(', ') || '—'} · {timeAgo(order.createdAt)}</p>
-                </div>
-                <div className="flex shrink-0 items-center gap-3">
-                  <span className="text-sm font-bold text-ink">{money(order.totalCents, store.currency)}</span>
-                  <StatusBadge status={order.status} />
-                </div>
-              </button>
-            ))}
+
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="flex items-center gap-3 rounded-2xl border border-line bg-surface px-5 py-4 shadow-sm">
+            <Globe className="h-5 w-5 shrink-0 text-accent" />
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted">Storefront URL</p>
+              <a href={storefrontUrl(store.slug)} target="_blank" rel="noreferrer" className="truncate text-sm font-bold text-ink hover:text-accent transition-colors">
+                {storefrontUrl(store.slug).replace(/^https?:\/\//, '')}
+              </a>
+            </div>
           </div>
-        )}
+
+          <div className="flex items-center gap-3 rounded-2xl border border-line bg-surface px-5 py-4 shadow-sm">
+            <Tag className="h-5 w-5 shrink-0 text-accent" />
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted">Currency</p>
+              <p className="text-sm font-bold text-ink">{store.currency}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 rounded-2xl border border-line bg-surface px-5 py-4 shadow-sm">
+            <Package className="h-5 w-5 shrink-0 text-accent" />
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted">Plan</p>
+              <p className="text-sm font-bold text-ink capitalize">{store.plan?.toLowerCase() ?? 'Starter'} · <span className={cn('text-xs', store.planStatus === 'PAST_DUE' ? 'text-red-500' : store.planStatus === 'TRIAL' ? 'text-amber-600' : 'text-emerald-600')}>{store.planStatus?.toLowerCase()}</span></p>
+            </div>
+          </div>
+        </div>
       </section>
     </div>
   );
 }
 
-function KpiCard({ label, value, icon: Icon, spark, tone }: { label: string; value: string; icon: LucideIcon; spark?: number[]; tone?: 'amber' }) {
+function KpiCard({ label, value, icon: Icon, tone }: { label: string; value: string; icon: LucideIcon; tone?: 'amber' | 'green' }) {
   return (
-    <div className={cn('rounded-2xl border bg-surface p-5 shadow-sm', tone === 'amber' ? 'border-amber-200 bg-amber-50/40' : 'border-line')}>
-      <div className="mb-3 flex items-center justify-between">
-        <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-muted">
-          <Icon className="h-3.5 w-3.5" /> {label}
-        </span>
+    <div className={cn(
+      'rounded-2xl border bg-surface p-4 shadow-sm',
+      tone === 'amber' ? 'border-amber-200 bg-amber-50/40' : tone === 'green' ? 'border-emerald-200 bg-emerald-50/30' : 'border-line'
+    )}>
+      <div className="mb-3 flex items-center gap-2">
+        <Icon className={cn('h-3.5 w-3.5', tone === 'amber' ? 'text-amber-500' : tone === 'green' ? 'text-emerald-600' : 'text-muted')} />
+        <span className="text-[10px] font-bold uppercase tracking-widest text-muted">{label}</span>
       </div>
-      <div className="flex items-end justify-between gap-2">
-        <span className="text-3xl font-black text-ink">{value}</span>
-        {spark && spark.some((n) => n > 0) && <Sparkline data={spark} color={CHART_COLORS[0]} className="mb-1" />}
+      <span className="text-2xl font-black text-ink">{value}</span>
+    </div>
+  );
+}
+
+function GlanceCard({ icon: Icon, label, value, sub }: { icon: LucideIcon; label: string; value: string; sub?: string }) {
+  return (
+    <div className="flex items-center gap-4 rounded-2xl border border-line bg-surface px-5 py-4 shadow-sm">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10">
+        <Icon className="h-5 w-5 text-accent" />
       </div>
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted">{label}{sub && <span className="ml-1 normal-case">· {sub}</span>}</p>
+        <p className="text-xl font-black text-ink">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+function SectionHeader({ title, sub, badge, badgeTone, to, toLabel }: { title: string; sub?: string; badge?: number; badgeTone?: 'accent' | 'muted'; to?: string; toLabel?: string }) {
+  return (
+    <div className="mb-4 flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <h2 className="font-heading text-xl font-black tracking-tight text-ink">{title}</h2>
+        {sub && <span className="text-xs text-muted">{sub}</span>}
+        {badge !== undefined && (
+          <span className={cn('rounded-full px-2.5 py-0.5 text-[10px] font-black', badgeTone === 'accent' ? 'bg-accent text-white' : 'bg-paper text-muted')}>
+            {badge}
+          </span>
+        )}
+      </div>
+      {to && (
+        <Link to={to} className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-muted hover:text-ink">
+          {toLabel} <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
+      )}
     </div>
   );
 }
 
 function ActionPanel({ icon: Icon, title, count, to, children }: { icon: LucideIcon; title: string; count: number; to: string; children: React.ReactNode }) {
-  if (count === 0) return null;
   return (
     <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
-      <div className="mb-2 flex items-center justify-between">
+      <div className="mb-3 flex items-center justify-between">
         <span className="flex items-center gap-2 text-sm font-black text-ink">
           <Icon className="h-4 w-4 text-accent" /> {title}
-          <span className="rounded-full bg-paper px-2 py-0.5 text-[10px] font-black text-muted">{count}</span>
+          <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-black text-accent">{count}</span>
         </span>
         <Link to={to} className="text-[10px] font-bold uppercase tracking-widest text-muted hover:text-ink">View all</Link>
       </div>
       <div className="divide-y divide-line/60">{children}</div>
-    </div>
-  );
-}
-
-function ActionRow({ title, subtitle, to, cta }: { title: string; subtitle: string; to: string; cta: string }) {
-  const navigate = useNavigate();
-  return (
-    <div className="flex items-center justify-between gap-3 py-2.5">
-      <div className="min-w-0">
-        <p className="truncate text-sm font-bold text-ink">{title}</p>
-        <p className="truncate text-xs text-muted">{subtitle}</p>
-      </div>
-      <Button size="sm" variant="ghost" className="h-8 shrink-0 gap-1 border border-line" onClick={() => navigate(to)}>
-        {cta} <ArrowRight className="h-3.5 w-3.5" />
-      </Button>
     </div>
   );
 }
