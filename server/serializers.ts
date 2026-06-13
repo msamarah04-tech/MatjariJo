@@ -88,6 +88,8 @@ export function serializeStore(store: Store) {
     isFeatured: store.isFeatured,
     welcomeDismissed: store.welcomeDismissed,
     paymentConfirmed: store.paymentConfirmed,
+    paymentReceiptUrl: store.paymentReceiptUrl ?? undefined,
+    paymentReceiptNote: store.paymentReceiptNote,
     ownerId: store.ownerId,
     createdAt: ms(store.createdAt)!,
   };
@@ -103,6 +105,8 @@ export function serializePublicStore(store: Store) {
     plan: _plan,
     planStatus: _planStatus,
     planPaidUntil: _planPaidUntil,
+    paymentReceiptUrl: _paymentReceiptUrl,
+    paymentReceiptNote: _paymentReceiptNote,
     ...publicStore
   } = serialized;
   return publicStore;
@@ -129,6 +133,8 @@ export function serializeStorePlatformView(store: Store, agg?: { count: number; 
     internalNote: store.internalNote,
     isFeatured: store.isFeatured,
     paymentConfirmed: store.paymentConfirmed,
+    paymentReceiptUrl: store.paymentReceiptUrl ?? undefined,
+    paymentReceiptNote: store.paymentReceiptNote,
     ownerId: store.ownerId,
     createdAt: ms(store.createdAt)!,
     ordersTotal: agg?.count ?? 0,

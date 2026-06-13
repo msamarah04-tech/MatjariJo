@@ -123,6 +123,10 @@ export interface Store {
   welcomeDismissed?: boolean;
   /** False when store is awaiting first payment receipt confirmation. Storefront is offline until true. */
   paymentConfirmed?: boolean;
+  /** URL of the bank-transfer bill the owner attached for the platform to review. */
+  paymentReceiptUrl?: string;
+  /** Optional note the owner added with the bill (e.g. transfer reference). */
+  paymentReceiptNote?: string;
   ownerId: string;
   createdAt: number;
 }

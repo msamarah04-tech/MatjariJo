@@ -32,7 +32,9 @@ storefrontRouter.get('/public/stores', asyncRoute(async (req, res) => {
 
 storefrontRouter.get('/public/stores/:slug', asyncRoute(async (req, res) => {
   const store = await prisma.store.findFirst({
-    where: { slug: req.params.slug },
+    // Unconfirmed stores are not discoverable at all; a confirmed store stays
+    // reachable even when suspended so the storefront can show an offline page.
+    where: { slug: req.params.slug, paymentConfirmed: true },
     include: {
       products: { where: { isActive: true }, orderBy: { createdAt: 'desc' } },
       discounts: { where: { active: true }, orderBy: { createdAt: 'desc' } },

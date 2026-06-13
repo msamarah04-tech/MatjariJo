@@ -290,6 +290,11 @@ export const adminStorePatchSchema = z.object({
   address: z.string().trim().max(300).optional().nullable(),
 }).strict();
 
+export const paymentReceiptSchema = z.object({
+  url: z.string().trim().min(1).max(2000),
+  note: z.string().trim().max(300).optional(),
+}).strict();
+
 export const productCreateSchema = z.object({
   name: z.string().trim().min(1).max(160),
   description: z.string().trim().max(4000).default(''),

@@ -1,3 +1,3 @@
 - [Storefront rebuild patterns](storefront-rebuild.md) — 4 template heroes, new card design, social footer, getCtaClass helper; all logic preserved in single file
 - [ThemeOverrides extension](theme-overrides.md) — buttonStyle/headingFont/instagram/whatsapp/tiktok stored in existing JSON blob; no DB schema change needed
-- [Onboarding payment gate](payment-gate.md) — paymentConfirmed gates public storefront only (every endpoint), not the owner dashboard; owner attaches receipt via Messages
+- [Onboarding payment gate](payment-gate.md) — paymentConfirmed gates public storefront only (every endpoint), not the owner dashboard; owner uploads bill inline (stored on Store), admin reviews+confirms

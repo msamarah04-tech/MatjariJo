@@ -1,13 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTicketEvents } from '@/lib/useTicketEvents';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   ArrowLeft,
   BadgePercent,
+  CheckCircle2,
   ChevronsUpDown,
   ClipboardList,
+  Clock,
   ExternalLink,
+  FileText,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -18,6 +21,7 @@ import {
   Search,
   Settings as SettingsIcon,
   TriangleAlert,
+  Upload,
   X,
 } from 'lucide-react';
 import { useStore } from '@/lib/store';
@@ -32,6 +36,8 @@ import { AdminContextValue, StoreBadges, useStoreBadges } from './shared';
 import { CommandPalette } from './CommandPalette';
 import { useI18n } from '@/lib/i18n';
 import { LangToggle } from '@/components/ui/LangToggle';
+import { toast } from '@/components/ui/Toast';
+import { API_BASE } from '@/api/client';
 
 import Overview from './Overview';
 import Products from './Products';
@@ -158,9 +164,9 @@ function AdminShell() {
         <AdminTopBar store={store} onMenu={() => setMobileOpen(true)} />
         <MaintenanceBanner />
         <PlanPastDueBanner store={store} />
-        {!isPlatformViewer && <PaymentPendingBanner store={store} storeId={storeId} />}
         <main className="flex-1 px-5 py-6 md:px-8 md:py-8">
           <div className="mx-auto max-w-6xl">
+            {!isPlatformViewer && <PaymentSetupCard store={store} storeId={storeId} />}
             <Outlet context={context} />
           </div>
         </main>
@@ -169,20 +175,124 @@ function AdminShell() {
   );
 }
 
-function PaymentPendingBanner({ store, storeId }: { store: Store; storeId: string }) {
+function PaymentSetupCard({ store, storeId }: { store: Store; storeId: string }) {
+  const token = useStore((s) => s.token);
+  const submitPaymentReceipt = useStore((s) => s.submitPaymentReceipt);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [note, setNote] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [replacing, setReplacing] = useState(false);
+
   if (store.paymentConfirmed) return null;
+
+  const handleSubmit = async () => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const uploadRes = await fetch(`${API_BASE}/uploads/ticket-attachment`, { method: 'POST', headers, body: formData });
+      if (!uploadRes.ok) throw new Error('Upload failed');
+      const { url } = (await uploadRes.json()) as { url: string };
+      const ok = await submitPaymentReceipt(storeId, url, note.trim() || undefined);
+      if (!ok) throw new Error('Save failed');
+      toast({ title: 'Bill sent for review', description: 'The platform team will review it and activate your store.', type: 'success' });
+      setFile(null);
+      setNote('');
+      setReplacing(false);
+    } catch {
+      toast({ title: 'Could not send your bill', description: 'Please try again in a moment.', type: 'error' });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const submitted = Boolean(store.paymentReceiptUrl);
+
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-amber-200 bg-amber-50 px-5 py-2.5 text-sm font-bold text-amber-800 md:px-8">
-      <TriangleAlert className="h-4 w-4 shrink-0" />
-      <span className="flex-1 min-w-0">
-        Your store isn’t live yet. Attach your bank transfer receipt so we can review it and activate your store.
-      </span>
-      <Link
-        to={`/admin/${storeId}/messages`}
-        className="inline-flex items-center gap-1.5 rounded-lg bg-amber-800 px-3 py-1.5 text-xs font-bold text-amber-50 transition-colors hover:bg-amber-900"
-      >
-        <MessageSquare className="h-3.5 w-3.5" /> Attach payment receipt
-      </Link>
+    <div className="mb-6 overflow-hidden rounded-3xl border border-amber-200 bg-amber-50/70 shadow-sm">
+      <div className="flex items-center gap-3 border-b border-amber-200 bg-amber-100/60 px-5 py-3 md:px-6">
+        <Clock className="h-5 w-5 shrink-0 text-amber-700" />
+        <div>
+          <p className="font-heading text-lg font-black text-amber-900">Waiting for platform approval</p>
+          <p className="text-sm font-semibold text-amber-800">
+            Your store is set up but not live yet. Attach your payment bill below so the platform can review and approve it.
+          </p>
+        </div>
+      </div>
+
+      <div className="p-5 md:p-6">
+        {submitted && !replacing ? (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-amber-200 bg-surface px-4 py-3">
+              <CheckCircle2 className="h-5 w-5 shrink-0 text-green-600" />
+              <span className="flex-1 text-sm font-bold text-ink">Bill submitted — waiting for the platform to approve it.</span>
+              <a
+                href={store.paymentReceiptUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-paper px-3 py-1.5 text-xs font-bold text-ink transition-colors hover:border-ink/30"
+              >
+                <FileText className="h-3.5 w-3.5" /> View bill
+              </a>
+            </div>
+            {store.paymentReceiptNote ? (
+              <p className="text-sm text-muted"><span className="font-bold text-ink">Your note:</span> {store.paymentReceiptNote}</p>
+            ) : null}
+            <button onClick={() => setReplacing(true)} className="text-sm font-bold text-amber-800 underline-offset-2 hover:underline">
+              Replace the bill
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,application/pdf"
+              className="hidden"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            />
+            {file ? (
+              <div className="flex items-center gap-2 rounded-xl border border-amber-300 bg-surface px-3 py-2.5">
+                <FileText className="h-5 w-5 shrink-0 text-amber-700" />
+                <span className="flex-1 truncate text-sm font-bold text-ink">{file.name}</span>
+                <button onClick={() => setFile(null)} className="text-muted hover:text-ink">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full rounded-xl border-2 border-dashed border-amber-300 bg-surface py-8 text-center transition-colors hover:border-amber-400"
+              >
+                <Upload className="mx-auto mb-2 h-8 w-8 text-amber-600" />
+                <p className="font-bold text-ink">Click to attach your bill</p>
+                <p className="mt-1 text-xs text-muted">Image or PDF, up to 5 MB</p>
+              </button>
+            )}
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={2}
+              placeholder="Optional note (e.g. transfer reference number)"
+              className="w-full resize-none rounded-xl border border-line bg-surface px-3 py-2.5 text-sm font-semibold text-ink placeholder:font-normal focus:outline-none focus:ring-1 focus:ring-amber-400"
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button variant="accent" className="gap-2" onClick={handleSubmit} disabled={!file || uploading}>
+                {uploading ? 'Sending…' : 'Send bill for review'}
+              </Button>
+              {replacing && (
+                <Button variant="ghost" className="border border-line" onClick={() => { setReplacing(false); setFile(null); }}>
+                  Cancel
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

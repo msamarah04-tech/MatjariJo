@@ -27,6 +27,7 @@ const normalizeStore = (store: Store): Store => ({
   isFeatured: store.isFeatured ?? false,
   welcomeDismissed: store.welcomeDismissed ?? false,
   paymentConfirmed: store.paymentConfirmed ?? true,
+  paymentReceiptNote: store.paymentReceiptNote ?? '',
   plan: store.plan ?? 'STARTER',
   planStatus: store.planStatus ?? 'TRIAL',
 });
@@ -281,6 +282,8 @@ interface AppState {
   recordPlanPayment: (id: string) => Promise<boolean>;
   /** Confirm first payment receipt — sets paymentConfirmed=true and activates the subscription. */
   confirmStorePayment: (id: string) => Promise<boolean>;
+  /** Shop owner attaches their bank-transfer bill for the platform to review (does not activate). */
+  submitPaymentReceipt: (storeId: string, url: string, note?: string) => Promise<boolean>;
   toggleFeatured: (id: string) => void;
 
   // moderation
@@ -958,6 +961,17 @@ export const useStore = create<AppState>()(
           return true;
         } catch (error) {
           set({ apiError: error instanceof Error ? error.message : 'Could not confirm payment.' });
+          return false;
+        }
+      },
+
+      submitPaymentReceipt: async (storeId, url, note) => {
+        try {
+          const { store } = await adminApi.submitPaymentReceipt(storeId, { url, note });
+          set((state) => ({ stores: state.stores.map((s) => (s.id === storeId ? normalizeStore(store) : s)) }));
+          return true;
+        } catch (error) {
+          set({ apiError: error instanceof Error ? error.message : 'Could not submit your bill.' });
           return false;
         }
       },

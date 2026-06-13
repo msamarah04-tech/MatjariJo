@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { CheckCircle2, Copy, ExternalLink, KeyRound, LayoutGrid, MessageCircle, Search, Settings2, Star, Trash2 } from 'lucide-react';
+import { CheckCircle2, Copy, ExternalLink, FileText, KeyRound, LayoutGrid, MessageCircle, Search, Settings2, Star, Trash2 } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { storefrontUrl } from '@/lib/tenant';
 import { money } from '@/lib/format';
@@ -478,9 +478,34 @@ function StoreDetail({
           ))}
         </div>
         {!store.paymentConfirmed && (
-          <Button variant="accent" className="w-full gap-1.5" onClick={onConfirmPayment}>
-            <CheckCircle2 className="h-4 w-4" /> Confirm first payment
-          </Button>
+          <div className="mb-3 space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-amber-800">First payment</p>
+            {store.paymentReceiptUrl ? (
+              <>
+                <a
+                  href={store.paymentReceiptUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-surface px-3 py-1.5 text-xs font-bold text-ink transition-colors hover:border-ink/30"
+                >
+                  <FileText className="h-3.5 w-3.5" /> View attached bill
+                </a>
+                {store.paymentReceiptNote ? (
+                  <p className="text-xs text-amber-800"><span className="font-bold">Note:</span> {store.paymentReceiptNote}</p>
+                ) : null}
+                <Button variant="accent" className="w-full gap-1.5" onClick={onConfirmPayment}>
+                  <CheckCircle2 className="h-4 w-4" /> Approve &amp; activate store
+                </Button>
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-amber-800">The owner hasn’t attached a payment bill yet.</p>
+                <Button variant="ghost" className="w-full gap-1.5 border border-amber-300 text-amber-900" onClick={onConfirmPayment}>
+                  <CheckCircle2 className="h-4 w-4" /> Confirm anyway
+                </Button>
+              </>
+            )}
+          </div>
         )}
         <Button variant="accent" className="w-full" onClick={onRecordPayment}>Record payment (+1 month)</Button>
       </div>

@@ -22,6 +22,7 @@ import {
   discountPatchSchema,
   flagCreateSchema,
   orderIdParamSchema,
+  paymentReceiptSchema,
   productCreateSchema,
   productIdParamSchema,
   productPatchSchema,
@@ -98,6 +99,18 @@ adminRouter.patch('/admin/stores/:storeId', requireStoreAccess, asyncRoute(async
       ...shippingPatch(shipping),
     },
   });
+  res.json({ store: serializeStore(store) });
+}));
+
+// Shop owner attaches the bank-transfer bill from their dashboard. This does NOT
+// activate the store — a platform admin must review it and confirm the first payment.
+adminRouter.post('/admin/stores/:storeId/payment-receipt', requireStoreAccess, asyncRoute(async (req, res) => {
+  const input = paymentReceiptSchema.parse(req.body);
+  const store = await prisma.store.update({
+    where: { id: req.params.storeId },
+    data: { paymentReceiptUrl: input.url, paymentReceiptNote: input.note ?? '' },
+  });
+  await auditSecurity(req.user!, 'Attached payment bill for review', store.name, { targetType: 'Store', targetId: store.id, ip: req.ip });
   res.json({ store: serializeStore(store) });
 }));
 
