@@ -163,6 +163,7 @@ const text = {
     location: 'Location',
     sale: 'Sale',
     newArrival: 'New',
+    selected: 'Selected',
   },
   ar: {
     unavailableTitle: 'المتجر غير متاح',
@@ -235,6 +236,12 @@ const text = {
     location: 'الموقع',
     sale: 'تخفيض',
     newArrival: 'جديد',
+    from: 'من',
+    loadMore: 'عرض المزيد',
+    placingOrder: 'جارٍ تأكيد الطلب…',
+    chooseVariant: 'اختر',
+    productNotFound: 'المنتج غير موجود',
+    selected: 'تم اختيار',
   },
 } as const;
 
@@ -997,7 +1004,7 @@ function HomePage({ store, products, discounts, addToCart }: { store: Store; pro
                   className="rounded-full bg-[var(--c-surface)] border border-[var(--c-line)]/40 px-8 py-3.5 text-xs font-black uppercase tracking-[0.15em] hover:bg-[var(--c-soft)] transition-all active:scale-95"
                   onClick={() => setPage((v) => v + 1)}
                 >
-                  Load more · {filtered.length - visible.length}
+                  {c.loadMore} · {filtered.length - visible.length}
                 </button>
               </div>
             )}
@@ -1126,7 +1133,7 @@ function ProductSlide({ slide, store, products, theme, addToCart }: {
   if (!product) {
     return (
       <section className="flex min-h-[60vh] items-center justify-center bg-[var(--c-surface)] sm:min-h-[72vh]">
-        <p className="text-sm font-medium opacity-40">Product not found</p>
+        <p className="text-sm font-medium opacity-40">{c.productNotFound}</p>
       </section>
     );
   }
@@ -1618,7 +1625,7 @@ function ProductDetail({ store, products, addToCart }: { store: Store; products:
             </div>
             {variable && (
               <p className="mb-4 text-sm font-bold opacity-55">
-                {chosenVariant ? `Selected: ${chosenVariant.title}` : `Choose ${options.filter((o) => !selections[o.name]).map((o) => o.name.toLowerCase()).join(', ')}`}
+                {chosenVariant ? `${c.selected}: ${chosenVariant.title}` : `${c.chooseVariant} ${options.filter((o) => !selections[o.name]).map((o) => o.name.toLowerCase()).join(', ')}`}
               </p>
             )}
             <div className="flex flex-col gap-3 sm:flex-row">
@@ -1765,7 +1772,7 @@ function ProductOptionSelector({ product, selections, setSelections }: { product
         return (
           <div key={option.id}>
             <div className="mb-2.5 flex items-center justify-between gap-3">
-              <p className="text-[11px] font-black uppercase tracking-[0.15em] opacity-45">Choose {option.name.toLowerCase()}</p>
+              <p className="text-[11px] font-black uppercase tracking-[0.15em] opacity-45">{c.chooseVariant} {option.name.toLowerCase()}</p>
               {selections[option.name] && <p className="text-xs font-bold opacity-55">{selections[option.name]}</p>}
             </div>
             <div className="flex flex-wrap gap-2">
@@ -2077,7 +2084,7 @@ function CartDrawer(props: {
                   onClick={props.checkoutOpen ? undefined : props.openCheckout}
                   className={cn(getCtaClass(buttonStyleOf(props.store)), 'h-12 shadow-lg disabled:cursor-wait')}
                 >
-                  {props.checkoutOpen ? (props.submitting ? 'Placing order…' : c.placeOrder) : c.checkout}
+                  {props.checkoutOpen ? (props.submitting ? c.placingOrder : c.placeOrder) : c.checkout}
                 </button>
               </div>
             )}
@@ -2250,38 +2257,45 @@ function ProductCard({ product, store, addToCart, templateId, featured = false }
   const btnStyle = buttonStyleOf(store);
   const isCompact = templateId === 'market';
   const isBoutique = templateId === 'boutique';
+  const isFrameless = !isCompact; // editorial, boutique, lookbook all go frameless
   const images = productImages(product);
   const hoverImage = images[1]?.url;
+  const isNew = !sale && !soldOut && Date.now() - product.createdAt < 14 * 24 * 60 * 60 * 1000;
 
   return (
     <article className={cn(
-      'group flex flex-col overflow-hidden transition-all duration-300',
-      isBoutique
+      'group flex flex-col transition-all duration-300',
+      isFrameless
         ? 'bg-transparent'
-        : cn(
-            'bg-[var(--c-surface)] border border-[var(--c-line)]/30 hover:-translate-y-1 hover:shadow-xl hover:shadow-[var(--c-text)]/8 hover:border-[var(--c-line)]/60',
-            isCompact ? 'rounded-xl' : 'rounded-2xl',
-          ),
+        : 'bg-[var(--c-surface)] border border-[var(--c-line)]/30 rounded-xl overflow-hidden hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[var(--c-text)]/8 hover:border-[var(--c-line)]/60',
     )}>
       {/* Image */}
-      <Link to={`/s/${store.slug}/p/${product.id}`} className={cn('relative block overflow-hidden', isBoutique && 'rounded-2xl border border-[var(--c-line)]/20')}>
+      <Link
+        to={`/s/${store.slug}/p/${product.id}`}
+        className={cn(
+          'relative block overflow-hidden',
+          isFrameless
+            ? cn('rounded-2xl ring-1 ring-[var(--c-line)]/20 group-hover:ring-[var(--c-primary)]/30 transition-all duration-300', isBoutique ? '' : 'shadow-sm group-hover:shadow-md')
+            : '',
+        )}
+      >
         <div className={cn(
           'relative overflow-hidden bg-[var(--c-soft)]',
           featured ? 'aspect-[16/9]' :
-          templateId === 'market' ? 'aspect-square' :
+          isCompact ? 'aspect-square' :
           isBoutique ? 'aspect-[3/4]' :
           'aspect-[4/5]',
         )}>
           {productPrimaryImage(product)
             ? (
               <>
-                <img src={productPrimaryImage(product)!} alt={product.name} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.05]" />
+                <img src={productPrimaryImage(product)!} alt={product.name} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]" />
                 {hoverImage && (
                   <img src={hoverImage} alt="" aria-hidden loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
                 )}
               </>
             )
-            : <div className="h-full w-full flex items-center justify-center transition-transform duration-700 group-hover:scale-[1.05]">
+            : <div className="h-full w-full flex items-center justify-center transition-transform duration-700 group-hover:scale-[1.04]">
                 <span className="text-4xl opacity-40">{product.imageEmoji || '📦'}</span>
               </div>
           }
@@ -2294,8 +2308,13 @@ function ProductCard({ product, store, addToCart, templateId, featured = false }
         )}
         {/* Badges */}
         {sale && !soldOut && (
-          <span className="absolute start-3 top-3 rounded-full bg-red-600 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-white shadow-sm">
+          <span className="absolute start-3 top-3 rounded-full bg-red-500 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-white shadow-sm">
             -{salePercent(product)}%
+          </span>
+        )}
+        {isNew && (
+          <span className="absolute start-3 top-3 rounded-full bg-[var(--c-primary)] px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-[var(--c-bg)] shadow-sm">
+            {c.newArrival}
           </span>
         )}
         {/* Desktop hover quick-add (simple products only — variants need the detail page) */}
@@ -2312,29 +2331,35 @@ function ProductCard({ product, store, addToCart, templateId, featured = false }
       </Link>
 
       {/* Info */}
-      <div className={cn('flex flex-col flex-1', isCompact ? 'p-2.5' : isBoutique ? 'px-1 pt-3 pb-1' : 'p-3.5 sm:p-4')}>
-        <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.16em] opacity-35 truncate">{productCategory(product, store)}</p>
+      <div className={cn(
+        'flex flex-col flex-1',
+        isCompact ? 'p-2.5' : isBoutique ? 'px-1 pt-3 pb-1' : 'pt-3 pb-1',
+      )}>
+        <p className={cn(
+          'text-[9px] sm:text-[10px] font-black uppercase tracking-[0.16em] truncate',
+          isCompact ? 'opacity-35' : 'text-[var(--c-primary)] opacity-70',
+        )}>{productCategory(product, store)}</p>
         <Link
           to={`/s/${store.slug}/p/${product.id}`}
           className={cn('mt-0.5 font-black leading-snug hover:opacity-60 transition-opacity', isCompact ? 'text-xs line-clamp-2' : 'text-sm sm:text-[15px] line-clamp-2')}
         >
           {product.name}
         </Link>
-        <div className={cn('mt-1 flex items-baseline gap-2 font-bold', isCompact ? 'text-xs' : 'text-sm')}>
+        <div className={cn('mt-1.5 flex items-baseline gap-2', isCompact ? 'text-xs font-bold' : 'text-sm font-black')}>
           {priceRange.min !== priceRange.max
-            ? <span>From {money(priceRange.min, store.currency)}</span>
+            ? <span>{c.from} {money(priceRange.min, store.currency)}</span>
             : <>
                 <span>{money(priceRange.min, store.currency)}</span>
                 {product.compareAtCents && product.compareAtCents > product.priceCents && (
-                  <span className="line-through opacity-35 font-medium">{money(product.compareAtCents, store.currency)}</span>
+                  <span className="text-xs line-through opacity-35 font-medium">{money(product.compareAtCents, store.currency)}</span>
                 )}
               </>
           }
         </div>
         {swatches.length > 0 && (
-          <div className="mt-2 flex gap-1">
+          <div className="mt-2 flex gap-1.5">
             {swatches.slice(0, 6).map((s) => (
-              <span key={s.id} title={s.value} className="h-3 w-3 rounded-full ring-1 ring-[var(--c-line)]/60" style={{ backgroundColor: s.colorHex }} />
+              <span key={s.id} title={s.value} className="h-3.5 w-3.5 rounded-full ring-1 ring-[var(--c-line)]/60 ring-offset-1 ring-offset-[var(--c-bg)]" style={{ backgroundColor: s.colorHex }} />
             ))}
             {swatches.length > 6 && <span className="text-[10px] font-bold opacity-40">+{swatches.length - 6}</span>}
           </div>
@@ -2342,11 +2367,11 @@ function ProductCard({ product, store, addToCart, templateId, featured = false }
       </div>
 
       {/* CTA */}
-      <div className={cn(isCompact ? 'px-2.5 pb-2.5' : isBoutique ? 'px-1 pb-1 pt-2' : 'px-3.5 pb-3.5 sm:px-4 sm:pb-4')}>
+      <div className={cn(isCompact ? 'px-2.5 pb-2.5 pt-2' : isBoutique ? 'px-1 pb-1 pt-2.5' : 'pt-3 pb-0.5')}>
         {variable ? (
           <Link
             to={`/s/${store.slug}/p/${product.id}`}
-            className={cn(getCtaClass(btnStyle), isCompact ? 'h-9 text-[10px]' : '')}
+            className={cn(getCtaClass(btnStyle), isCompact ? 'h-9 text-[10px]' : isFrameless ? 'h-10 text-[11px]' : '')}
           >
             {c.chooseOptions}
           </Link>
@@ -2355,7 +2380,7 @@ function ProductCard({ product, store, addToCart, templateId, featured = false }
             type="button"
             disabled={soldOut}
             onClick={() => !soldOut && addToCart(product.id)}
-            className={cn(getCtaClass(btnStyle), isCompact ? 'h-9 text-[10px]' : '')}
+            className={cn(getCtaClass(btnStyle), isCompact ? 'h-9 text-[10px]' : isFrameless ? 'h-10 text-[11px]' : '')}
           >
             {soldOut ? c.soldOut : c.addToCart}
           </button>
