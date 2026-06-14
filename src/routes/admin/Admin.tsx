@@ -44,6 +44,7 @@ import Overview from './Overview';
 import Products from './Products';
 import ProductEditor from './ProductEditor';
 import ProductImport from './ProductImport';
+import ProductQuickFill from './ProductQuickFill';
 import Orders from './Orders';
 import Discounts from './Discounts';
 import Messages from './Messages';
@@ -78,6 +79,7 @@ export default function Admin() {
           <Route index element={<Products />} />
           <Route path="new" element={<ProductEditor />} />
           <Route path="import" element={<ProductImport />} />
+          <Route path="quick-fill" element={<ProductQuickFill />} />
           <Route path=":productId/edit" element={<ProductEditor />} />
         </Route>
         <Route path="orders" element={<Orders />} />

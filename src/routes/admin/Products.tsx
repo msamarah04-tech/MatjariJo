@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Boxes, Eye, EyeOff, FileUp, PackageSearch, Plus, Star, TriangleAlert } from 'lucide-react';
+import { Boxes, Eye, EyeOff, FileUp, PackageSearch, Plus, Star, TriangleAlert, Wand2 } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { money } from '@/lib/format';
 import { Product } from '@/lib/types';
@@ -161,23 +161,32 @@ export default function Products() {
       </div>
 
       {counts.NEEDS_DETAILS > 0 && (
-        <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
           <TriangleAlert className="h-5 w-5 shrink-0 text-amber-500" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-amber-900">
               {counts.NEEDS_DETAILS} product{counts.NEEDS_DETAILS === 1 ? '' : 's'} {counts.NEEDS_DETAILS === 1 ? 'needs' : 'need'} details filled in
             </p>
             <p className="text-xs text-amber-700">
-              {counts.NEEDS_DETAILS === 1 ? 'This product is' : 'These products are'} hidden from your storefront until price and other details are completed.
+              Hidden until price and image are added. Use Quick fill to complete them all at once.
             </p>
           </div>
-          <Button
-            variant="ghost"
-            className="shrink-0 border border-amber-300 text-amber-800 hover:bg-amber-100 text-xs"
-            onClick={() => setStatus('NEEDS_DETAILS')}
-          >
-            View &amp; complete
-          </Button>
+          <div className="flex shrink-0 gap-2">
+            <Button
+              variant="ghost"
+              className="border border-amber-300 text-amber-800 hover:bg-amber-100 text-xs"
+              onClick={() => setStatus('NEEDS_DETAILS')}
+            >
+              View list
+            </Button>
+            <Button
+              variant="ghost"
+              className="border border-amber-400 bg-amber-100 text-amber-900 hover:bg-amber-200 text-xs gap-1.5"
+              onClick={() => navigate('quick-fill')}
+            >
+              <Wand2 className="h-3.5 w-3.5" /> Quick fill
+            </Button>
+          </div>
         </div>
       )}
 

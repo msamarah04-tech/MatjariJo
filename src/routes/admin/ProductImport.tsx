@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, CheckCircle2, Download, FileSpreadsheet,
-  Loader2, Upload, X, AlertTriangle, Package,
+  Loader2, Upload, X, AlertTriangle, Package, Wand2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/Toast';
@@ -595,7 +595,7 @@ export default function ProductImport() {
                     <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
                     <p className="text-xs text-amber-800">
                       <strong>{warnCount} product{warnCount === 1 ? '' : 's'}</strong> {warnCount === 1 ? 'was' : 'were'} saved as <strong>hidden</strong> because {warnCount === 1 ? 'its price is' : 'their prices are'} missing.
-                      Go to <strong>Products → Needs details</strong> to complete {warnCount === 1 ? 'it' : 'them'} and make {warnCount === 1 ? 'it' : 'them'} live.
+                      Use <strong>Quick fill</strong> below to complete {warnCount === 1 ? 'it' : 'them'} without opening each product.
                     </p>
                   </div>
                 )}
@@ -609,8 +609,13 @@ export default function ProductImport() {
                     </ul>
                   </div>
                 )}
-                <div className="mt-4 flex gap-2">
-                  <Button variant="accent" onClick={() => navigate(`/admin/${storeId}/products`)}>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {warnCount > 0 && (
+                    <Button variant="accent" onClick={() => navigate(`/admin/${storeId}/products/quick-fill`)}>
+                      <Wand2 className="me-1.5 h-4 w-4" /> Quick fill images
+                    </Button>
+                  )}
+                  <Button variant={warnCount > 0 ? 'ghost' : 'accent'} className={warnCount > 0 ? 'border border-green-300' : ''} onClick={() => navigate(`/admin/${storeId}/products`)}>
                     <Package className="me-1.5 h-4 w-4" /> View products
                   </Button>
                   <Button variant="ghost" className="border border-green-300" onClick={reset}>
