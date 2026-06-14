@@ -199,7 +199,7 @@ function ImagePicker({ value, existing, onChange }: {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const dataUrl = await prepareImageDataUrl(file, { maxDimension: 800, maxBytes: 300_000 });
+      const dataUrl = await prepareImageDataUrl(file, { maxDimension: 1200, maxBytes: 900_000 });
       onChange(dataUrl);
     } catch (err) {
       toast({ title: 'Could not use image', description: err instanceof Error ? err.message : undefined, type: 'error' });

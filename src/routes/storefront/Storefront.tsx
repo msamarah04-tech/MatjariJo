@@ -1111,7 +1111,7 @@ function OfferSlide({ slide, store, discounts, theme }: {
   };
   const offerBadge = discount?.type === 'FREE_SHIPPING' ? 'Free Shipping' : discount?.type === 'TIERED' ? 'Spend & Save' : 'Special Offer';
   return (
-    <section className="relative overflow-hidden bg-[var(--c-surface)] min-h-[60vh] flex items-center sm:min-h-[72vh]">
+    <section className="relative overflow-hidden bg-[var(--c-surface)] h-full flex items-center">
       <div aria-hidden className="pointer-events-none absolute -top-40 end-0 h-[32rem] w-[32rem] rounded-full bg-[var(--c-accent)] opacity-[0.08] blur-3xl" />
       <div aria-hidden className="pointer-events-none absolute bottom-0 -start-32 h-72 w-72 rounded-full bg-[var(--c-primary)] opacity-[0.08] blur-3xl" />
       <div className="relative z-10 mx-auto grid max-w-7xl w-full items-center gap-10 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-[1fr_auto] lg:gap-20 lg:px-12 lg:py-24">
@@ -1138,18 +1138,32 @@ function OfferSlide({ slide, store, discounts, theme }: {
             </button>
           </div>
         </Reveal>
-        {code && (
-          <div aria-hidden className="hidden lg:flex shrink-0 items-center justify-center">
-            <div className="relative flex h-56 w-56 items-center justify-center rounded-[2rem] bg-[var(--c-accent)]/10 border-2 border-[var(--c-accent)]/20 shadow-xl">
-              <span className="break-all px-4 text-center font-mono text-2xl font-black tracking-[0.18em] text-[var(--c-accent)]">{code}</span>
-              {discount?.type === 'PERCENT' && (
-                <span className="absolute -top-5 -right-5 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--c-accent)] text-sm font-black text-[var(--c-bg)] shadow-lg">
-                  -{discount.value}%
-                </span>
+        <div aria-hidden className="hidden lg:flex shrink-0 items-center justify-center">
+          {discount?.imageUrl ? (
+            <div className="relative h-64 w-64 overflow-hidden rounded-[2rem] shadow-2xl border border-[var(--c-line)]/20">
+              <img src={discount.imageUrl} alt="" className="h-full w-full object-cover" />
+              {code && (
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-4 py-3">
+                  <span className="font-mono text-sm font-black tracking-[0.15em] text-white">{code}</span>
+                  {discount.type === 'PERCENT' && (
+                    <span className="ms-2 rounded-full bg-[var(--c-accent)] px-2 py-0.5 text-xs font-black text-white">-{discount.value}%</span>
+                  )}
+                </div>
               )}
             </div>
-          </div>
-        )}
+          ) : (
+            code && (
+              <div className="relative flex h-56 w-56 items-center justify-center rounded-[2rem] bg-[var(--c-accent)]/10 border-2 border-[var(--c-accent)]/20 shadow-xl">
+                <span className="break-all px-4 text-center font-mono text-2xl font-black tracking-[0.18em] text-[var(--c-accent)]">{code}</span>
+                {discount?.type === 'PERCENT' && (
+                  <span className="absolute -top-5 -right-5 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--c-accent)] text-sm font-black text-[var(--c-bg)] shadow-lg">
+                    -{discount.value}%
+                  </span>
+                )}
+              </div>
+            )
+          )}
+        </div>
       </div>
     </section>
   );
@@ -1170,9 +1184,9 @@ function ProductSlide({ slide, store, products, theme, addToCart }: {
   }
   const range = productPriceRange(product);
   return (
-    <section className="relative overflow-hidden bg-[var(--c-surface)]">
+    <section className="relative overflow-hidden bg-[var(--c-surface)] h-full flex items-center">
       <div aria-hidden className="pointer-events-none absolute -top-32 -end-32 h-96 w-96 rounded-full bg-[var(--c-primary)] opacity-[0.07] blur-3xl" />
-      <div className="relative mx-auto grid max-w-7xl items-center gap-10 px-4 py-14 sm:px-6 sm:py-20 lg:min-h-[72vh] lg:grid-cols-[1.1fr_0.9fr] lg:gap-16 lg:px-8">
+      <div className="relative mx-auto grid w-full max-w-7xl items-center gap-10 px-4 py-14 sm:px-6 sm:py-20 lg:grid-cols-[1.1fr_0.9fr] lg:gap-16 lg:px-8">
         <Reveal className="z-10 flex flex-col justify-center">
           <span className="mb-6 inline-flex w-fit items-center gap-2 rounded-full bg-[var(--c-bg)] px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.2em] border border-[var(--c-line)]/40">
             <span className="h-1.5 w-1.5 rounded-full bg-[var(--c-primary)]" />
@@ -1208,7 +1222,7 @@ function ProductSlide({ slide, store, products, theme, addToCart }: {
 function CustomSlide({ slide, store, theme }: { slide: HeroSlide; store: Store; theme: Theme }) {
   return (
     <section
-      className="relative overflow-hidden min-h-[60vh] flex items-center sm:min-h-[72vh]"
+      className="relative overflow-hidden h-full flex items-center"
       style={slide.bgColor ? { backgroundColor: slide.bgColor } : { backgroundColor: 'var(--c-surface)' }}
     >
       <div aria-hidden className="pointer-events-none absolute -top-32 -end-32 h-96 w-96 rounded-full bg-[var(--c-primary)] opacity-[0.06] blur-3xl" />
@@ -1261,7 +1275,7 @@ function HeroCarousel({ slides, store, products, discounts, theme, addToCart }: 
 
   return (
     <div
-      className="relative overflow-hidden border-b border-[var(--c-line)]/20"
+      className="relative overflow-hidden border-b border-[var(--c-line)]/20 h-[70vh] min-h-[500px]"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onTouchStart={(e) => { touchX.current = e.touches[0].clientX; }}
@@ -1279,6 +1293,7 @@ function HeroCarousel({ slides, store, products, discounts, theme, addToCart }: 
           animate={{ opacity: 1, x: 0 }}
           exit={reduce ? undefined : { opacity: 0, x: -28 }}
           transition={{ duration: 0.32, ease: 'easeOut' }}
+          className="h-full"
         >
           {slide.type === 'offer' && <OfferSlide slide={slide} store={store} discounts={discounts} theme={theme} />}
           {slide.type === 'product' && <ProductSlide slide={slide} store={store} products={products} theme={theme} addToCart={addToCart} />}
