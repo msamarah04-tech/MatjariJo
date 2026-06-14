@@ -27,7 +27,7 @@ app.use(helmet({
       objectSrc: ["'none'"],
       scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", 'data:'],
+      imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
     },
   },
   // The SPA fetches this API cross-origin; access is governed by CORS below.
