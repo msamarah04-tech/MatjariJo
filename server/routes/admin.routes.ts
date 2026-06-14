@@ -23,6 +23,7 @@ import {
   flagCreateSchema,
   orderIdParamSchema,
   paymentProofSchema,
+  productBulkCreateSchema,
   productCreateSchema,
   productIdParamSchema,
   productPatchSchema,
@@ -219,7 +220,7 @@ adminRouter.post('/admin/stores/:storeId/products/bulk', requireStoreAccess, asy
         const count = await prisma.product.count({ where: { storeId: req.params.storeId } });
         if (count >= cap) { skipped++; continue; }
       }
-      const input = productCreateSchema.parse(products[i]);
+      const input = productBulkCreateSchema.parse(products[i]);
       const { tags, details, ...data } = input;
       const normalized = normalizeProductDetails(details.categoryKey, details);
       await prisma.product.create({ data: { ...data, tags: JSON.stringify(tags), details: JSON.stringify(normalized), storeId: req.params.storeId } });

@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /home/runner/workspace log --oneline -10)",
+      "Bash(npx tsc *)"
+    ]
+  }
+}

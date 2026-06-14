@@ -590,6 +590,15 @@ export default function ProductImport() {
                   <strong>{result.imported}</strong> product{result.imported === 1 ? '' : 's'} imported successfully.
                   {result.skipped > 0 && ` ${result.skipped} skipped (plan limit or duplicate).`}
                 </p>
+                {warnCount > 0 && (
+                  <div className="mt-3 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+                    <p className="text-xs text-amber-800">
+                      <strong>{warnCount} product{warnCount === 1 ? '' : 's'}</strong> {warnCount === 1 ? 'was' : 'were'} saved as <strong>hidden</strong> because {warnCount === 1 ? 'its price is' : 'their prices are'} missing.
+                      Go to <strong>Products → Needs details</strong> to complete {warnCount === 1 ? 'it' : 'them'} and make {warnCount === 1 ? 'it' : 'them'} live.
+                    </p>
+                  </div>
+                )}
                 {result.errors.length > 0 && (
                   <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3">
                     <p className="mb-1.5 text-xs font-black uppercase tracking-widest text-red-600">Errors</p>

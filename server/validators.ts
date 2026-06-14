@@ -105,7 +105,7 @@ const attributeValueSchema = z.union([
   z.null(),
 ]);
 
-const productDetailsObject = z.object({
+export const productDetailsBaseSchema = z.object({
   sku: z.string().trim().max(80).optional(),
   barcode: z.string().trim().max(80).optional(),
   brand: z.string().trim().max(120).optional(),
@@ -216,7 +216,7 @@ const productDetailsObject = z.object({
  * selections match declared options). The category logic lives in one shared module
  * so the frontend and backend can't drift.
  */
-export const productDetailsSchema = productDetailsObject.superRefine((details, ctx) => {
+export const productDetailsSchema = productDetailsBaseSchema.superRefine((details, ctx) => {
   for (const error of validateProductDetails(details.categoryKey, details)) {
     ctx.addIssue({
       code: 'custom',
@@ -336,6 +336,13 @@ export const productCreateSchema = z.object({
 }).strict();
 
 export const productPatchSchema = productCreateSchema.partial().strict();
+
+// Used by the bulk (Excel) import endpoint: identical to productCreateSchema but uses
+// the base details schema — no category-attribute superRefine — so rows without every
+// required category field are accepted and saved as hidden with the needs-details tag.
+export const productBulkCreateSchema = productCreateSchema.extend({
+  details: productDetailsBaseSchema.default({}),
+});
 
 const discountFieldsSchema = z.object({
   name: z.string().trim().max(80).optional().nullable(),
