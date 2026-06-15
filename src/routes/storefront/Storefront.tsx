@@ -1330,54 +1330,67 @@ function EditorialHero({ store, theme, featuredProduct, collections }: { store: 
   const c = useCopy();
   const categories = collections.filter((item) => item !== 'All');
   return (
-    <section className="relative overflow-hidden bg-[var(--c-surface)] border-b border-[var(--c-line)]/20">
-      {/* Dramatic background layers */}
-      <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[var(--c-soft)] via-transparent to-[var(--c-accent)]/5" />
-      <div aria-hidden className="pointer-events-none absolute -top-48 -end-24 h-[36rem] w-[36rem] rounded-full bg-[var(--c-primary)] opacity-[0.09] blur-3xl" />
-      <div aria-hidden className="pointer-events-none absolute -bottom-48 -start-32 h-[32rem] w-[32rem] rounded-full bg-[var(--c-accent)] opacity-[0.09] blur-3xl" />
-      {/* Large watermark text for depth */}
-      <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-end overflow-hidden pe-8 opacity-[0.025]">
-        <span className="text-[20vw] font-black uppercase tracking-tighter leading-none select-none" style={{ fontFamily: theme.hero }}>
-          {(store.tagline || store.name).split(' ')[0]}
-        </span>
-      </div>
+    <section className="relative overflow-hidden border-b border-[var(--c-line)]/20 bg-[var(--c-bg)]">
+      <div aria-hidden className="pointer-events-none absolute end-0 top-0 h-[28rem] w-[28rem] -translate-y-1/4 translate-x-1/4 rounded-full bg-[var(--c-primary)] opacity-[0.05] blur-[80px]" />
 
-      <div className="relative mx-auto grid max-w-7xl items-center gap-10 px-4 py-16 sm:px-6 sm:py-24 lg:min-h-[76vh] lg:grid-cols-[1.15fr_0.85fr] lg:gap-20 lg:px-8">
-        <Reveal className="z-10 flex flex-col justify-center">
-          <span className="mb-7 inline-flex w-fit items-center gap-2 rounded-full bg-[var(--c-bg)]/80 px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.22em] border border-[var(--c-line)]/50 backdrop-blur-sm shadow-sm">
-            <span className="h-1.5 w-1.5 rounded-full bg-[var(--c-primary)]" />
-            {store.category}
-          </span>
-          <h1 className="text-[3rem] font-black leading-[1.0] tracking-tighter sm:text-[4.5rem] lg:text-[5.5rem] xl:text-[6.5rem]" style={{ fontFamily: theme.hero }}>
+      <div className="relative mx-auto flex max-w-7xl items-center justify-between gap-10 px-4 pt-14 pb-12 sm:px-6 sm:pt-16 sm:pb-14 lg:gap-20 lg:px-8 lg:pt-20 lg:pb-16">
+        {/* Text column */}
+        <Reveal className="z-10 flex min-w-0 flex-1 flex-col">
+          {store.category && (
+            <div className="mb-6 flex items-center gap-2.5">
+              <span className="h-px w-6 shrink-0 bg-[var(--c-primary)]" />
+              <span className="text-[10px] font-black uppercase tracking-[0.28em] text-[var(--c-primary)]">{store.category}</span>
+            </div>
+          )}
+          <h1
+            className="text-[2.75rem] font-black leading-[0.97] tracking-tighter sm:text-[4rem] lg:text-[5rem] xl:text-[5.75rem]"
+            style={{ fontFamily: theme.hero }}
+          >
             {store.tagline || store.name}
           </h1>
           {store.about && (
-            <p className="mt-6 max-w-sm text-base font-medium leading-relaxed opacity-50 line-clamp-2">
-              {store.about.split('\n')[0].slice(0, 120)}
+            <p className="mt-5 max-w-sm text-sm font-medium leading-relaxed opacity-45 line-clamp-2">
+              {store.about.split('\n')[0].slice(0, 110)}
             </p>
           )}
-          <div className="mt-10 flex flex-wrap items-center gap-3">
-            <button type="button" onClick={scrollToProducts} className={cn(getCtaClass(buttonStyleOf(store)), 'w-auto px-9 h-13')}>
-              {c.shopNow} <ArrowRight className="h-4 w-4 rtl:rotate-180" />
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={scrollToProducts}
+              className={cn(getCtaClass(buttonStyleOf(store)), 'w-auto px-7 h-11 gap-2')}
+            >
+              {c.shopNow} <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
             </button>
             {store.about && (
-              <Link to={`/s/${store.slug}/about`} className="inline-flex h-13 items-center gap-2 px-6 text-[11px] font-black uppercase tracking-[0.12em] opacity-50 hover:opacity-100 transition-opacity">
+              <Link
+                to={`/s/${store.slug}/about`}
+                className="h-11 inline-flex items-center px-3 text-[11px] font-black uppercase tracking-[0.14em] opacity-35 hover:opacity-75 transition-opacity"
+              >
                 {c.about}
               </Link>
             )}
           </div>
-          <HeroTrustChips className="mt-10 opacity-55" />
+          <div className="mt-8 flex items-center gap-4 text-[10px] font-bold uppercase tracking-[0.12em] opacity-30">
+            <span className="inline-flex items-center gap-1.5"><Truck className="h-3 w-3" /> {c.jordanDelivery}</span>
+            <span className="h-2.5 w-px bg-current" />
+            <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-3 w-3" /> {c.cod}</span>
+          </div>
         </Reveal>
-        <Reveal delay={0.14} className="relative z-10 lg:justify-self-end lg:w-full lg:max-w-[26rem]">
+
+        {/* Product card — compact accent, desktop only */}
+        <Reveal delay={0.1} className="relative z-10 hidden shrink-0 lg:block lg:w-[190px]">
           <HeroFeaturedCard store={store} product={featuredProduct} />
         </Reveal>
       </div>
 
       {categories.length > 1 && (
-        <div className="relative border-t border-[var(--c-line)]/15 bg-[var(--c-primary)]/5 backdrop-blur-sm">
-          <div className="mx-auto flex max-w-7xl gap-10 overflow-x-auto px-4 py-4 sm:px-6 lg:px-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="border-t border-[var(--c-line)]/15">
+          <div className="mx-auto flex max-w-7xl gap-8 overflow-x-auto px-4 py-3 sm:px-6 lg:px-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {categories.slice(0, 12).map((item) => (
-              <span key={item} className="flex shrink-0 items-center gap-10 text-[10px] font-black uppercase tracking-[0.22em] opacity-40 hover:opacity-70 transition-opacity cursor-default">
+              <span
+                key={item}
+                className="flex shrink-0 items-center gap-8 text-[10px] font-black uppercase tracking-[0.25em] opacity-25 hover:opacity-50 transition-opacity cursor-default"
+              >
                 {item}
                 <span aria-hidden className="text-[var(--c-primary)]">✦</span>
               </span>
@@ -1393,32 +1406,54 @@ function BoutiqueHero({ store, theme, featuredProduct }: { store: Store; theme: 
   const c = useCopy();
   return (
     <section className="overflow-hidden border-b border-[var(--c-line)]/20">
-      <div className="mx-auto grid max-w-[110rem] lg:grid-cols-2">
-        <Reveal className="order-2 flex flex-col items-center justify-center px-6 py-16 text-center sm:px-12 lg:order-1 lg:px-16 lg:py-28">
-          <div className="mb-6 flex items-center gap-4 text-[11px] font-black uppercase tracking-[0.3em] opacity-45">
-            <span aria-hidden className="h-px w-10 bg-current opacity-40" />
-            {store.category}
-            <span aria-hidden className="h-px w-10 bg-current opacity-40" />
-          </div>
-          <h1 className="max-w-xl text-4xl font-black leading-[1.05] tracking-tighter sm:text-6xl lg:text-[4.25rem]" style={{ fontFamily: theme.hero }}>
+      {/* Mobile: image strip on top, text below */}
+      <div className={cn('relative h-[52vw] max-h-[360px] overflow-hidden bg-[var(--c-soft)] lg:hidden', !featuredProduct && 'flex items-center justify-center')}>
+        {featuredProduct ? (
+          <>
+            <ProductThumb product={featuredProduct} className="h-full w-full" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/25 to-transparent" />
+          </>
+        ) : (
+          <ProductLogo store={store} large />
+        )}
+      </div>
+
+      {/* Desktop: side-by-side */}
+      <div className="lg:grid lg:min-h-[560px] lg:grid-cols-2">
+        <Reveal className="flex flex-col justify-center px-6 py-12 sm:px-10 lg:px-16 lg:py-20">
+          {store.category && (
+            <p className="mb-6 text-[10px] font-black uppercase tracking-[0.3em] opacity-35">{store.category}</p>
+          )}
+          <h1
+            className="text-[2.5rem] font-black leading-[1.0] tracking-tighter sm:text-[3.25rem] lg:text-[4rem] xl:text-[4.75rem]"
+            style={{ fontFamily: theme.hero }}
+          >
             {store.tagline || store.name}
           </h1>
-          <p className="mt-6 max-w-sm text-base font-medium leading-relaxed opacity-55">
-            {store.about ? store.about.split('\n')[0].slice(0, 140) : `${store.name} — curated collection, delivered across Jordan.`}
+          <p className="mt-5 max-w-xs text-sm font-medium leading-relaxed opacity-45">
+            {store.about ? store.about.split('\n')[0].slice(0, 130) : `${store.name} — curated collection, delivered across Jordan.`}
           </p>
-          <button type="button" onClick={scrollToProducts} className={cn(getCtaClass(buttonStyleOf(store)), 'mt-9 w-auto px-10 h-12')}>
+          <button
+            type="button"
+            onClick={scrollToProducts}
+            className={cn(getCtaClass(buttonStyleOf(store)), 'mt-9 w-auto px-9 h-11')}
+          >
             {c.shopNow}
           </button>
-          <div className="mt-9 flex flex-wrap justify-center gap-5 text-[11px] font-bold uppercase tracking-[0.14em] opacity-50">
-            <span className="inline-flex items-center gap-2"><Truck className="h-3.5 w-3.5" /> {c.jordanDelivery}</span>
-            <span className="inline-flex items-center gap-2"><ShieldCheck className="h-3.5 w-3.5" /> {c.cod}</span>
+          <div className="mt-8 flex items-center gap-4 text-[10px] font-bold uppercase tracking-[0.12em] opacity-30">
+            <span className="inline-flex items-center gap-1.5"><Truck className="h-3 w-3" /> {c.jordanDelivery}</span>
+            <span className="h-2.5 w-px bg-current" />
+            <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-3 w-3" /> {c.cod}</span>
           </div>
         </Reveal>
-        <div className={cn('relative order-1 min-h-[52vw] overflow-hidden bg-[var(--c-soft)] lg:order-2 lg:min-h-[640px]', !featuredProduct && 'flex items-center justify-center')}>
+
+        {/* Desktop image panel */}
+        <div className={cn('relative hidden overflow-hidden bg-[var(--c-soft)] lg:block', !featuredProduct && 'flex items-center justify-center')}>
           {featuredProduct ? (
             <Link to={`/s/${store.slug}/p/${featuredProduct.id}`} className="group absolute inset-0">
-              <ProductThumb product={featuredProduct} className="h-full w-full transition-transform duration-700 group-hover:scale-[1.03]" />
-              <span className="absolute bottom-5 start-5 rounded-full bg-[var(--c-bg)]/85 px-4 py-2 text-xs font-black backdrop-blur-xl border border-[var(--c-line)]/30 shadow-lg">
+              <ProductThumb product={featuredProduct} className="h-full w-full transition-transform duration-700 group-hover:scale-[1.025]" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/25 to-transparent" />
+              <span className="absolute bottom-6 start-6 rounded-xl bg-[var(--c-bg)]/92 px-4 py-2.5 text-xs font-black backdrop-blur-xl border border-[var(--c-line)]/30 shadow-lg">
                 {featuredProduct.name} · {money(productPriceRange(featuredProduct).min, store.currency)}
               </span>
             </Link>
@@ -1444,28 +1479,28 @@ function MarketHero({ store, theme, query, setQuery, collections, collection, se
   const c = useCopy();
   return (
     <section className="border-b border-[var(--c-line)]/20 bg-[var(--c-surface)]">
-      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
-        <div className="flex flex-col gap-1.5 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-black tracking-tight sm:text-4xl" style={{ fontFamily: theme.hero }}>{store.name}</h1>
-            {store.tagline && <p className="mt-1.5 text-sm font-medium opacity-50">{store.tagline}</p>}
-          </div>
-          <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] opacity-50">
-            <span className="inline-flex items-center gap-1.5"><Truck className="h-3 w-3" /> {c.jordanDelivery}</span>
-            <span className="opacity-30">·</span>
-            <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-3 w-3" /> {c.cod}</span>
-          </div>
-        </div>
+      <div className="mx-auto max-w-3xl px-4 pb-10 pt-12 text-center sm:px-6 sm:pb-14 sm:pt-16 lg:px-8">
+        {store.category && (
+          <p className="mb-3 text-[11px] font-black uppercase tracking-[0.25em] opacity-35">{store.category}</p>
+        )}
+        <h1 className="text-4xl font-black tracking-tight sm:text-5xl lg:text-6xl" style={{ fontFamily: theme.hero }}>
+          {store.name}
+        </h1>
+        {store.tagline && (
+          <p className="mt-3 text-sm font-medium opacity-45">{store.tagline}</p>
+        )}
 
-        {/* Search-first: the hero owns the catalog search */}
-        <label className="relative mt-6 block">
-          <Search className="pointer-events-none absolute start-4 top-1/2 h-5 w-5 -translate-y-1/2 opacity-35" />
+        <label className="relative mt-8 block text-start">
+          <Search className="pointer-events-none absolute start-4 top-1/2 h-5 w-5 -translate-y-1/2 opacity-30" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={`${c.search} · ${count} ${c.products}`}
-            className="h-13 w-full rounded-2xl border border-[var(--c-line)]/40 bg-[var(--c-bg)] ps-12 pe-4 py-3.5 text-base font-medium shadow-sm transition-all focus:border-[var(--c-text)]/50 focus:ring-2 focus:ring-[var(--c-text)]/15 outline-none"
+            placeholder={`${c.search}…`}
+            className="h-14 w-full rounded-2xl border border-[var(--c-line)]/50 bg-[var(--c-bg)] ps-12 pe-28 text-base font-medium shadow-sm transition-all focus:border-[var(--c-text)]/40 focus:ring-2 focus:ring-[var(--c-text)]/10 outline-none"
           />
+          <span className="absolute end-4 top-1/2 -translate-y-1/2 text-[11px] font-bold opacity-25">
+            {count} {c.products}
+          </span>
         </label>
 
         {collections.length > 1 && (
@@ -1479,7 +1514,7 @@ function MarketHero({ store, theme, query, setQuery, collections, collection, se
                   'shrink-0 rounded-full px-4 py-2 text-xs font-bold transition-all active:scale-95',
                   collection === col
                     ? 'bg-[var(--c-text)] text-[var(--c-bg)] shadow-sm'
-                    : 'bg-[var(--c-bg)] border border-[var(--c-line)]/40 hover:border-[var(--c-text)]/40',
+                    : 'bg-[var(--c-bg)] border border-[var(--c-line)]/50 hover:border-[var(--c-text)]/30',
                 )}
               >
                 {col}
@@ -1497,50 +1532,48 @@ function LookbookHero({ store, theme, featuredProduct }: { store: Store; theme: 
   const reduce = useReducedMotion();
   const heroImage = featuredProduct ? productPrimaryImage(featuredProduct) : undefined;
   return (
-    <section className="relative flex min-h-[72vh] items-end overflow-hidden border-b border-[var(--c-line)]/20 sm:min-h-[78vh]">
+    <section className="relative flex min-h-[75vh] items-end overflow-hidden border-b border-[var(--c-line)]/20 sm:min-h-[85vh]">
       <div className="absolute inset-0 bg-[var(--c-soft)]">
         {heroImage && (
           <motion.img
             src={heroImage}
             alt={featuredProduct!.name}
-            initial={reduce ? false : { scale: 1.08 }}
+            initial={reduce ? false : { scale: 1.06 }}
             animate={{ scale: 1 }}
-            transition={{ duration: 1.6, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: 2, ease: [0.22, 1, 0.36, 1] }}
             className="h-full w-full object-cover"
           />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-black/5" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
       </div>
-      <div className="relative z-10 mx-auto w-full max-w-7xl px-5 pb-16 sm:px-8 lg:px-12 lg:pb-24">
+      <div className="relative z-10 mx-auto w-full max-w-7xl px-5 pb-14 sm:px-8 lg:px-12 lg:pb-20">
         <Reveal>
-          <span className="mb-5 inline-block rounded-full bg-white/15 px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.22em] text-white border border-white/25 backdrop-blur-md">
-            {store.category}
-          </span>
-          <h1 className="max-w-3xl text-[2.75rem] font-black leading-[1.02] tracking-tighter text-white sm:text-6xl lg:text-7xl" style={{ fontFamily: theme.hero }}>
+          {store.category && (
+            <span className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.22em] text-white backdrop-blur-sm">
+              <span className="h-1.5 w-1.5 rounded-full bg-white/80" />
+              {store.category}
+            </span>
+          )}
+          <h1 className="mt-4 max-w-2xl text-[2.5rem] font-black leading-[1.0] tracking-tighter text-white sm:text-[4rem] lg:text-[5rem]" style={{ fontFamily: theme.hero }}>
             {store.tagline || store.name}
           </h1>
-          <div className="mt-9 flex flex-wrap items-center gap-4">
-            <button type="button" onClick={scrollToProducts} className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white px-9 text-[11px] font-black uppercase tracking-[0.12em] text-black transition-all hover:opacity-90 active:scale-[0.97]">
-              {c.shopNow} <ArrowRight className="h-4 w-4 rtl:rotate-180" />
+          {store.about && (
+            <p className="mt-4 max-w-md text-sm font-medium leading-relaxed text-white/55 line-clamp-2">
+              {store.about.split('\n')[0].slice(0, 110)}
+            </p>
+          )}
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <button type="button" onClick={scrollToProducts} className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white px-8 text-[11px] font-black uppercase tracking-[0.14em] text-black transition-all hover:bg-white/90 active:scale-[0.97]">
+              {c.shopNow} <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
             </button>
             {featuredProduct && (
-              <Link to={`/s/${store.slug}/p/${featuredProduct.id}`} className="text-[11px] font-black uppercase tracking-[0.14em] text-white/70 underline-offset-4 hover:text-white hover:underline transition-colors">
-                {featuredProduct.name}
+              <Link to={`/s/${store.slug}/p/${featuredProduct.id}`} className="h-12 inline-flex items-center gap-1.5 px-4 text-[11px] font-black uppercase tracking-[0.14em] text-white/55 hover:text-white transition-colors">
+                {featuredProduct.name} <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
               </Link>
             )}
           </div>
         </Reveal>
       </div>
-      {!reduce && (
-        <motion.div
-          aria-hidden
-          animate={{ y: [0, 8, 0] }}
-          transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
-          className="absolute bottom-5 left-1/2 z-10 -translate-x-1/2 text-white/60"
-        >
-          <ChevronDown className="h-6 w-6" />
-        </motion.div>
-      )}
     </section>
   );
 }
