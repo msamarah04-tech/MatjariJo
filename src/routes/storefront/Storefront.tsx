@@ -1102,6 +1102,8 @@ function OfferSlide({ slide, store, discounts, theme, products }: {
   slide: HeroSlide; store: Store; discounts: Discount[]; theme: Theme; products: Product[];
 }) {
   const [copied, setCopied] = useState(false);
+  const { lang } = useI18n();
+  const isRtl = lang === 'ar';
   const discount = discounts.find((d) => d.code === slide.discountCode);
   const code = slide.discountCode || '';
   const copyCode = () => {
@@ -1109,28 +1111,28 @@ function OfferSlide({ slide, store, discounts, theme, products }: {
     setCopied(true);
     setTimeout(() => setCopied(false), 2200);
   };
-  const hasImage = !!discount?.imageUrl;
 
-  if (hasImage) {
+  // ── With a discount image: full-bleed, text pinned to bottom ──────────
+  if (discount?.imageUrl) {
     return (
       <section className="relative h-full overflow-hidden flex items-end">
         <div className="absolute inset-0">
-          <img src={discount!.imageUrl!} alt="" className="h-full w-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-black/10" />
+          <img src={discount.imageUrl} alt="" className="h-full w-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
         </div>
-        <div className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-12 sm:px-8 lg:px-10 lg:pb-16">
+        <div className="relative z-10 w-full max-w-6xl mx-auto px-5 pb-12 sm:px-10 lg:px-16 lg:pb-16">
           <Reveal className="flex flex-col gap-4">
             <h2 className="text-4xl font-black leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl" style={{ fontFamily: theme.hero }}>
-              {slide.title || discount?.name || 'Exclusive Deal'}
+              {slide.title || discount.name || 'Exclusive Deal'}
             </h2>
-            <p className="text-sm font-medium text-white/60 max-w-xs">
+            <p className="text-sm font-medium text-white/55 max-w-xs">
               {slide.subtitle || offerSlideDescription(discount, store.currency)}
             </p>
-            <div className="flex flex-wrap items-center gap-2.5 pt-1">
+            <div className="flex flex-wrap items-center gap-2.5">
               {code && (
                 <button type="button" onClick={copyCode} className="inline-flex h-11 items-center gap-2.5 rounded-full bg-white px-5 text-black transition-all hover:bg-white/90 active:scale-[0.97]">
                   <span className="font-mono text-sm font-black tracking-widest">{code}</span>
-                  <span className="h-3.5 w-px bg-current opacity-30" />
+                  <span className="h-3.5 w-px bg-black/20" />
                   <span className="text-[10px] font-black uppercase tracking-wider">{copied ? '✓' : 'Copy'}</span>
                 </button>
               )}
@@ -1144,51 +1146,64 @@ function OfferSlide({ slide, store, discounts, theme, products }: {
     );
   }
 
-  const featuredProducts = products.filter((p) => productPrimaryImage(p)).slice(0, 4);
+  // ── No discount image: bold deal typography + one product card ────────
+  const featuredProduct = products.find((p) => productPrimaryImage(p));
+  const gradDir = isRtl ? 'to left' : 'to right';
+
   return (
     <section className="relative h-full overflow-hidden bg-[var(--c-surface)]">
-      {/* Right panel: product image grid, absolutely positioned so it never affects hero height */}
-      {featuredProducts.length > 0 && (
-        <div className="absolute inset-y-0 end-0 w-[44%] sm:w-[40%]">
-          <div className={cn('grid h-full gap-1 p-2 sm:gap-1.5 sm:p-3',
-            featuredProducts.length === 1 ? 'grid-cols-1' :
-            featuredProducts.length === 2 ? 'grid-cols-1 grid-rows-2' :
-            featuredProducts.length === 3 ? 'grid-rows-2' : 'grid-cols-2 grid-rows-2'
-          )}>
-            {featuredProducts.map((p, i) => (
-              <div key={i} className={cn('overflow-hidden rounded-xl bg-[var(--c-soft)]',
-                featuredProducts.length === 3 && i === 0 ? 'col-span-2' : ''
-              )}>
-                <img src={productPrimaryImage(p)!} alt={p.name} className="h-full w-full object-cover" />
-              </div>
-            ))}
+      {/* Product card — right side, absolutely placed, never in flow */}
+      {featuredProduct && (
+        <div
+          className="absolute inset-y-0 end-0 flex items-center pe-6 sm:pe-10 lg:pe-16"
+          style={{ width: '42%' }}
+        >
+          <div className="w-full max-w-[220px] ms-auto">
+            <HeroFeaturedCard store={store} product={featuredProduct} />
           </div>
-          {/* Gradient fade into text area */}
-          <div className="pointer-events-none absolute inset-y-0 start-0 w-3/5 bg-gradient-to-e from-[var(--c-surface)] to-transparent" />
+          {/* Gradient covering the card's start edge so text never fights it */}
+          <div
+            className="pointer-events-none absolute inset-y-0 start-0 w-2/3"
+            style={{ background: `linear-gradient(${gradDir}, var(--c-surface) 0%, transparent 100%)` }}
+          />
         </div>
       )}
 
-      {/* Text panel */}
-      <div className="relative z-10 flex h-full flex-col justify-center ps-5 pe-4 sm:ps-10 lg:ps-16" style={{ width: featuredProducts.length > 0 ? '62%' : '100%', maxWidth: featuredProducts.length > 0 ? undefined : '36rem', margin: featuredProducts.length > 0 ? undefined : '0 auto' }}>
+      {/* Text */}
+      <div
+        className="relative z-10 flex h-full flex-col justify-center ps-5 sm:ps-10 lg:ps-16"
+        style={{ width: featuredProduct ? '62%' : '100%', maxWidth: featuredProduct ? undefined : '40rem', margin: featuredProduct ? undefined : '0 auto' }}
+      >
         <Reveal className="flex flex-col gap-3 sm:gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--c-accent)]/10 border border-[var(--c-accent)]/15 text-xl">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--c-primary)]/10 border border-[var(--c-primary)]/15 text-xl">
             🎁
           </div>
-          <h2 className="text-3xl font-black leading-tight tracking-tight sm:text-4xl lg:text-5xl xl:text-6xl" style={{ fontFamily: theme.hero }}>
+          <h2
+            className="text-3xl font-black leading-tight tracking-tight sm:text-4xl lg:text-5xl xl:text-6xl"
+            style={{ fontFamily: theme.hero }}
+          >
             {slide.title || discount?.name || 'Exclusive Deal'}
           </h2>
-          <p className="text-sm font-medium leading-relaxed opacity-50 max-w-xs">
+          <p className="text-sm font-medium leading-relaxed opacity-50 max-w-[26ch]">
             {slide.subtitle || offerSlideDescription(discount, store.currency)}
           </p>
           <div className="flex flex-wrap items-center gap-2 pt-1">
             {code && (
-              <button type="button" onClick={copyCode} className="inline-flex h-10 items-center gap-2.5 rounded-full bg-[var(--c-text)] px-4 text-[var(--c-bg)] transition-all hover:opacity-80 active:scale-[0.97] sm:h-11 sm:px-5">
+              <button
+                type="button"
+                onClick={copyCode}
+                className="inline-flex h-10 items-center gap-2.5 rounded-full bg-[var(--c-text)] px-4 text-[var(--c-bg)] transition-all hover:opacity-80 active:scale-[0.97] sm:h-11 sm:px-5"
+              >
                 <span className="font-mono text-sm font-black tracking-widest">{code}</span>
                 <span className="h-3.5 w-px bg-current opacity-30" />
                 <span className="text-[10px] font-black uppercase tracking-wider">{copied ? '✓' : 'Copy'}</span>
               </button>
             )}
-            <button type="button" onClick={scrollToProducts} className="inline-flex h-10 items-center gap-1.5 rounded-full border border-[var(--c-line)]/50 px-4 text-xs font-bold transition-all hover:border-[var(--c-text)]/40 hover:bg-[var(--c-soft)] sm:h-11 sm:px-5">
+            <button
+              type="button"
+              onClick={scrollToProducts}
+              className="inline-flex h-10 items-center gap-1.5 rounded-full border border-[var(--c-line)]/50 px-4 text-xs font-bold transition-all hover:border-[var(--c-text)]/40 hover:bg-[var(--c-soft)] sm:h-11 sm:px-5"
+            >
               Shop now <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
             </button>
           </div>
@@ -1211,28 +1226,45 @@ function ProductSlide({ slide, store, products, theme, addToCart }: {
       </section>
     );
   }
+  const { lang } = useI18n();
+  const isRtl = lang === 'ar';
   const range = productPriceRange(product);
   const heroImg = productPrimaryImage(product);
+  const gradDir = isRtl ? 'to left' : 'to right';
+
   return (
-    <section className="relative h-full overflow-hidden bg-[var(--c-surface)]">
-      {/* Right panel: product image, absolutely positioned so hero height is never affected */}
-      <div className="absolute inset-y-0 end-0 w-[46%] sm:w-[42%]">
+    <section className="relative h-full overflow-hidden bg-[var(--c-bg)]">
+      {/* Right panel: product image — absolutely placed, never in flow */}
+      <div className="absolute inset-y-0 end-0 w-1/2 bg-[var(--c-soft)]">
         {heroImg ? (
-          <img src={heroImg} alt={product.name} className="h-full w-full object-cover object-top" />
+          /* object-contain keeps the full product visible (no cropping for tall bottles etc.) */
+          <img
+            src={heroImg}
+            alt={product.name}
+            className="h-full w-full object-contain object-center p-6 sm:p-10"
+          />
         ) : (
-          <div className="flex h-full items-center justify-center bg-[var(--c-soft)]">
+          <div className="flex h-full items-center justify-center">
             <ProductLogo store={store} large />
           </div>
         )}
-        {/* Gradient fade into text area */}
-        <div className="pointer-events-none absolute inset-y-0 start-0 w-3/4 bg-gradient-to-e from-[var(--c-surface)] to-transparent" />
       </div>
 
-      {/* Ambient glow */}
-      <div aria-hidden className="pointer-events-none absolute -top-32 end-0 h-[30rem] w-[30rem] rounded-full bg-[var(--c-primary)] opacity-[0.05] blur-[100px]" />
+      {/* Full-section gradient — covers text area fully, fades into product panel */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{ background: `linear-gradient(${gradDir}, var(--c-bg) 42%, var(--c-bg) 42%, transparent 78%)` }}
+      />
 
-      {/* Text panel */}
-      <div className="relative z-10 flex h-full w-[60%] flex-col justify-center ps-5 sm:ps-10 lg:ps-16">
+      {/* Subtle ambient glow behind image */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-32 end-0 h-[30rem] w-[30rem] rounded-full blur-[100px]"
+        style={{ backgroundColor: 'var(--c-primary)', opacity: 0.06 }}
+      />
+
+      {/* Text */}
+      <div className="relative z-10 flex h-full w-[55%] flex-col justify-center ps-5 sm:ps-10 lg:ps-16">
         <Reveal className="flex flex-col gap-3 sm:gap-4">
           {(product.category || store.category) && (
             <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-[var(--c-primary)]/10 px-3 py-1 text-[11px] font-bold text-[var(--c-primary)]">
@@ -1240,7 +1272,10 @@ function ProductSlide({ slide, store, products, theme, addToCart }: {
               {product.category || store.category}
             </span>
           )}
-          <h2 className="text-3xl font-black leading-[1.05] tracking-tight sm:text-4xl lg:text-5xl xl:text-6xl" style={{ fontFamily: theme.hero }}>
+          <h2
+            className="text-3xl font-black leading-[1.05] tracking-tight sm:text-4xl lg:text-5xl xl:text-6xl"
+            style={{ fontFamily: theme.hero }}
+          >
             {product.name}
           </h2>
           {product.description && (
@@ -1250,13 +1285,24 @@ function ProductSlide({ slide, store, products, theme, addToCart }: {
           )}
           <p className="text-xl font-black sm:text-2xl">
             {money(range.min, store.currency)}
-            {range.max > range.min && <span className="ms-1.5 text-sm font-bold opacity-35">– {money(range.max, store.currency)}</span>}
+            {range.max > range.min && (
+              <span className="ms-1.5 text-sm font-bold opacity-35">
+                – {money(range.max, store.currency)}
+              </span>
+            )}
           </p>
           <div className="flex flex-wrap items-center gap-2 pt-1">
-            <button type="button" onClick={() => addToCart(product.id)} className="inline-flex h-10 items-center gap-2 rounded-full bg-[var(--c-text)] px-5 text-[11px] font-black uppercase tracking-wider text-[var(--c-bg)] transition-all hover:opacity-80 active:scale-[0.97] sm:h-11 sm:px-6">
+            <button
+              type="button"
+              onClick={() => addToCart(product.id)}
+              className="inline-flex h-10 items-center gap-2 rounded-full bg-[var(--c-text)] px-5 text-[11px] font-black uppercase tracking-wider text-[var(--c-bg)] transition-all hover:opacity-80 active:scale-[0.97] sm:h-11 sm:px-6"
+            >
               {c.addToCart}
             </button>
-            <Link to={`/s/${store.slug}/p/${product.id}`} className="inline-flex h-10 items-center gap-1.5 rounded-full border border-[var(--c-line)]/50 px-4 text-xs font-bold transition-all hover:border-[var(--c-text)]/40 sm:h-11 sm:px-5">
+            <Link
+              to={`/s/${store.slug}/p/${product.id}`}
+              className="inline-flex h-10 items-center gap-1.5 rounded-full border border-[var(--c-line)]/50 px-4 text-xs font-bold transition-all hover:border-[var(--c-text)]/40 sm:h-11 sm:px-5"
+            >
               View <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
             </Link>
           </div>
