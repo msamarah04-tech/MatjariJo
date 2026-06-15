@@ -1098,8 +1098,8 @@ function offerSlideDescription(discount: Discount | undefined, currency: string)
   return 'Exclusive offer — use the code at checkout.';
 }
 
-function OfferSlide({ slide, store, discounts, theme }: {
-  slide: HeroSlide; store: Store; discounts: Discount[]; theme: Theme;
+function OfferSlide({ slide, store, discounts, theme, products }: {
+  slide: HeroSlide; store: Store; discounts: Discount[]; theme: Theme; products: Product[];
 }) {
   const [copied, setCopied] = useState(false);
   const discount = discounts.find((d) => d.code === slide.discountCode);
@@ -1109,42 +1109,92 @@ function OfferSlide({ slide, store, discounts, theme }: {
     setCopied(true);
     setTimeout(() => setCopied(false), 2200);
   };
-  return (
-    <section className="relative h-full overflow-hidden bg-[var(--c-surface)] flex items-center justify-center text-center">
-      <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[var(--c-primary)]/6 via-transparent to-[var(--c-accent)]/6" />
-      <div className="relative z-10 mx-auto flex max-w-lg flex-col items-center px-6 py-16">
-        {/* Icon */}
-        <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--c-accent)]/10 border border-[var(--c-accent)]/20 text-3xl">
-          🎁
+  const hasImage = !!discount?.imageUrl;
+
+  if (hasImage) {
+    return (
+      <section className="relative h-full overflow-hidden flex items-end">
+        <div className="absolute inset-0">
+          <img src={discount!.imageUrl!} alt="" className="h-full w-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-black/10" />
         </div>
-        <Reveal className="flex flex-col items-center gap-4">
+        <div className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-12 sm:px-8 lg:px-10 lg:pb-16">
+          <Reveal className="flex flex-col gap-4">
+            <h2 className="text-4xl font-black leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl" style={{ fontFamily: theme.hero }}>
+              {slide.title || discount?.name || 'Exclusive Deal'}
+            </h2>
+            <p className="text-sm font-medium text-white/60 max-w-xs">
+              {slide.subtitle || offerSlideDescription(discount, store.currency)}
+            </p>
+            <div className="flex flex-wrap items-center gap-2.5 pt-1">
+              {code && (
+                <button type="button" onClick={copyCode} className="inline-flex h-11 items-center gap-2.5 rounded-full bg-white px-5 text-black transition-all hover:bg-white/90 active:scale-[0.97]">
+                  <span className="font-mono text-sm font-black tracking-widest">{code}</span>
+                  <span className="h-3.5 w-px bg-current opacity-30" />
+                  <span className="text-[10px] font-black uppercase tracking-wider">{copied ? '✓' : 'Copy'}</span>
+                </button>
+              )}
+              <button type="button" onClick={scrollToProducts} className="inline-flex h-11 items-center gap-1.5 rounded-full border border-white/25 bg-white/10 px-5 text-xs font-bold text-white backdrop-blur-sm transition-all hover:border-white/50">
+                Shop now <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
+              </button>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+    );
+  }
+
+  const featuredProducts = products.filter((p) => productPrimaryImage(p)).slice(0, 4);
+  return (
+    <section className="relative h-full overflow-hidden bg-[var(--c-surface)] flex items-center">
+      {/* Product image grid background on desktop */}
+      {featuredProducts.length > 0 && (
+        <div aria-hidden className="pointer-events-none absolute inset-0 hidden lg:grid lg:grid-cols-2 opacity-[0.12]">
+          {featuredProducts.map((p, i) => (
+            <div key={i} className="overflow-hidden">
+              <img src={productPrimaryImage(p)!} alt="" className="h-full w-full object-cover" />
+            </div>
+          ))}
+          <div className="absolute inset-0 bg-gradient-to-r from-[var(--c-surface)] via-[var(--c-surface)]/90 to-[var(--c-surface)]/60" />
+        </div>
+      )}
+      <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[var(--c-primary)]/5 via-transparent to-[var(--c-accent)]/5" />
+
+      <div className="relative z-10 mx-auto grid w-full max-w-6xl items-center gap-8 px-5 py-12 sm:px-8 lg:grid-cols-[1fr_auto] lg:gap-14 lg:px-10">
+        <Reveal className="flex flex-col gap-4">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--c-accent)]/10 border border-[var(--c-accent)]/15 text-2xl">
+            🎁
+          </div>
           <h2 className="text-4xl font-black leading-tight tracking-tight sm:text-5xl lg:text-6xl" style={{ fontFamily: theme.hero }}>
             {slide.title || discount?.name || 'Exclusive Deal'}
           </h2>
-          <p className="text-sm font-medium leading-relaxed opacity-55 max-w-xs">
+          <p className="text-sm font-medium leading-relaxed opacity-50 max-w-xs">
             {slide.subtitle || offerSlideDescription(discount, store.currency)}
           </p>
-          <div className="mt-2 flex flex-col items-center gap-3 sm:flex-row">
+          <div className="flex flex-wrap items-center gap-2.5 pt-1">
             {code && (
-              <button
-                type="button"
-                onClick={copyCode}
-                className="inline-flex h-11 items-center gap-2.5 rounded-full bg-[var(--c-text)] px-5 text-[var(--c-bg)] transition-all hover:opacity-80 active:scale-[0.97]"
-              >
+              <button type="button" onClick={copyCode} className="inline-flex h-11 items-center gap-2.5 rounded-full bg-[var(--c-text)] px-5 text-[var(--c-bg)] transition-all hover:opacity-80 active:scale-[0.97]">
                 <span className="font-mono text-sm font-black tracking-widest">{code}</span>
                 <span className="h-3.5 w-px bg-current opacity-30" />
                 <span className="text-[10px] font-black uppercase tracking-wider">{copied ? '✓' : 'Copy'}</span>
               </button>
             )}
-            <button
-              type="button"
-              onClick={scrollToProducts}
-              className="inline-flex h-11 items-center gap-1.5 rounded-full border border-[var(--c-line)]/50 px-5 text-xs font-bold transition-all hover:border-[var(--c-text)]/40 hover:bg-[var(--c-soft)]"
-            >
+            <button type="button" onClick={scrollToProducts} className="inline-flex h-11 items-center gap-1.5 rounded-full border border-[var(--c-line)]/50 px-5 text-xs font-bold transition-all hover:border-[var(--c-text)]/40 hover:bg-[var(--c-soft)]">
               Shop now <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
             </button>
           </div>
         </Reveal>
+
+        {/* Product image cards on desktop when no discount image */}
+        {featuredProducts.length > 0 && (
+          <Reveal delay={0.1} className="hidden shrink-0 lg:grid lg:grid-cols-2 lg:gap-3 lg:w-[280px]">
+            {featuredProducts.slice(0, 4).map((p, i) => (
+              <div key={i} className={cn('overflow-hidden rounded-xl bg-[var(--c-soft)]', i === 0 ? 'col-span-2 aspect-[2/1]' : 'aspect-square')}>
+                <img src={productPrimaryImage(p)!} alt={p.name} className="h-full w-full object-cover" />
+              </div>
+            ))}
+          </Reveal>
+        )}
       </div>
     </section>
   );
@@ -1164,39 +1214,77 @@ function ProductSlide({ slide, store, products, theme, addToCart }: {
     );
   }
   const range = productPriceRange(product);
+  const heroImg = productPrimaryImage(product);
   return (
-    <section className="relative h-full overflow-hidden bg-[var(--c-surface)] flex items-center">
-      <div aria-hidden className="pointer-events-none absolute -top-32 end-0 h-[30rem] w-[30rem] rounded-full bg-[var(--c-primary)] opacity-[0.06] blur-[100px]" />
-      <div className="relative mx-auto grid w-full max-w-6xl items-center gap-8 px-5 py-12 sm:px-8 sm:py-16 lg:grid-cols-[1fr_360px] lg:gap-14 lg:px-10">
-        <Reveal className="flex flex-col gap-4">
+    <section className="relative h-full overflow-hidden bg-[var(--c-surface)]">
+      {/* Mobile: full-bleed image with text overlay at bottom */}
+      <div className="flex h-full flex-col lg:hidden">
+        {heroImg ? (
+          <div className="relative min-h-0 flex-1 overflow-hidden">
+            <img src={heroImg} alt={product.name} className="h-full w-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[var(--c-surface)] via-[var(--c-surface)]/30 to-transparent" />
+          </div>
+        ) : (
+          <div className="flex min-h-0 flex-1 items-center justify-center bg-[var(--c-soft)]">
+            <ProductLogo store={store} large />
+          </div>
+        )}
+        <div className="flex flex-col gap-3 px-5 py-6">
           {(product.category || store.category) && (
             <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-[var(--c-primary)]/10 px-3 py-1 text-[11px] font-bold text-[var(--c-primary)]">
               <span className="h-1 w-1 rounded-full bg-current" />
               {product.category || store.category}
             </span>
           )}
-          <h2 className="text-4xl font-black leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl" style={{ fontFamily: theme.hero }}>
+          <h2 className="text-3xl font-black leading-[1.05] tracking-tight" style={{ fontFamily: theme.hero }}>
             {product.name}
           </h2>
-          {product.description && (
-            <p className="max-w-sm text-sm font-medium leading-relaxed opacity-50 line-clamp-2">{product.description}</p>
-          )}
-          <p className="text-2xl font-black">
-            {money(range.min, store.currency)}
-            {range.max > range.min && <span className="ms-1.5 text-sm font-bold opacity-35">– {money(range.max, store.currency)}</span>}
-          </p>
-          <div className="flex flex-wrap items-center gap-2.5 pt-1">
-            <button type="button" onClick={() => addToCart(product.id)} className="inline-flex h-11 items-center gap-2 rounded-full bg-[var(--c-text)] px-6 text-[11px] font-black uppercase tracking-wider text-[var(--c-bg)] transition-all hover:opacity-80 active:scale-[0.97]">
+          <p className="text-xl font-black">{money(range.min, store.currency)}</p>
+          <div className="flex items-center gap-2.5">
+            <button type="button" onClick={() => addToCart(product.id)} className="inline-flex h-10 items-center gap-2 rounded-full bg-[var(--c-text)] px-6 text-[11px] font-black uppercase tracking-wider text-[var(--c-bg)] transition-all hover:opacity-80 active:scale-[0.97]">
               {c.addToCart}
             </button>
-            <Link to={`/s/${store.slug}/p/${product.id}`} className="inline-flex h-11 items-center gap-1.5 rounded-full border border-[var(--c-line)]/50 px-5 text-xs font-bold transition-all hover:border-[var(--c-text)]/40">
+            <Link to={`/s/${store.slug}/p/${product.id}`} className="inline-flex h-10 items-center gap-1.5 rounded-full border border-[var(--c-line)]/50 px-4 text-xs font-bold transition-all hover:border-[var(--c-text)]/40">
               View <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
             </Link>
           </div>
-        </Reveal>
-        <Reveal delay={0.1} className="hidden lg:block">
-          <HeroFeaturedCard store={store} product={product} />
-        </Reveal>
+        </div>
+      </div>
+
+      {/* Desktop: side-by-side */}
+      <div className="hidden h-full items-center lg:flex">
+        <div aria-hidden className="pointer-events-none absolute -top-32 end-0 h-[30rem] w-[30rem] rounded-full bg-[var(--c-primary)] opacity-[0.06] blur-[100px]" />
+        <div className="relative mx-auto grid w-full max-w-6xl items-center gap-14 px-10 lg:grid-cols-[1fr_360px]">
+          <Reveal className="flex flex-col gap-4">
+            {(product.category || store.category) && (
+              <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-[var(--c-primary)]/10 px-3 py-1 text-[11px] font-bold text-[var(--c-primary)]">
+                <span className="h-1 w-1 rounded-full bg-current" />
+                {product.category || store.category}
+              </span>
+            )}
+            <h2 className="text-5xl font-black leading-[1.05] tracking-tight lg:text-6xl" style={{ fontFamily: theme.hero }}>
+              {product.name}
+            </h2>
+            {product.description && (
+              <p className="max-w-sm text-sm font-medium leading-relaxed opacity-50 line-clamp-2">{product.description}</p>
+            )}
+            <p className="text-2xl font-black">
+              {money(range.min, store.currency)}
+              {range.max > range.min && <span className="ms-1.5 text-sm font-bold opacity-35">– {money(range.max, store.currency)}</span>}
+            </p>
+            <div className="flex flex-wrap items-center gap-2.5 pt-1">
+              <button type="button" onClick={() => addToCart(product.id)} className="inline-flex h-11 items-center gap-2 rounded-full bg-[var(--c-text)] px-6 text-[11px] font-black uppercase tracking-wider text-[var(--c-bg)] transition-all hover:opacity-80 active:scale-[0.97]">
+                {c.addToCart}
+              </button>
+              <Link to={`/s/${store.slug}/p/${product.id}`} className="inline-flex h-11 items-center gap-1.5 rounded-full border border-[var(--c-line)]/50 px-5 text-xs font-bold transition-all hover:border-[var(--c-text)]/40">
+                View <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
+              </Link>
+            </div>
+          </Reveal>
+          <Reveal delay={0.1}>
+            <HeroFeaturedCard store={store} product={product} />
+          </Reveal>
+        </div>
       </div>
     </section>
   );
@@ -1274,7 +1362,7 @@ function HeroCarousel({ slides, store, products, discounts, theme, addToCart }: 
           transition={{ duration: 0.4, ease: 'easeInOut' }}
           className="h-full"
         >
-          {slide.type === 'offer' && <OfferSlide slide={slide} store={store} discounts={discounts} theme={theme} />}
+          {slide.type === 'offer' && <OfferSlide slide={slide} store={store} discounts={discounts} theme={theme} products={products} />}
           {slide.type === 'product' && <ProductSlide slide={slide} store={store} products={products} theme={theme} addToCart={addToCart} />}
           {slide.type === 'custom' && <CustomSlide slide={slide} store={store} theme={theme} />}
         </motion.div>
@@ -1365,8 +1453,8 @@ function EditorialHero({ store, theme, featuredProduct, collections }: { store: 
             </div>
           </Reveal>
 
-          {/* Featured product card — desktop only */}
-          <Reveal delay={0.12} className="hidden shrink-0 lg:block lg:w-[210px]">
+          {/* Featured product card */}
+          <Reveal delay={0.12} className="shrink-0 w-[140px] sm:w-[170px] lg:w-[210px]">
             <HeroFeaturedCard store={store} product={featuredProduct} />
           </Reveal>
         </div>
