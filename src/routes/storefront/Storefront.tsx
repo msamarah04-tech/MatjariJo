@@ -1146,12 +1146,16 @@ function OfferSlide({ slide, store, discounts, theme, products }: {
     );
   }
 
-  // ── No discount image: bold deal typography + one product card ────────
+  // ── No discount image: editorial-style layout matching the store hero ──
   const featuredProduct = products.find((p) => productPrimaryImage(p));
   const gradDir = isRtl ? 'to left' : 'to right';
+  const c = useCopy();
 
   return (
-    <section className="relative h-full overflow-hidden bg-[var(--c-surface)]">
+    <section className="relative h-full overflow-hidden bg-[var(--c-bg)]">
+      {/* Subtle radial glow — mirrors editorial hero */}
+      <div aria-hidden className="pointer-events-none absolute end-0 top-0 h-[36rem] w-[36rem] -translate-y-1/3 translate-x-1/3 rounded-full bg-[var(--c-primary)] opacity-[0.04] blur-[100px]" />
+
       {/* Product card — right side, absolutely placed, never in flow */}
       {featuredProduct && (
         <div
@@ -1161,51 +1165,64 @@ function OfferSlide({ slide, store, discounts, theme, products }: {
           <div className="w-full max-w-[220px] ms-auto">
             <HeroFeaturedCard store={store} product={featuredProduct} />
           </div>
-          {/* Gradient covering the card's start edge so text never fights it */}
           <div
             className="pointer-events-none absolute inset-y-0 start-0 w-2/3"
-            style={{ background: `linear-gradient(${gradDir}, var(--c-surface) 0%, transparent 100%)` }}
+            style={{ background: `linear-gradient(${gradDir}, var(--c-bg) 0%, transparent 100%)` }}
           />
         </div>
       )}
 
-      {/* Text */}
+      {/* Text — matches EditorialHero layout */}
       <div
         className="relative z-10 flex h-full flex-col justify-center ps-5 sm:ps-10 lg:ps-16"
         style={{ width: featuredProduct ? '62%' : '100%', maxWidth: featuredProduct ? undefined : '40rem', margin: featuredProduct ? undefined : '0 auto' }}
       >
         <Reveal className="flex flex-col gap-3 sm:gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--c-primary)]/10 border border-[var(--c-primary)]/15 text-xl">
-            🎁
+          {/* Store logo + offer badge — mirrors the logo/category row in EditorialHero */}
+          <div className="flex items-center gap-3">
+            <ProductLogo store={store} />
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--c-primary)]/10 px-3 py-1 text-[10px] font-black text-[var(--c-primary)]">
+              🎁 {slide.title ? (store.category || 'Offer') : (store.category || 'Special Offer')}
+            </span>
           </div>
+
           <h2
-            className="text-3xl font-black leading-tight tracking-tight sm:text-4xl lg:text-5xl xl:text-6xl"
+            className="text-[2.6rem] font-black leading-[1.0] tracking-tight sm:text-[3.5rem] lg:text-[4.5rem]"
             style={{ fontFamily: theme.hero }}
           >
             {slide.title || discount?.name || 'Exclusive Deal'}
           </h2>
-          <p className="text-sm font-medium leading-relaxed opacity-50 max-w-[26ch]">
+
+          <p className="max-w-sm text-sm font-medium leading-relaxed opacity-40 line-clamp-2">
             {slide.subtitle || offerSlideDescription(discount, store.currency)}
           </p>
-          <div className="flex flex-wrap items-center gap-2 pt-1">
+
+          <div className="flex flex-wrap items-center gap-2.5 pt-1">
             {code && (
               <button
                 type="button"
                 onClick={copyCode}
-                className="inline-flex h-10 items-center gap-2.5 rounded-full bg-[var(--c-text)] px-4 text-[var(--c-bg)] transition-all hover:opacity-80 active:scale-[0.97] sm:h-11 sm:px-5"
+                className="inline-flex h-11 items-center gap-2.5 rounded-full bg-[var(--c-primary)] px-5 text-white transition-all hover:opacity-85 active:scale-[0.97]"
               >
                 <span className="font-mono text-sm font-black tracking-widest">{code}</span>
-                <span className="h-3.5 w-px bg-current opacity-30" />
+                <span className="h-3.5 w-px bg-white/30" />
                 <span className="text-[10px] font-black uppercase tracking-wider">{copied ? '✓' : 'Copy'}</span>
               </button>
             )}
             <button
               type="button"
               onClick={scrollToProducts}
-              className="inline-flex h-10 items-center gap-1.5 rounded-full border border-[var(--c-line)]/50 px-4 text-xs font-bold transition-all hover:border-[var(--c-text)]/40 hover:bg-[var(--c-soft)] sm:h-11 sm:px-5"
+              className="inline-flex h-11 items-center gap-2 rounded-full bg-[var(--c-primary)] px-7 text-[11px] font-black uppercase tracking-wider text-white shadow-sm transition-all hover:opacity-85 active:scale-[0.97]"
             >
-              Shop now <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
+              {c.shopNow} <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
             </button>
+          </div>
+
+          {/* Trust badges — same as EditorialHero */}
+          <div className="mt-1 flex items-center gap-3.5 text-[10px] font-bold uppercase tracking-[0.12em] opacity-25">
+            <span className="inline-flex items-center gap-1.5"><Truck className="h-3 w-3" /> {c.jordanDelivery}</span>
+            <span className="h-2.5 w-px bg-current" />
+            <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-3 w-3" /> {c.cod}</span>
           </div>
         </Reveal>
       </div>
@@ -1344,23 +1361,28 @@ function CustomSlide({ slide, store, theme }: { slide: HeroSlide; store: Store; 
   );
 }
 
-function HeroCarousel({ slides, store, products, discounts, theme, addToCart }: {
-  slides: HeroSlide[]; store: Store; products: Product[]; discounts: Discount[]; theme: Theme;
+function HeroCarousel({ slides, baseNode, store, products, discounts, theme, addToCart }: {
+  slides: HeroSlide[]; baseNode?: React.ReactNode; store: Store; products: Product[]; discounts: Discount[]; theme: Theme;
   addToCart: (productId: string, qty?: number, variantId?: string) => void;
 }) {
+  const hasBase = baseNode != null;
+  const total = (hasBase ? 1 : 0) + slides.length;
   const [idx, setIdx] = useState(0);
   const [paused, setPaused] = useState(false);
   const touchX = useRef<number | null>(null);
   const reduce = useReducedMotion();
 
   useEffect(() => {
-    if (paused || slides.length <= 1) return;
-    const id = setInterval(() => setIdx((c) => (c + 1) % slides.length), 5000);
+    if (paused || total <= 1) return;
+    const id = setInterval(() => setIdx((c) => (c + 1) % total), 5000);
     return () => clearInterval(id);
-  }, [paused, slides.length]);
+  }, [paused, total]);
 
-  const go = (delta: number) => setIdx((c) => (c + delta + slides.length) % slides.length);
-  const slide = slides[Math.min(idx, slides.length - 1)];
+  const go = (delta: number) => setIdx((c) => (c + delta + total) % total);
+
+  const isBase = hasBase && idx === 0;
+  const slideOffset = hasBase ? 1 : 0;
+  const slide = !isBase ? slides[Math.min(idx - slideOffset, slides.length - 1)] : null;
 
   return (
     <div
@@ -1384,16 +1406,22 @@ function HeroCarousel({ slides, store, products, discounts, theme, addToCart }: 
           transition={{ duration: 0.4, ease: 'easeInOut' }}
           className="h-full"
         >
-          {slide.type === 'offer' && <OfferSlide slide={slide} store={store} discounts={discounts} theme={theme} products={products} />}
-          {slide.type === 'product' && <ProductSlide slide={slide} store={store} products={products} theme={theme} addToCart={addToCart} />}
-          {slide.type === 'custom' && <CustomSlide slide={slide} store={store} theme={theme} />}
+          {isBase ? (
+            <div className="h-full overflow-hidden">{baseNode}</div>
+          ) : slide?.type === 'offer' ? (
+            <OfferSlide slide={slide} store={store} discounts={discounts} theme={theme} products={products} />
+          ) : slide?.type === 'product' ? (
+            <ProductSlide slide={slide} store={store} products={products} theme={theme} addToCart={addToCart} />
+          ) : slide?.type === 'custom' ? (
+            <CustomSlide slide={slide} store={store} theme={theme} />
+          ) : null}
         </motion.div>
       </AnimatePresence>
 
-      {slides.length > 1 && (
+      {total > 1 && (
         <>
           <div className="absolute bottom-5 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5">
-            {slides.map((_, i) => (
+            {Array.from({ length: total }).map((_, i) => (
               <button
                 key={i}
                 type="button"
