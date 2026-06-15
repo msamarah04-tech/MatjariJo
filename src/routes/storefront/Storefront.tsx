@@ -922,19 +922,22 @@ function HomePage({ store, products, discounts, addToCart }: { store: Store; pro
   const templateId = template.id as TemplateId;
   const heroSlides = ((store.themeOverrides as { heroSlides?: HeroSlide[] } | null)?.heroSlides ?? []).filter((s) => s.enabled);
 
+  // The template hero is always the first "slide" — when the store owner adds offer/product
+  // slides, the carousel cycles: [template hero] → [offer 1] → [offer 2] → …
+  // This way configured slides appear in the same visual design as the main hero.
+  const baseHeroNode: React.ReactNode =
+    templateId === 'editorial' ? <EditorialHero store={store} theme={theme} featuredProduct={featuredProduct} collections={collections} /> :
+    templateId === 'boutique' ? <BoutiqueHero store={store} theme={theme} featuredProduct={featuredProduct} /> :
+    templateId === 'market' ? <MarketHero store={store} theme={theme} query={query} setQuery={setQuery} collections={collections} collection={collection} setCollection={setCollection} count={filtered.length} /> :
+    templateId === 'lookbook' ? <LookbookHero store={store} theme={theme} featuredProduct={featuredProduct} /> :
+    null;
+
   return (
     <>
       {heroSlides.length > 0 ? (
-        <HeroCarousel slides={heroSlides} store={store} products={products} discounts={discounts} theme={theme} addToCart={addToCart} />
+        <HeroCarousel slides={heroSlides} baseNode={baseHeroNode} store={store} products={products} discounts={discounts} theme={theme} addToCart={addToCart} />
       ) : (
-        <>
-          {templateId === 'editorial' && <EditorialHero store={store} theme={theme} featuredProduct={featuredProduct} collections={collections} />}
-          {templateId === 'boutique' && <BoutiqueHero store={store} theme={theme} featuredProduct={featuredProduct} />}
-          {templateId === 'market' && (
-            <MarketHero store={store} theme={theme} query={query} setQuery={setQuery} collections={collections} collection={collection} setCollection={setCollection} count={filtered.length} />
-          )}
-          {templateId === 'lookbook' && <LookbookHero store={store} theme={theme} featuredProduct={featuredProduct} />}
-        </>
+        <>{baseHeroNode}</>
       )}
 
       {/* Featured products */}
@@ -1103,6 +1106,7 @@ function OfferSlide({ slide, store, discounts, theme, products }: {
 }) {
   const [copied, setCopied] = useState(false);
   const { lang } = useI18n();
+  const c = useCopy();
   const isRtl = lang === 'ar';
   const discount = discounts.find((d) => d.code === slide.discountCode);
   const code = slide.discountCode || '';
@@ -1112,59 +1116,41 @@ function OfferSlide({ slide, store, discounts, theme, products }: {
     setTimeout(() => setCopied(false), 2200);
   };
 
-  // ── With a discount image: full-bleed, text pinned to bottom ──────────
-  if (discount?.imageUrl) {
-    return (
-      <section className="relative h-full overflow-hidden flex items-end">
-        <div className="absolute inset-0">
-          <img src={discount.imageUrl} alt="" className="h-full w-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-        </div>
-        <div className="relative z-10 w-full max-w-6xl mx-auto px-5 pb-12 sm:px-10 lg:px-16 lg:pb-16">
-          <Reveal className="flex flex-col gap-4">
-            <h2 className="text-4xl font-black leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl" style={{ fontFamily: theme.hero }}>
-              {slide.title || discount.name || 'Exclusive Deal'}
-            </h2>
-            <p className="text-sm font-medium text-white/55 max-w-xs">
-              {slide.subtitle || offerSlideDescription(discount, store.currency)}
-            </p>
-            <div className="flex flex-wrap items-center gap-2.5">
-              {code && (
-                <button type="button" onClick={copyCode} className="inline-flex h-11 items-center gap-2.5 rounded-full bg-white px-5 text-black transition-all hover:bg-white/90 active:scale-[0.97]">
-                  <span className="font-mono text-sm font-black tracking-widest">{code}</span>
-                  <span className="h-3.5 w-px bg-black/20" />
-                  <span className="text-[10px] font-black uppercase tracking-wider">{copied ? '✓' : 'Copy'}</span>
-                </button>
-              )}
-              <button type="button" onClick={scrollToProducts} className="inline-flex h-11 items-center gap-1.5 rounded-full border border-white/25 bg-white/10 px-5 text-xs font-bold text-white backdrop-blur-sm transition-all hover:border-white/50">
-                Shop now <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
-              </button>
-            </div>
-          </Reveal>
-        </div>
-      </section>
-    );
-  }
-
-  // ── No discount image: editorial-style layout matching the store hero ──
+  // Image for the card: prefer the discount's own image, fall back to the first product image.
+  const discountImgUrl = discount?.imageUrl;
   const featuredProduct = products.find((p) => productPrimaryImage(p));
+  const hasCard = !!(discountImgUrl || featuredProduct);
   const gradDir = isRtl ? 'to left' : 'to right';
-  const c = useCopy();
 
   return (
     <section className="relative h-full overflow-hidden bg-[var(--c-bg)]">
-      {/* Subtle radial glow — mirrors editorial hero */}
+      {/* Radial glow — same as EditorialHero */}
       <div aria-hidden className="pointer-events-none absolute end-0 top-0 h-[36rem] w-[36rem] -translate-y-1/3 translate-x-1/3 rounded-full bg-[var(--c-primary)] opacity-[0.04] blur-[100px]" />
 
-      {/* Product card — right side, absolutely placed, never in flow */}
-      {featuredProduct && (
+      {/* Card — right side, absolutely placed, same position/size as EditorialHero */}
+      {hasCard && (
         <div
           className="absolute inset-y-0 end-0 flex items-center pe-6 sm:pe-10 lg:pe-16"
           style={{ width: '42%' }}
         >
-          <div className="w-full max-w-[220px] ms-auto">
-            <HeroFeaturedCard store={store} product={featuredProduct} />
+          <div className="w-full max-w-[140px] ms-auto sm:max-w-[170px] lg:max-w-[210px]">
+            {discountImgUrl ? (
+              /* Discount image in the same card style as HeroFeaturedCard */
+              <div className="relative block overflow-hidden rounded-2xl border border-[var(--c-line)]/15 bg-[var(--c-soft)] shadow-xl shadow-black/10">
+                <div className="aspect-[3/4] overflow-hidden">
+                  <img src={discountImgUrl} alt={discount?.name || ''} className="h-full w-full object-cover" />
+                </div>
+                {discount?.name && (
+                  <div className="absolute inset-x-3 bottom-3 flex items-center justify-between gap-2 rounded-xl bg-[var(--c-bg)]/90 px-3 py-2.5 backdrop-blur-xl border border-[var(--c-line)]/20 shadow-md">
+                    <span className="min-w-0 truncate text-xs font-bold">{discount.name}</span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <HeroFeaturedCard store={store} product={featuredProduct} />
+            )}
           </div>
+          {/* Gradient that fades the card edge into the text area */}
           <div
             className="pointer-events-none absolute inset-y-0 start-0 w-2/3"
             style={{ background: `linear-gradient(${gradDir}, var(--c-bg) 0%, transparent 100%)` }}
@@ -1172,54 +1158,66 @@ function OfferSlide({ slide, store, discounts, theme, products }: {
         </div>
       )}
 
-      {/* Text — matches EditorialHero layout */}
+      {/* Text — identical layout to EditorialHero */}
       <div
         className="relative z-10 flex h-full flex-col justify-center ps-5 sm:ps-10 lg:ps-16"
-        style={{ width: featuredProduct ? '62%' : '100%', maxWidth: featuredProduct ? undefined : '40rem', margin: featuredProduct ? undefined : '0 auto' }}
+        style={{ width: hasCard ? '62%' : '100%', maxWidth: hasCard ? undefined : '40rem', margin: hasCard ? undefined : '0 auto' }}
       >
         <Reveal className="flex flex-col gap-3 sm:gap-4">
-          {/* Store logo + offer badge — mirrors the logo/category row in EditorialHero */}
+          {/* Logo + category mark — mirrors EditorialHero */}
           <div className="flex items-center gap-3">
             <ProductLogo store={store} />
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--c-primary)]/10 px-3 py-1 text-[10px] font-black text-[var(--c-primary)]">
-              🎁 {slide.title ? (store.category || 'Offer') : (store.category || 'Special Offer')}
-            </span>
+            {store.category && (
+              <span className="text-[10px] font-black uppercase tracking-[0.28em] opacity-40">{store.category}</span>
+            )}
           </div>
 
           <h2
-            className="text-[2.6rem] font-black leading-[1.0] tracking-tight sm:text-[3.5rem] lg:text-[4.5rem]"
+            className="text-[2.6rem] font-black leading-[1.0] tracking-tight sm:text-[3.5rem] lg:text-[4.5rem] xl:text-[5.25rem]"
             style={{ fontFamily: theme.hero }}
           >
-            {slide.title || discount?.name || 'Exclusive Deal'}
+            {slide.title || discount?.name || store.tagline || store.name}
           </h2>
 
-          <p className="max-w-sm text-sm font-medium leading-relaxed opacity-40 line-clamp-2">
-            {slide.subtitle || offerSlideDescription(discount, store.currency)}
-          </p>
+          {(slide.subtitle || offerSlideDescription(discount, store.currency)) && (
+            <p className="max-w-sm text-sm font-medium leading-relaxed opacity-40 line-clamp-2">
+              {slide.subtitle || offerSlideDescription(discount, store.currency)}
+            </p>
+          )}
 
-          <div className="flex flex-wrap items-center gap-2.5 pt-1">
-            {code && (
+          <div className="flex flex-wrap items-center gap-2.5">
+            {code ? (
               <button
                 type="button"
                 onClick={copyCode}
-                className="inline-flex h-11 items-center gap-2.5 rounded-full bg-[var(--c-primary)] px-5 text-white transition-all hover:opacity-85 active:scale-[0.97]"
+                className="inline-flex h-11 items-center gap-2.5 rounded-full bg-[var(--c-primary)] px-5 text-[11px] font-black uppercase tracking-wider text-white shadow-sm transition-all hover:opacity-85 active:scale-[0.97]"
               >
-                <span className="font-mono text-sm font-black tracking-widest">{code}</span>
+                <span className="font-mono tracking-widest">{code}</span>
                 <span className="h-3.5 w-px bg-white/30" />
-                <span className="text-[10px] font-black uppercase tracking-wider">{copied ? '✓' : 'Copy'}</span>
+                <span>{copied ? '✓' : 'Copy'}</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={scrollToProducts}
+                className="inline-flex h-11 items-center gap-2 rounded-full bg-[var(--c-primary)] px-7 text-[11px] font-black uppercase tracking-wider text-white shadow-sm transition-all hover:opacity-85 active:scale-[0.97]"
+              >
+                {c.shopNow} <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
               </button>
             )}
-            <button
-              type="button"
-              onClick={scrollToProducts}
-              className="inline-flex h-11 items-center gap-2 rounded-full bg-[var(--c-primary)] px-7 text-[11px] font-black uppercase tracking-wider text-white shadow-sm transition-all hover:opacity-85 active:scale-[0.97]"
-            >
-              {c.shopNow} <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
-            </button>
+            {code && (
+              <button
+                type="button"
+                onClick={scrollToProducts}
+                className="inline-flex h-11 items-center gap-2 rounded-full bg-[var(--c-primary)] px-7 text-[11px] font-black uppercase tracking-wider text-white shadow-sm transition-all hover:opacity-85 active:scale-[0.97]"
+              >
+                {c.shopNow} <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
+              </button>
+            )}
           </div>
 
           {/* Trust badges — same as EditorialHero */}
-          <div className="mt-1 flex items-center gap-3.5 text-[10px] font-bold uppercase tracking-[0.12em] opacity-25">
+          <div className="flex items-center gap-3.5 text-[10px] font-bold uppercase tracking-[0.12em] opacity-25">
             <span className="inline-flex items-center gap-1.5"><Truck className="h-3 w-3" /> {c.jordanDelivery}</span>
             <span className="h-2.5 w-px bg-current" />
             <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-3 w-3" /> {c.cod}</span>
