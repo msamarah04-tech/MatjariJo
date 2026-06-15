@@ -1063,19 +1063,19 @@ function HeroTrustChips({ className }: { className?: string }) {
 function HeroFeaturedCard({ store, product }: { store: Store; product?: Product }) {
   if (!product) {
     return (
-      <div className="flex aspect-[4/5] items-center justify-center overflow-hidden rounded-3xl bg-[var(--c-soft)] border border-[var(--c-line)]/20">
+      <div className="flex aspect-[3/4] items-center justify-center overflow-hidden rounded-2xl bg-[var(--c-soft)] border border-[var(--c-line)]/15">
         <ProductLogo store={store} large />
       </div>
     );
   }
   return (
-    <Link to={`/s/${store.slug}/p/${product.id}`} className="group relative block overflow-hidden rounded-3xl border border-[var(--c-line)]/20 bg-[var(--c-soft)] shadow-2xl shadow-[var(--c-text)]/10">
-      <div className="aspect-[4/5] overflow-hidden">
-        <ProductThumb product={product} className="h-full w-full transition-transform duration-700 group-hover:scale-[1.04]" />
+    <Link to={`/s/${store.slug}/p/${product.id}`} className="group relative block overflow-hidden rounded-2xl border border-[var(--c-line)]/15 bg-[var(--c-soft)] shadow-xl shadow-black/10">
+      <div className="aspect-[3/4] overflow-hidden">
+        <ProductThumb product={product} className="h-full w-full transition-transform duration-700 group-hover:scale-105" />
       </div>
-      <div className="absolute inset-x-4 bottom-4 flex items-center justify-between gap-3 rounded-2xl bg-[var(--c-bg)]/85 px-4 py-3 backdrop-blur-xl border border-[var(--c-line)]/30 shadow-lg">
-        <span className="min-w-0 truncate text-sm font-black">{product.name}</span>
-        <span className="shrink-0 rounded-full bg-[var(--c-text)] px-3 py-1 text-xs font-black text-[var(--c-bg)]">
+      <div className="absolute inset-x-3 bottom-3 flex items-center justify-between gap-2 rounded-xl bg-[var(--c-bg)]/90 px-3 py-2.5 backdrop-blur-xl border border-[var(--c-line)]/20 shadow-md">
+        <span className="min-w-0 truncate text-xs font-bold">{product.name}</span>
+        <span className="shrink-0 rounded-full bg-[var(--c-primary)] px-2.5 py-0.5 text-[11px] font-black text-white">
           {money(productPriceRange(product).min, store.currency)}
         </span>
       </div>
@@ -1109,61 +1109,42 @@ function OfferSlide({ slide, store, discounts, theme }: {
     setCopied(true);
     setTimeout(() => setCopied(false), 2200);
   };
-  const offerBadge = discount?.type === 'FREE_SHIPPING' ? 'Free Shipping' : discount?.type === 'TIERED' ? 'Spend & Save' : 'Special Offer';
   return (
-    <section className="relative overflow-hidden bg-[var(--c-surface)] h-full flex items-center">
-      <div aria-hidden className="pointer-events-none absolute -top-40 end-0 h-[32rem] w-[32rem] rounded-full bg-[var(--c-accent)] opacity-[0.08] blur-3xl" />
-      <div aria-hidden className="pointer-events-none absolute bottom-0 -start-32 h-72 w-72 rounded-full bg-[var(--c-primary)] opacity-[0.08] blur-3xl" />
-      <div className="relative z-10 mx-auto grid max-w-7xl w-full items-center gap-10 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-[1fr_auto] lg:gap-20 lg:px-12 lg:py-24">
-        <Reveal className="flex flex-col gap-6">
-          <span className="w-fit rounded-full bg-[var(--c-accent)]/15 px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.22em] text-[var(--c-accent)] border border-[var(--c-accent)]/20">
-            🎁 {offerBadge}
-          </span>
-          <h2 className="text-[2.5rem] font-black leading-[1.02] tracking-tighter sm:text-6xl lg:text-7xl" style={{ fontFamily: theme.hero }}>
+    <section className="relative h-full overflow-hidden bg-[var(--c-surface)] flex items-center justify-center text-center">
+      <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[var(--c-primary)]/6 via-transparent to-[var(--c-accent)]/6" />
+      <div className="relative z-10 mx-auto flex max-w-lg flex-col items-center px-6 py-16">
+        {/* Icon */}
+        <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--c-accent)]/10 border border-[var(--c-accent)]/20 text-3xl">
+          🎁
+        </div>
+        <Reveal className="flex flex-col items-center gap-4">
+          <h2 className="text-4xl font-black leading-tight tracking-tight sm:text-5xl lg:text-6xl" style={{ fontFamily: theme.hero }}>
             {slide.title || discount?.name || 'Exclusive Deal'}
           </h2>
-          <p className="max-w-sm text-base font-medium leading-relaxed opacity-60">
+          <p className="text-sm font-medium leading-relaxed opacity-55 max-w-xs">
             {slide.subtitle || offerSlideDescription(discount, store.currency)}
           </p>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="mt-2 flex flex-col items-center gap-3 sm:flex-row">
             {code && (
-              <button type="button" onClick={copyCode} className="inline-flex h-12 items-center gap-3 rounded-xl bg-[var(--c-text)] px-5 text-[var(--c-bg)] transition-all hover:opacity-80 active:scale-[0.97]">
-                <span className="font-mono text-sm font-black tracking-[0.15em]">{code}</span>
-                <span className="h-4 w-px bg-current opacity-30" />
-                <span className="text-[10px] font-black uppercase tracking-wider">{copied ? '✓ Copied!' : 'Copy'}</span>
+              <button
+                type="button"
+                onClick={copyCode}
+                className="inline-flex h-11 items-center gap-2.5 rounded-full bg-[var(--c-text)] px-5 text-[var(--c-bg)] transition-all hover:opacity-80 active:scale-[0.97]"
+              >
+                <span className="font-mono text-sm font-black tracking-widest">{code}</span>
+                <span className="h-3.5 w-px bg-current opacity-30" />
+                <span className="text-[10px] font-black uppercase tracking-wider">{copied ? '✓' : 'Copy'}</span>
               </button>
             )}
-            <button type="button" onClick={scrollToProducts} className="inline-flex h-12 items-center gap-2 px-4 text-[11px] font-black uppercase tracking-[0.12em] opacity-50 hover:opacity-100 transition-opacity">
+            <button
+              type="button"
+              onClick={scrollToProducts}
+              className="inline-flex h-11 items-center gap-1.5 rounded-full border border-[var(--c-line)]/50 px-5 text-xs font-bold transition-all hover:border-[var(--c-text)]/40 hover:bg-[var(--c-soft)]"
+            >
               Shop now <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
             </button>
           </div>
         </Reveal>
-        <div aria-hidden className="hidden lg:flex shrink-0 items-center justify-center">
-          {discount?.imageUrl ? (
-            <div className="relative h-64 w-64 overflow-hidden rounded-[2rem] shadow-2xl border border-[var(--c-line)]/20">
-              <img src={discount.imageUrl} alt="" className="h-full w-full object-cover" />
-              {code && (
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-4 py-3">
-                  <span className="font-mono text-sm font-black tracking-[0.15em] text-white">{code}</span>
-                  {discount.type === 'PERCENT' && (
-                    <span className="ms-2 rounded-full bg-[var(--c-accent)] px-2 py-0.5 text-xs font-black text-white">-{discount.value}%</span>
-                  )}
-                </div>
-              )}
-            </div>
-          ) : (
-            code && (
-              <div className="relative flex h-56 w-56 items-center justify-center rounded-[2rem] bg-[var(--c-accent)]/10 border-2 border-[var(--c-accent)]/20 shadow-xl">
-                <span className="break-all px-4 text-center font-mono text-2xl font-black tracking-[0.18em] text-[var(--c-accent)]">{code}</span>
-                {discount?.type === 'PERCENT' && (
-                  <span className="absolute -top-5 -right-5 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--c-accent)] text-sm font-black text-[var(--c-bg)] shadow-lg">
-                    -{discount.value}%
-                  </span>
-                )}
-              </div>
-            )
-          )}
-        </div>
       </div>
     </section>
   );
@@ -1177,41 +1158,43 @@ function ProductSlide({ slide, store, products, theme, addToCart }: {
   const product = products.find((p) => p.id === slide.productId);
   if (!product) {
     return (
-      <section className="flex min-h-[60vh] items-center justify-center bg-[var(--c-surface)] sm:min-h-[72vh]">
+      <section className="flex h-full items-center justify-center bg-[var(--c-surface)]">
         <p className="text-sm font-medium opacity-40">{c.productNotFound}</p>
       </section>
     );
   }
   const range = productPriceRange(product);
   return (
-    <section className="relative overflow-hidden bg-[var(--c-surface)] h-full flex items-center">
-      <div aria-hidden className="pointer-events-none absolute -top-32 -end-32 h-96 w-96 rounded-full bg-[var(--c-primary)] opacity-[0.07] blur-3xl" />
-      <div className="relative mx-auto grid w-full max-w-7xl items-center gap-10 px-4 py-14 sm:px-6 sm:py-20 lg:grid-cols-[1.1fr_0.9fr] lg:gap-16 lg:px-8">
-        <Reveal className="z-10 flex flex-col justify-center">
-          <span className="mb-6 inline-flex w-fit items-center gap-2 rounded-full bg-[var(--c-bg)] px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.2em] border border-[var(--c-line)]/40">
-            <span className="h-1.5 w-1.5 rounded-full bg-[var(--c-primary)]" />
-            {product.category || store.category}
-          </span>
-          <h2 className="text-[2.5rem] font-black leading-[1.02] tracking-tighter sm:text-5xl lg:text-6xl" style={{ fontFamily: theme.hero }}>
+    <section className="relative h-full overflow-hidden bg-[var(--c-surface)] flex items-center">
+      <div aria-hidden className="pointer-events-none absolute -top-32 end-0 h-[30rem] w-[30rem] rounded-full bg-[var(--c-primary)] opacity-[0.06] blur-[100px]" />
+      <div className="relative mx-auto grid w-full max-w-6xl items-center gap-8 px-5 py-12 sm:px-8 sm:py-16 lg:grid-cols-[1fr_360px] lg:gap-14 lg:px-10">
+        <Reveal className="flex flex-col gap-4">
+          {(product.category || store.category) && (
+            <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-[var(--c-primary)]/10 px-3 py-1 text-[11px] font-bold text-[var(--c-primary)]">
+              <span className="h-1 w-1 rounded-full bg-current" />
+              {product.category || store.category}
+            </span>
+          )}
+          <h2 className="text-4xl font-black leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl" style={{ fontFamily: theme.hero }}>
             {product.name}
           </h2>
           {product.description && (
-            <p className="mt-4 max-w-sm text-base font-medium leading-relaxed opacity-55 line-clamp-3">{product.description}</p>
+            <p className="max-w-sm text-sm font-medium leading-relaxed opacity-50 line-clamp-2">{product.description}</p>
           )}
-          <p className="mt-4 text-2xl font-black">
+          <p className="text-2xl font-black">
             {money(range.min, store.currency)}
-            {range.max > range.min && <span className="ms-1 text-base font-bold opacity-40">– {money(range.max, store.currency)}</span>}
+            {range.max > range.min && <span className="ms-1.5 text-sm font-bold opacity-35">– {money(range.max, store.currency)}</span>}
           </p>
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            <button type="button" onClick={() => addToCart(product.id)} className={cn(getCtaClass(buttonStyleOf(store)), 'w-auto px-8 h-12')}>
+          <div className="flex flex-wrap items-center gap-2.5 pt-1">
+            <button type="button" onClick={() => addToCart(product.id)} className="inline-flex h-11 items-center gap-2 rounded-full bg-[var(--c-text)] px-6 text-[11px] font-black uppercase tracking-wider text-[var(--c-bg)] transition-all hover:opacity-80 active:scale-[0.97]">
               {c.addToCart}
             </button>
-            <Link to={`/s/${store.slug}/p/${product.id}`} className="inline-flex h-12 items-center gap-2 px-4 text-[11px] font-black uppercase tracking-[0.12em] opacity-50 hover:opacity-100 transition-opacity">
-              View product <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
+            <Link to={`/s/${store.slug}/p/${product.id}`} className="inline-flex h-11 items-center gap-1.5 rounded-full border border-[var(--c-line)]/50 px-5 text-xs font-bold transition-all hover:border-[var(--c-text)]/40">
+              View <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
             </Link>
           </div>
         </Reveal>
-        <Reveal delay={0.12} className="relative lg:justify-self-end lg:w-full lg:max-w-md">
+        <Reveal delay={0.1} className="hidden lg:block">
           <HeroFeaturedCard store={store} product={product} />
         </Reveal>
       </div>
@@ -1222,35 +1205,31 @@ function ProductSlide({ slide, store, products, theme, addToCart }: {
 function CustomSlide({ slide, store, theme }: { slide: HeroSlide; store: Store; theme: Theme }) {
   return (
     <section
-      className="relative overflow-hidden h-full flex items-center"
+      className="relative h-full overflow-hidden flex items-center justify-center text-center"
       style={slide.bgColor ? { backgroundColor: slide.bgColor } : { backgroundColor: 'var(--c-surface)' }}
     >
-      <div aria-hidden className="pointer-events-none absolute -top-32 -end-32 h-96 w-96 rounded-full bg-[var(--c-primary)] opacity-[0.06] blur-3xl" />
-      <div className="relative z-10 mx-auto max-w-7xl w-full px-5 py-16 sm:px-8 sm:py-20 lg:px-12 lg:py-24">
-        <Reveal className="flex flex-col gap-6 max-w-2xl">
-          {slide.title && (
-            <h2 className="text-[2.5rem] font-black leading-[1.02] tracking-tighter sm:text-6xl lg:text-7xl" style={{ fontFamily: theme.hero }}>
-              {slide.title}
-            </h2>
-          )}
-          {slide.subtitle && (
-            <p className="text-base font-medium leading-relaxed opacity-60 max-w-md">{slide.subtitle}</p>
-          )}
-          {slide.ctaLabel && (
-            <div className="mt-2">
-              {slide.ctaUrl ? (
-                <a href={slide.ctaUrl} target={slide.ctaUrl.startsWith('http') ? '_blank' : undefined} rel="noopener noreferrer" className={cn(getCtaClass(buttonStyleOf(store)), 'w-auto px-8 h-12 inline-flex items-center gap-2')}>
-                  {slide.ctaLabel} <ArrowRight className="h-4 w-4 rtl:rotate-180" />
-                </a>
-              ) : (
-                <button type="button" onClick={scrollToProducts} className={cn(getCtaClass(buttonStyleOf(store)), 'w-auto px-8 h-12')}>
-                  {slide.ctaLabel} <ArrowRight className="h-4 w-4 rtl:rotate-180" />
-                </button>
-              )}
-            </div>
-          )}
-        </Reveal>
-      </div>
+      <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/0 via-black/0 to-black/5" />
+      <Reveal className="relative z-10 mx-auto flex max-w-xl flex-col items-center gap-5 px-6 py-16">
+        {slide.title && (
+          <h2 className="text-4xl font-black leading-tight tracking-tight sm:text-5xl lg:text-6xl" style={{ fontFamily: theme.hero }}>
+            {slide.title}
+          </h2>
+        )}
+        {slide.subtitle && (
+          <p className="text-sm font-medium leading-relaxed opacity-55 max-w-sm">{slide.subtitle}</p>
+        )}
+        {slide.ctaLabel && (
+          slide.ctaUrl ? (
+            <a href={slide.ctaUrl} target={slide.ctaUrl.startsWith('http') ? '_blank' : undefined} rel="noopener noreferrer" className="mt-1 inline-flex h-11 items-center gap-2 rounded-full bg-[var(--c-primary)] px-7 text-[11px] font-black uppercase tracking-wider text-white shadow-sm transition-all hover:opacity-85 active:scale-[0.97]">
+              {slide.ctaLabel} <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
+            </a>
+          ) : (
+            <button type="button" onClick={scrollToProducts} className="mt-1 inline-flex h-11 items-center gap-2 rounded-full bg-[var(--c-primary)] px-7 text-[11px] font-black uppercase tracking-wider text-white shadow-sm transition-all hover:opacity-85 active:scale-[0.97]">
+              {slide.ctaLabel} <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
+            </button>
+          )
+        )}
+      </Reveal>
     </section>
   );
 }
@@ -1275,7 +1254,7 @@ function HeroCarousel({ slides, store, products, discounts, theme, addToCart }: 
 
   return (
     <div
-      className="relative overflow-hidden border-b border-[var(--c-line)]/20 h-[70vh] min-h-[500px]"
+      className="relative overflow-hidden border-b border-[var(--c-line)]/20 h-[68vh] min-h-[480px]"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onTouchStart={(e) => { touchX.current = e.touches[0].clientX; }}
@@ -1289,10 +1268,10 @@ function HeroCarousel({ slides, store, products, discounts, theme, addToCart }: 
       <AnimatePresence mode="wait" initial={false}>
         <motion.div
           key={idx}
-          initial={reduce ? false : { opacity: 0, x: 28 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={reduce ? undefined : { opacity: 0, x: -28 }}
-          transition={{ duration: 0.32, ease: 'easeOut' }}
+          initial={reduce ? false : { opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={reduce ? undefined : { opacity: 0 }}
+          transition={{ duration: 0.4, ease: 'easeInOut' }}
           className="h-full"
         >
           {slide.type === 'offer' && <OfferSlide slide={slide} store={store} discounts={discounts} theme={theme} />}
@@ -1303,22 +1282,22 @@ function HeroCarousel({ slides, store, products, discounts, theme, addToCart }: 
 
       {slides.length > 1 && (
         <>
-          <div className="absolute bottom-5 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2">
+          <div className="absolute bottom-5 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5">
             {slides.map((_, i) => (
               <button
                 key={i}
                 type="button"
                 onClick={() => setIdx(i)}
                 aria-label={`Go to slide ${i + 1}`}
-                className={cn('h-1.5 rounded-full transition-all duration-300', i === idx ? 'w-8 bg-[var(--c-text)]/55' : 'w-1.5 bg-[var(--c-text)]/20 hover:bg-[var(--c-text)]/40')}
+                className={cn('h-1 rounded-full transition-all duration-300', i === idx ? 'w-7 bg-[var(--c-text)]/50' : 'w-1 bg-[var(--c-text)]/20 hover:bg-[var(--c-text)]/35')}
               />
             ))}
           </div>
-          <button type="button" onClick={() => go(-1)} aria-label="Previous slide" className="absolute start-3 top-1/2 z-20 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-[var(--c-bg)]/80 backdrop-blur-sm border border-[var(--c-line)]/30 shadow-sm hover:bg-[var(--c-bg)] transition-all">
-            <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
+          <button type="button" onClick={() => go(-1)} aria-label="Previous slide" className="absolute start-4 top-1/2 z-20 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-[var(--c-bg)]/75 backdrop-blur-md border border-[var(--c-line)]/25 shadow-sm hover:bg-[var(--c-bg)] transition-all">
+            <ArrowLeft className="h-3.5 w-3.5 rtl:rotate-180" />
           </button>
-          <button type="button" onClick={() => go(1)} aria-label="Next slide" className="absolute end-3 top-1/2 z-20 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-[var(--c-bg)]/80 backdrop-blur-sm border border-[var(--c-line)]/30 shadow-sm hover:bg-[var(--c-bg)] transition-all">
-            <ArrowRight className="h-4 w-4 rtl:rotate-180" />
+          <button type="button" onClick={() => go(1)} aria-label="Next slide" className="absolute end-4 top-1/2 z-20 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-[var(--c-bg)]/75 backdrop-blur-md border border-[var(--c-line)]/25 shadow-sm hover:bg-[var(--c-bg)] transition-all">
+            <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
           </button>
         </>
       )}
@@ -1326,73 +1305,84 @@ function HeroCarousel({ slides, store, products, discounts, theme, addToCart }: 
   );
 }
 
+/* ─── Template heroes ──────────────────────────────────────────────── */
+
 function EditorialHero({ store, theme, featuredProduct, collections }: { store: Store; theme: Theme; featuredProduct?: Product; collections: string[] }) {
   const c = useCopy();
   const categories = collections.filter((item) => item !== 'All');
   return (
-    <section className="relative overflow-hidden border-b border-[var(--c-line)]/20 bg-[var(--c-bg)]">
-      <div aria-hidden className="pointer-events-none absolute end-0 top-0 h-[28rem] w-[28rem] -translate-y-1/4 translate-x-1/4 rounded-full bg-[var(--c-primary)] opacity-[0.05] blur-[80px]" />
+    <section className="relative overflow-hidden border-b border-[var(--c-line)]/15 bg-[var(--c-bg)]">
+      {/* Subtle radial glow */}
+      <div aria-hidden className="pointer-events-none absolute end-0 top-0 h-[36rem] w-[36rem] -translate-y-1/3 translate-x-1/3 rounded-full bg-[var(--c-primary)] opacity-[0.04] blur-[100px]" />
 
-      <div className="relative mx-auto flex max-w-7xl items-center justify-between gap-10 px-4 pt-14 pb-12 sm:px-6 sm:pt-16 sm:pb-14 lg:gap-20 lg:px-8 lg:pt-20 lg:pb-16">
-        {/* Text column */}
-        <Reveal className="z-10 flex min-w-0 flex-1 flex-col">
-          {store.category && (
-            <div className="mb-6 flex items-center gap-2.5">
-              <span className="h-px w-6 shrink-0 bg-[var(--c-primary)]" />
-              <span className="text-[10px] font-black uppercase tracking-[0.28em] text-[var(--c-primary)]">{store.category}</span>
+      <div className="relative mx-auto max-w-6xl px-5 pt-14 pb-10 sm:px-8 sm:pt-18 sm:pb-12 lg:px-10 lg:pt-20 lg:pb-14">
+        <div className="flex items-center justify-between gap-12">
+          {/* Text */}
+          <Reveal className="flex min-w-0 flex-1 flex-col">
+            {/* Logo / category mark */}
+            <div className="mb-7 flex items-center gap-3">
+              <ProductLogo store={store} />
+              {store.category && (
+                <span className="text-[10px] font-black uppercase tracking-[0.28em] opacity-40">{store.category}</span>
+              )}
             </div>
-          )}
-          <h1
-            className="text-[2.75rem] font-black leading-[0.97] tracking-tighter sm:text-[4rem] lg:text-[5rem] xl:text-[5.75rem]"
-            style={{ fontFamily: theme.hero }}
-          >
-            {store.tagline || store.name}
-          </h1>
-          {store.about && (
-            <p className="mt-5 max-w-sm text-sm font-medium leading-relaxed opacity-45 line-clamp-2">
-              {store.about.split('\n')[0].slice(0, 110)}
-            </p>
-          )}
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={scrollToProducts}
-              className={cn(getCtaClass(buttonStyleOf(store)), 'w-auto px-7 h-11 gap-2')}
-            >
-              {c.shopNow} <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
-            </button>
-            {store.about && (
-              <Link
-                to={`/s/${store.slug}/about`}
-                className="h-11 inline-flex items-center px-3 text-[11px] font-black uppercase tracking-[0.14em] opacity-35 hover:opacity-75 transition-opacity"
-              >
-                {c.about}
-              </Link>
-            )}
-          </div>
-          <div className="mt-8 flex items-center gap-4 text-[10px] font-bold uppercase tracking-[0.12em] opacity-30">
-            <span className="inline-flex items-center gap-1.5"><Truck className="h-3 w-3" /> {c.jordanDelivery}</span>
-            <span className="h-2.5 w-px bg-current" />
-            <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-3 w-3" /> {c.cod}</span>
-          </div>
-        </Reveal>
 
-        {/* Product card — compact accent, desktop only */}
-        <Reveal delay={0.1} className="relative z-10 hidden shrink-0 lg:block lg:w-[190px]">
-          <HeroFeaturedCard store={store} product={featuredProduct} />
-        </Reveal>
+            <h1
+              className="text-[2.6rem] font-black leading-[1.0] tracking-tight sm:text-[3.5rem] lg:text-[4.5rem] xl:text-[5.25rem]"
+              style={{ fontFamily: theme.hero }}
+            >
+              {store.tagline || store.name}
+            </h1>
+
+            {store.about && (
+              <p className="mt-4 max-w-sm text-sm font-medium leading-relaxed opacity-40 line-clamp-2">
+                {store.about.split('\n')[0].slice(0, 110)}
+              </p>
+            )}
+
+            <div className="mt-8 flex flex-wrap items-center gap-2.5">
+              <button
+                type="button"
+                onClick={scrollToProducts}
+                className="inline-flex h-11 items-center gap-2 rounded-full bg-[var(--c-primary)] px-7 text-[11px] font-black uppercase tracking-wider text-white shadow-sm transition-all hover:opacity-85 active:scale-[0.97]"
+              >
+                {c.shopNow} <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
+              </button>
+              {store.about && (
+                <Link
+                  to={`/s/${store.slug}/about`}
+                  className="inline-flex h-11 items-center rounded-full border border-[var(--c-line)]/50 px-5 text-[11px] font-bold opacity-60 transition-all hover:opacity-100 hover:border-[var(--c-text)]/30"
+                >
+                  {c.about}
+                </Link>
+              )}
+            </div>
+
+            <div className="mt-7 flex items-center gap-3.5 text-[10px] font-bold uppercase tracking-[0.12em] opacity-25">
+              <span className="inline-flex items-center gap-1.5"><Truck className="h-3 w-3" /> {c.jordanDelivery}</span>
+              <span className="h-2.5 w-px bg-current" />
+              <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-3 w-3" /> {c.cod}</span>
+            </div>
+          </Reveal>
+
+          {/* Featured product card — desktop only */}
+          <Reveal delay={0.12} className="hidden shrink-0 lg:block lg:w-[210px]">
+            <HeroFeaturedCard store={store} product={featuredProduct} />
+          </Reveal>
+        </div>
       </div>
 
+      {/* Collection ticker */}
       {categories.length > 1 && (
-        <div className="border-t border-[var(--c-line)]/15">
-          <div className="mx-auto flex max-w-7xl gap-8 overflow-x-auto px-4 py-3 sm:px-6 lg:px-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="border-t border-[var(--c-line)]/10">
+          <div className="mx-auto flex max-w-6xl gap-8 overflow-x-auto px-5 py-3 sm:px-8 lg:px-10 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {categories.slice(0, 12).map((item) => (
               <span
                 key={item}
-                className="flex shrink-0 items-center gap-8 text-[10px] font-black uppercase tracking-[0.25em] opacity-25 hover:opacity-50 transition-opacity cursor-default"
+                className="flex shrink-0 items-center gap-7 text-[10px] font-black uppercase tracking-[0.22em] opacity-20"
               >
                 {item}
-                <span aria-hidden className="text-[var(--c-primary)]">✦</span>
+                <span aria-hidden className="text-[var(--c-primary)] opacity-60">✦</span>
               </span>
             ))}
           </div>
@@ -1405,55 +1395,60 @@ function EditorialHero({ store, theme, featuredProduct, collections }: { store: 
 function BoutiqueHero({ store, theme, featuredProduct }: { store: Store; theme: Theme; featuredProduct?: Product }) {
   const c = useCopy();
   return (
-    <section className="overflow-hidden border-b border-[var(--c-line)]/20">
-      {/* Mobile: image strip on top, text below */}
-      <div className={cn('relative h-[52vw] max-h-[360px] overflow-hidden bg-[var(--c-soft)] lg:hidden', !featuredProduct && 'flex items-center justify-center')}>
+    <section className="overflow-hidden border-b border-[var(--c-line)]/15">
+      {/* Mobile: image on top */}
+      <div className={cn('relative h-[55vw] max-h-[380px] overflow-hidden bg-[var(--c-soft)] lg:hidden', !featuredProduct && 'flex items-center justify-center')}>
         {featuredProduct ? (
           <>
-            <ProductThumb product={featuredProduct} className="h-full w-full" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/25 to-transparent" />
+            <ProductThumb product={featuredProduct} className="h-full w-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[var(--c-bg)]/30 to-transparent" />
           </>
         ) : (
           <ProductLogo store={store} large />
         )}
       </div>
 
-      {/* Desktop: side-by-side */}
-      <div className="lg:grid lg:min-h-[560px] lg:grid-cols-2">
-        <Reveal className="flex flex-col justify-center px-6 py-12 sm:px-10 lg:px-16 lg:py-20">
-          {store.category && (
-            <p className="mb-6 text-[10px] font-black uppercase tracking-[0.3em] opacity-35">{store.category}</p>
-          )}
+      {/* Desktop: split */}
+      <div className="lg:grid lg:min-h-[580px] lg:grid-cols-2">
+        <Reveal className="flex flex-col justify-center px-6 py-12 sm:px-10 lg:px-16 lg:py-24">
+          <div className="mb-6 flex items-center gap-3">
+            <ProductLogo store={store} />
+            {store.category && (
+              <span className="text-[10px] font-black uppercase tracking-[0.26em] opacity-35">{store.category}</span>
+            )}
+          </div>
           <h1
-            className="text-[2.5rem] font-black leading-[1.0] tracking-tighter sm:text-[3.25rem] lg:text-[4rem] xl:text-[4.75rem]"
+            className="text-[2.4rem] font-black leading-[1.02] tracking-tight sm:text-[3rem] lg:text-[3.75rem] xl:text-[4.5rem]"
             style={{ fontFamily: theme.hero }}
           >
             {store.tagline || store.name}
           </h1>
-          <p className="mt-5 max-w-xs text-sm font-medium leading-relaxed opacity-45">
+          <p className="mt-4 max-w-xs text-sm font-medium leading-relaxed opacity-40">
             {store.about ? store.about.split('\n')[0].slice(0, 130) : `${store.name} — curated collection, delivered across Jordan.`}
           </p>
-          <button
-            type="button"
-            onClick={scrollToProducts}
-            className={cn(getCtaClass(buttonStyleOf(store)), 'mt-9 w-auto px-9 h-11')}
-          >
-            {c.shopNow}
-          </button>
-          <div className="mt-8 flex items-center gap-4 text-[10px] font-bold uppercase tracking-[0.12em] opacity-30">
+          <div className="mt-8 flex flex-wrap items-center gap-2.5">
+            <button
+              type="button"
+              onClick={scrollToProducts}
+              className="inline-flex h-11 items-center gap-2 rounded-full bg-[var(--c-primary)] px-7 text-[11px] font-black uppercase tracking-wider text-white shadow-sm transition-all hover:opacity-85 active:scale-[0.97]"
+            >
+              {c.shopNow} <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
+            </button>
+          </div>
+          <div className="mt-7 flex items-center gap-3.5 text-[10px] font-bold uppercase tracking-[0.12em] opacity-25">
             <span className="inline-flex items-center gap-1.5"><Truck className="h-3 w-3" /> {c.jordanDelivery}</span>
             <span className="h-2.5 w-px bg-current" />
             <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-3 w-3" /> {c.cod}</span>
           </div>
         </Reveal>
 
-        {/* Desktop image panel */}
+        {/* Desktop image */}
         <div className={cn('relative hidden overflow-hidden bg-[var(--c-soft)] lg:block', !featuredProduct && 'flex items-center justify-center')}>
           {featuredProduct ? (
             <Link to={`/s/${store.slug}/p/${featuredProduct.id}`} className="group absolute inset-0">
-              <ProductThumb product={featuredProduct} className="h-full w-full transition-transform duration-700 group-hover:scale-[1.025]" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/25 to-transparent" />
-              <span className="absolute bottom-6 start-6 rounded-xl bg-[var(--c-bg)]/92 px-4 py-2.5 text-xs font-black backdrop-blur-xl border border-[var(--c-line)]/30 shadow-lg">
+              <ProductThumb product={featuredProduct} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.03]" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+              <span className="absolute bottom-5 start-5 rounded-xl bg-[var(--c-bg)]/90 px-4 py-2.5 text-xs font-bold backdrop-blur-xl border border-[var(--c-line)]/20 shadow-md">
                 {featuredProduct.name} · {money(productPriceRange(featuredProduct).min, store.currency)}
               </span>
             </Link>
@@ -1478,25 +1473,30 @@ function MarketHero({ store, theme, query, setQuery, collections, collection, se
 }) {
   const c = useCopy();
   return (
-    <section className="border-b border-[var(--c-line)]/20 bg-[var(--c-surface)]">
-      <div className="mx-auto max-w-3xl px-4 pb-10 pt-12 text-center sm:px-6 sm:pb-14 sm:pt-16 lg:px-8">
-        {store.category && (
-          <p className="mb-3 text-[11px] font-black uppercase tracking-[0.25em] opacity-35">{store.category}</p>
-        )}
-        <h1 className="text-4xl font-black tracking-tight sm:text-5xl lg:text-6xl" style={{ fontFamily: theme.hero }}>
+    <section className="border-b border-[var(--c-line)]/15 bg-[var(--c-surface)]">
+      <div className="mx-auto max-w-2xl px-5 pb-10 pt-14 text-center sm:px-8 sm:pb-14 sm:pt-18">
+        {/* Logo + category */}
+        <div className="mb-5 flex items-center justify-center gap-2.5">
+          <ProductLogo store={store} />
+          {store.category && (
+            <span className="text-[11px] font-black uppercase tracking-[0.25em] opacity-35">{store.category}</span>
+          )}
+        </div>
+
+        <h1 className="text-[2.25rem] font-black leading-tight tracking-tight sm:text-5xl lg:text-6xl" style={{ fontFamily: theme.hero }}>
           {store.name}
         </h1>
         {store.tagline && (
-          <p className="mt-3 text-sm font-medium opacity-45">{store.tagline}</p>
+          <p className="mt-2.5 text-sm font-medium opacity-40">{store.tagline}</p>
         )}
 
         <label className="relative mt-8 block text-start">
-          <Search className="pointer-events-none absolute start-4 top-1/2 h-5 w-5 -translate-y-1/2 opacity-30" />
+          <Search className="pointer-events-none absolute start-4 top-1/2 h-4.5 w-4.5 -translate-y-1/2 opacity-30" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={`${c.search}…`}
-            className="h-14 w-full rounded-2xl border border-[var(--c-line)]/50 bg-[var(--c-bg)] ps-12 pe-28 text-base font-medium shadow-sm transition-all focus:border-[var(--c-text)]/40 focus:ring-2 focus:ring-[var(--c-text)]/10 outline-none"
+            className="h-13 w-full rounded-2xl border border-[var(--c-line)]/40 bg-[var(--c-bg)] ps-12 pe-24 text-sm font-medium shadow-sm transition-all focus:border-[var(--c-text)]/30 focus:ring-2 focus:ring-[var(--c-text)]/8 outline-none"
           />
           <span className="absolute end-4 top-1/2 -translate-y-1/2 text-[11px] font-bold opacity-25">
             {count} {c.products}
@@ -1504,17 +1504,17 @@ function MarketHero({ store, theme, query, setQuery, collections, collection, se
         </label>
 
         {collections.length > 1 && (
-          <div className="mt-4 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="mt-3.5 flex gap-2 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {collections.map((col) => (
               <button
                 key={col}
                 type="button"
                 onClick={() => setCollection(collection === col ? 'All' : col)}
                 className={cn(
-                  'shrink-0 rounded-full px-4 py-2 text-xs font-bold transition-all active:scale-95',
+                  'shrink-0 rounded-full px-4 py-1.5 text-xs font-bold transition-all active:scale-95',
                   collection === col
-                    ? 'bg-[var(--c-text)] text-[var(--c-bg)] shadow-sm'
-                    : 'bg-[var(--c-bg)] border border-[var(--c-line)]/50 hover:border-[var(--c-text)]/30',
+                    ? 'bg-[var(--c-text)] text-[var(--c-bg)]'
+                    : 'bg-[var(--c-bg)] border border-[var(--c-line)]/40 hover:border-[var(--c-text)]/25',
                 )}
               >
                 {col}
@@ -1532,42 +1532,49 @@ function LookbookHero({ store, theme, featuredProduct }: { store: Store; theme: 
   const reduce = useReducedMotion();
   const heroImage = featuredProduct ? productPrimaryImage(featuredProduct) : undefined;
   return (
-    <section className="relative flex min-h-[75vh] items-end overflow-hidden border-b border-[var(--c-line)]/20 sm:min-h-[85vh]">
+    <section className="relative flex min-h-[72vh] items-end overflow-hidden border-b border-[var(--c-line)]/15 sm:min-h-[82vh]">
+      {/* Background */}
       <div className="absolute inset-0 bg-[var(--c-soft)]">
-        {heroImage && (
+        {heroImage ? (
           <motion.img
             src={heroImage}
             alt={featuredProduct!.name}
             initial={reduce ? false : { scale: 1.06 }}
             animate={{ scale: 1 }}
-            transition={{ duration: 2, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: 2.2, ease: [0.22, 1, 0.36, 1] }}
             className="h-full w-full object-cover"
           />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center">
+            <ProductLogo store={store} large />
+          </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
       </div>
-      <div className="relative z-10 mx-auto w-full max-w-7xl px-5 pb-14 sm:px-8 lg:px-12 lg:pb-20">
+
+      {/* Content */}
+      <div className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-12 sm:px-8 lg:px-10 lg:pb-18">
         <Reveal>
           {store.category && (
-            <span className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.22em] text-white backdrop-blur-sm">
-              <span className="h-1.5 w-1.5 rounded-full bg-white/80" />
+            <span className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/8 px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.2em] text-white backdrop-blur-sm">
+              <span className="h-1 w-1 rounded-full bg-white/70" />
               {store.category}
             </span>
           )}
-          <h1 className="mt-4 max-w-2xl text-[2.5rem] font-black leading-[1.0] tracking-tighter text-white sm:text-[4rem] lg:text-[5rem]" style={{ fontFamily: theme.hero }}>
+          <h1 className="mt-4 max-w-2xl text-[2.4rem] font-black leading-[1.02] tracking-tight text-white sm:text-[3.75rem] lg:text-[5rem]" style={{ fontFamily: theme.hero }}>
             {store.tagline || store.name}
           </h1>
           {store.about && (
-            <p className="mt-4 max-w-md text-sm font-medium leading-relaxed text-white/55 line-clamp-2">
+            <p className="mt-3.5 max-w-sm text-sm font-medium leading-relaxed text-white/50 line-clamp-2">
               {store.about.split('\n')[0].slice(0, 110)}
             </p>
           )}
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            <button type="button" onClick={scrollToProducts} className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white px-8 text-[11px] font-black uppercase tracking-[0.14em] text-black transition-all hover:bg-white/90 active:scale-[0.97]">
+          <div className="mt-7 flex flex-wrap items-center gap-2.5">
+            <button type="button" onClick={scrollToProducts} className="inline-flex h-11 items-center gap-2 rounded-full bg-white px-7 text-[11px] font-black uppercase tracking-wider text-black transition-all hover:bg-white/90 active:scale-[0.97] shadow-md">
               {c.shopNow} <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
             </button>
             {featuredProduct && (
-              <Link to={`/s/${store.slug}/p/${featuredProduct.id}`} className="h-12 inline-flex items-center gap-1.5 px-4 text-[11px] font-black uppercase tracking-[0.14em] text-white/55 hover:text-white transition-colors">
+              <Link to={`/s/${store.slug}/p/${featuredProduct.id}`} className="inline-flex h-11 items-center gap-1.5 rounded-full border border-white/20 bg-white/8 px-5 text-[11px] font-bold text-white/70 backdrop-blur-sm transition-all hover:text-white hover:border-white/40">
                 {featuredProduct.name} <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
               </Link>
             )}
